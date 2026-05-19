@@ -1,0 +1,35 @@
+[project]
+name = "masfactory_system"
+version = "0.1.0"
+description = "System A — MASFactory-orchestrated multi-agent system for Swiss-quantum ecosystem signal harvesting (BSc thesis, Anna Geiser)."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "masfactory==1.0.3",
+    "supabase>=2.7.0",
+    "httpx>=0.27.0",
+    "selectolax>=0.3.21",
+    "tenacity>=8.2.0",
+    "pyyaml>=6.0.2",
+    "pydantic>=2.7.0",
+    "python-dateutil>=2.9.0",
+    "feedparser>=6.0.11",
+    "urllib3>=2.2.0",
+]
+
+[project.scripts]
+masfactory-run = "masfactory_system.runner:main"
+
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["masfactory_system*"]
+
+[tool.setuptools.package-data]
+masfactory_system = ["classification/*.yaml", "persistence/*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,64 @@
+# Signal classification taxonomy.
+#
+# A starter schema grounded in the disposition's references on signalling
+# theory in emergent technology domains (Ehrenthal et al. 2026; Suchman 1995;
+# Knight & Cavusgil 2004; Mohr & Sarin 2009). The literature-review milestone
+# (M2) will refine this — the file is intentionally human-editable so the
+# thesis can iterate without code changes.
+
+version: 0.1.0
+
+dimensions:
+  - key: technical_capability
+    is_technical: true
+    description: >-
+      Claims about hardware/software capability — qubit counts, gate fidelity,
+      coherence times, new architectures, software toolchain releases.
+
+  - key: research_output
+    is_technical: true
+    description: >-
+      Peer-reviewed or pre-print publications, datasets, benchmarks released by
+      the actor or with the actor as a major affiliation.
+
+  - key: ip_filing
+    is_technical: true
+    description: >-
+      Patent applications, granted patents, design rights, or trademark
+      filings — including Swissreg / WIPO filings (Rieger et al. 2025).
+
+  - key: infrastructure_or_facility
+    is_technical: true
+    description: >-
+      New lab, cleanroom, fabrication line, on-prem quantum processor, HPC
+      integration, or cloud-access endpoint.
+
+  - key: partnership_or_alliance
+    is_technical: false
+    description: >-
+      Announced collaborations, MoUs, joint labs, customer wins, distribution
+      agreements, ecosystem memberships.
+
+  - key: funding_or_grant
+    is_technical: false
+    description: >-
+      Funding rounds (seed → growth), SNF / Innosuisse / Horizon Europe grants,
+      public RFPs awarded, government contracts.
+
+  - key: hiring_or_talent
+    is_technical: false
+    description: >-
+      Named leadership hires, named scientific advisors, large hiring drives,
+      visiting professorships, student-recruitment programmes.
+
+  - key: regulatory_or_policy
+    is_technical: false
+    description: >-
+      National strategy publications, export-control changes, standards work,
+      participation in policy consultations, certification milestones.
+
+  - key: market_positioning
+    is_technical: false
+    description: >-
+      Roadmaps, positioning statements, market narratives, conference keynotes,
+      branding shifts — explicit attempts to claim a category position.

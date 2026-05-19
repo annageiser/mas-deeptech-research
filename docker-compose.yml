@@ -1,0 +1,41 @@
+# Docker Compose stack for the BSc-thesis comparative MAS (Anna Geiser, FHNW).
+#
+# Mirrors the architecture diagram:
+#   Container A — MASFactory (System A)                 [defined here]
+#   Container B — Hermes Agent (System B)               [TODO, separate workstream]
+#
+# Both containers share the same Supabase backend (set in .env) so the
+# cross-system comparison stays apples-to-apples.
+
+services:
+  masfactory:
+    build:
+      context: ./systems/masfactory
+      dockerfile: Dockerfile
+    image: mas-deeptech-research/masfactory:0.1.0
+    container_name: masfactory-system-a
+    restart: "no"          # cron drives invocations; the container exits after each run
+    env_file:
+      - .env
+    environment:
+      MASF_AUDIT_DIR: /data/raw/runs
+      TZ: Europe/Zurich
+    volumes:
+      - ./data:/data       # actors.yaml lives at /data/raw/actors.yaml, audits at /data/raw/runs/
+    # When started by `docker compose up`, the container runs one batch and
+    # exits cleanly. Cron on the host re-invokes via `docker compose run --rm`.
+    command: ["run-once"]
+
+  # ----------------------------------------------------------------------
+  # System B (Hermes Agent) — placeholder.
+  # ----------------------------------------------------------------------
+  # hermes:
+  #   build:
+  #     context: ./systems/hermes
+  #     dockerfile: Dockerfile
+  #   container_name: hermes-system-b
+  #   restart: "no"
+  #   env_file:
+  #     - .env
+  #   volumes:
+  #     - ./data:/data

@@ -5,7 +5,8 @@ Distinct from the in-system Nemotron token usage that lands in Supabase `token_u
 
 | Session start (Europe/Zurich) | Session end | Assistant model | Tokens (approx)* | Summary |
 | --- | --- | --- | --- | --- |
-| 2026-05-19 09:02 | 2026-05-19 09:37 | Claude Opus 4.7 (`claude-opus-4-7`) | input ~110k · output ~22k · cache reads dominate | Initial MASFactory System A skeleton: 7-agent graph, OpenRouter wiring, Supabase schema, Dockerfile with build-time smoke check, Hostinger VPS runbook, 6 passing unit tests. Approx. 35 minutes wall-clock. |
+| 2026-05-19 09:02 | 2026-05-19 10:11 | Claude Opus 4.7 (`claude-opus-4-7`) | input ~150-200k · output ~25-35k (cache reads dominate); run `/cost` for exact figure | MASFactory System A skeleton: 7-agent graph, OpenRouter wiring, Supabase schema, Dockerfile with build-time smoke check, Hostinger VPS runbook, 6 passing unit tests. Pushed to `origin/dev` as commit `c9144ac`. ~69 minutes wall-clock total. |
+| 2026-05-19 10:50 | 2026-05-19 15:57 | Claude Opus 4.7 (`claude-opus-4-7`) | input ~300-400k · output ~50-70k (cache reads dominate); run `/cost` for exact figure | Hermes-pattern System B skeleton: AIAgent core loop, SQLite Memory Manager, Skills Loader, Tools Registry, OpenRouter Provider, 4 SKILL.md skills (arxiv, scrapling, parallel-cli, research-paper-writing), Telegram gateway stub, Dockerfile + compose wiring, 6 more passing tests (12 total across both systems). Architecture / methodology / reproducibility docs rewritten to cover both systems. SSH-assisted go-live walkthrough added at docs/ssh-go-live.md. ~5 h wall-clock. |
 
 \* Approximate. Anthropic billing reports the authoritative figures per `/cost` in Claude Code. Update this row from `/cost` output at session end if you need an exact number for the thesis.
 

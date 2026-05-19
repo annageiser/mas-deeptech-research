@@ -1,11 +1,16 @@
 # Docker Compose stack for the BSc-thesis comparative MAS (Anna Geiser, FHNW).
 #
-# Mirrors the architecture diagram:
-#   Container A — MASFactory (System A)                 [defined here]
-#   Container B — Hermes Agent (System B)               [TODO, separate workstream]
+# Mirrors the architecture diagram exactly:
+#   Container A — MASFactory (System A)
+#   Container B — Hermes-pattern agent (System B)
 #
-# Both containers share the same Supabase backend (set in .env) so the
-# cross-system comparison stays apples-to-apples.
+# Both containers share the same .env (OpenRouter key + Supabase URL/key)
+# and the same `./data` host bind-mount, so:
+#   - the actors list lives once at data/raw/actors.yaml
+#   - per-run audit folders land in data/raw/runs/<iso-ts>__masfactory and
+#     data/raw/runs/<iso-ts>__hermes (system tagged in folder name)
+#   - both systems write to the same Supabase tables, distinguished by
+#     runs.system in ('masfactory','hermes')
 
 services:
   masfactory:
@@ -21,21 +26,24 @@ services:
       MASF_AUDIT_DIR: /data/raw/runs
       TZ: Europe/Zurich
     volumes:
-      - ./data:/data       # actors.yaml lives at /data/raw/actors.yaml, audits at /data/raw/runs/
-    # When started by `docker compose up`, the container runs one batch and
-    # exits cleanly. Cron on the host re-invokes via `docker compose run --rm`.
+      - ./data:/data
     command: ["run-once"]
 
-  # ----------------------------------------------------------------------
-  # System B (Hermes Agent) — placeholder.
-  # ----------------------------------------------------------------------
-  # hermes:
-  #   build:
-  #     context: ./systems/hermes
-  #     dockerfile: Dockerfile
-  #   container_name: hermes-system-b
-  #   restart: "no"
-  #   env_file:
-  #     - .env
-  #   volumes:
-  #     - ./data:/data
+  hermes:
+    build:
+      context: ./systems/hermes
+      dockerfile: Dockerfile
+    image: mas-deeptech-research/hermes:0.1.0
+    container_name: hermes-system-b
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      HRM_AUDIT_DIR: /data/raw/runs
+      HRM_SKILLS_DIR: /app/skills
+      HRM_MEMORY_PATH: /data/raw/hermes_memory.sqlite
+      HRM_WEB_CACHE_DIR: /data/raw/hermes_web_cache
+      TZ: Europe/Zurich
+    volumes:
+      - ./data:/data
+    command: ["run-once"]

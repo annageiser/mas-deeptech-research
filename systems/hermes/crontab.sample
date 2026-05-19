@@ -1,0 +1,16 @@
+# Sample host-side crontab entry for Container B (Hermes).
+#
+# Install on the Hostinger VPS host (NOT inside the container) with:
+#
+#   sudo cp systems/hermes/crontab.sample /etc/cron.d/hermes
+#   sudo chmod 0644 /etc/cron.d/hermes
+#   sudo systemctl restart cron
+#
+# Offset from MASFactory's schedule by 3 hours so the two systems don't hit
+# arXiv / actor websites at the same moment.
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# m h dom mon dow user  command
+0 3,9,15,21 * * *   root  cd /opt/mas-deeptech-research && /usr/bin/docker compose run --rm hermes run-once >> /var/log/hermes.log 2>&1

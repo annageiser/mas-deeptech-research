@@ -1,0 +1,215 @@
+# Swiss quantum-computing ecosystem actors.
+#
+# Inventory drawn from the disposition's "Actors" box and the Switzerland Hub
+# Quantum report (swissnex, 2025). Forty actors across five categories. The
+# homepage and arxiv_query fields are best-effort starting points — both
+# systems may discover better URLs / search strings at runtime and propose
+# updates back to this file.
+
+actors:
+  # ---------- National Initiatives (Headquarters) ----------
+  - slug: swiss-quantum-initiative
+    name: Swiss Quantum Initiative
+    category: national_initiative
+    homepage: https://quantum.scnat.ch/en
+
+  - slug: nccr-spin
+    name: National Centre for Competence in Research SPIN
+    category: national_initiative
+    homepage: https://nccr-spin.ch
+
+  - slug: metas
+    name: Federal Institute of Metrology (METAS)
+    category: national_initiative
+    homepage: https://www.metas.ch
+
+  # ---------- University Centres and Research Hubs ----------
+  - slug: eth-zurich-quantum-center
+    name: ETH Zurich Quantum Center
+    category: university_or_research_hub
+    homepage: https://quantumcenter.ethz.ch
+    arxiv_query: 'aff:"ETH Zurich" AND (qubit OR quantum)'
+
+  - slug: basel-quantum-center
+    name: Basel Quantum Center at the University of Basel
+    category: university_or_research_hub
+    homepage: https://quantum.unibas.ch
+    arxiv_query: 'aff:"University of Basel" AND (qubit OR "quantum computing")'
+
+  - slug: swiss-nanoscience-institute
+    name: Swiss Nanoscience Institute
+    category: university_or_research_hub
+    homepage: https://nanoscience.ch
+
+  - slug: epfl-qse
+    name: Quantum Science and Engineering Center at EPFL
+    category: university_or_research_hub
+    homepage: https://qse.epfl.ch
+    arxiv_query: 'aff:EPFL AND (qubit OR "quantum computing")'
+
+  - slug: cern-quantum-technology-initiative
+    name: Quantum Technology Initiative at CERN
+    category: university_or_research_hub
+    homepage: https://quantum.cern
+
+  - slug: psi
+    name: Paul Scherrer Institute (PSI)
+    category: university_or_research_hub
+    homepage: https://www.psi.ch
+
+  - slug: eth-psi-quantum-computing-hub
+    name: ETH-PSI Quantum Computing Hub
+    category: university_or_research_hub
+    homepage: https://qchub.ethz.ch
+
+  - slug: geneva-quantum-centre
+    name: Geneva Quantum Centre at the University of Geneva
+    category: university_or_research_hub
+    homepage: https://www.unige.ch/gqc
+
+  - slug: cscs
+    name: Swiss National Supercomputing Center (CSCS)
+    category: university_or_research_hub
+    homepage: https://www.cscs.ch
+
+  - slug: empa
+    name: Swiss Federal Laboratories for Materials Science and Technology (Empa)
+    category: university_or_research_hub
+    homepage: https://www.empa.ch
+
+  - slug: zhaw
+    name: Zurich University of Applied Sciences (ZHAW)
+    category: university_or_research_hub
+    homepage: https://www.zhaw.ch
+
+  - slug: fhnw
+    name: University of Applied Sciences Northwestern Switzerland (FHNW)
+    category: university_or_research_hub
+    homepage: https://www.fhnw.ch
+
+  - slug: usi
+    name: University of Lugano (USI)
+    category: university_or_research_hub
+    homepage: https://www.usi.ch
+
+  - slug: hslu
+    name: Lucerne University of Applied Sciences and Arts (HSLU)
+    category: university_or_research_hub
+    homepage: https://www.hslu.ch
+
+  # ---------- Ecosystem Builders and Accelerators ----------
+  - slug: switzerland-innovation-parks
+    name: Switzerland Innovation Parks
+    category: ecosystem_builder
+    homepage: https://www.switzerland-innovation.com
+
+  - slug: qai-ventures
+    name: QAI Ventures
+    category: ecosystem_builder
+    homepage: https://qai.ventures
+
+  - slug: quantumbasel
+    name: QuantumBasel
+    category: ecosystem_builder
+    homepage: https://quantumbasel.com
+
+  - slug: gesda
+    name: The Geneva Science and Diplomacy Anticipator (GESDA)
+    category: ecosystem_builder
+    homepage: https://gesda.global
+
+  - slug: open-quantum-institute-cern
+    name: Open Quantum Institute at CERN
+    category: ecosystem_builder
+    homepage: https://gesda.global/oqi
+
+  - slug: verve-ventures
+    name: Verve Ventures
+    category: ecosystem_builder
+    homepage: https://www.verveventures.com
+
+  # ---------- Private Companies and Centres ----------
+  - slug: ibm-research-zurich
+    name: IBM Research
+    category: private_company
+    homepage: https://www.research.ibm.com/labs/zurich
+
+  - slug: id-quantique
+    name: ID Quantique
+    category: private_company
+    homepage: https://www.idquantique.com
+
+  - slug: zurich-instruments
+    name: Zurich Instruments
+    category: private_company
+    homepage: https://www.zhinst.com
+
+  - slug: csem
+    name: CSEM
+    category: private_company
+    homepage: https://www.csem.ch
+
+  - slug: basel-precision-instruments
+    name: Basel Precision Instruments
+    category: private_company
+    homepage: https://www.baspi.ch
+
+  - slug: swissphotonics
+    name: Swissphotonics
+    category: private_company
+    homepage: https://www.swissphotonics.net
+
+  - slug: miraex
+    name: Miraex
+    category: private_company
+    homepage: https://miraex.com
+
+  - slug: qnami
+    name: Qnami
+    category: private_company
+    homepage: https://qnami.ch
+
+  - slug: terra-quantum
+    name: Terra Quantum
+    category: private_company
+    homepage: https://terraquantum.swiss
+
+  - slug: ionq
+    name: IonQ
+    category: private_company
+    homepage: https://ionq.com
+
+  - slug: ligentec
+    name: Ligentec
+    category: private_company
+    homepage: https://www.ligentec.com
+
+  - slug: huber-suhner
+    name: HUBER + SUHNER
+    category: private_company
+    homepage: https://www.hubersuhner.com
+
+  - slug: qzabre
+    name: QZabre
+    category: private_company
+    homepage: https://qzabre.com
+
+  - slug: femtoprint
+    name: FEMTOprint
+    category: private_company
+    homepage: https://www.femtoprint.ch
+
+  - slug: zuriq
+    name: ZuriQ
+    category: private_company
+    homepage: https://zuriq.com
+
+  - slug: yquantum
+    name: YQuantum
+    category: private_company
+
+  # ---------- Government ----------
+  - slug: swissnex
+    name: Swissnex
+    category: government
+    homepage: https://swissnex.org

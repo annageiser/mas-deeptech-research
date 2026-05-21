@@ -66,6 +66,24 @@ class OpenRouterProvider:
     def _call(self, model: str, messages: list[dict[str, Any]], **kwargs: Any):
         return self._client.chat.completions.create(model=model, messages=messages, **kwargs)
 
+    def _try_model(self, model: str, messages: list[dict[str, Any]], **kwargs: Any):
+        """Call a model and return (response, error_text). Always returns; never raises."""
+        try:
+            resp = self._call(model, messages, **kwargs)
+        except RateLimitError as exc:
+            return None, f"rate_limit: {exc}"
+        except APIStatusError as exc:
+            return None, f"api_status_{exc.status_code}: {str(exc)[:200]}"
+        except Exception as exc:  # network errors, malformed responses, etc.
+            return None, f"{type(exc).__name__}: {str(exc)[:200]}"
+
+        # OpenRouter occasionally returns 200 with no choices — the body is an
+        # error envelope. Detect that and treat it like an error.
+        if not getattr(resp, "choices", None):
+            err = getattr(resp, "error", None) or getattr(resp, "model_extra", {}).get("error")
+            return None, f"no_choices (body error: {err})"
+        return resp, None
+
     def chat(
         self,
         *,
@@ -74,18 +92,25 @@ class OpenRouterProvider:
         max_tokens: int = 2048,
         temperature: float = 0.3,
     ) -> str:
-        """Run a chat completion and return the assistant message text."""
+        """Run a chat completion and return the assistant message text.
+
+        Tries primary model first; on any failure (rate-limit, 5xx, or
+        no-choices body error) falls back to `settings.model_fallback`. If
+        that also fails, raises RuntimeError with both error strings so the
+        caller can see what OpenRouter actually said.
+        """
         primary = model or self.settings.model_main
-        try:
-            resp = self._call(primary, messages, max_tokens=max_tokens, temperature=temperature)
-            model_used = primary
-        except (RateLimitError, APIStatusError) as exc:
-            if isinstance(exc, APIStatusError) and exc.status_code < 500:
-                raise
-            resp = self._call(
-                self.settings.model_fallback, messages, max_tokens=max_tokens, temperature=temperature
-            )
+        kwargs = {"max_tokens": max_tokens, "temperature": temperature}
+
+        resp, err = self._try_model(primary, messages, **kwargs)
+        model_used = primary
+        if resp is None:
+            resp, err2 = self._try_model(self.settings.model_fallback, messages, **kwargs)
             model_used = self.settings.model_fallback
+            if resp is None:
+                raise RuntimeError(
+                    f"both models failed: primary({primary})={err}; fallback({self.settings.model_fallback})={err2}"
+                )
 
         choice = resp.choices[0]
         content = choice.message.content or ""

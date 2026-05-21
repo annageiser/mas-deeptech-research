@@ -1,0 +1,19 @@
+# Host-side crontab entry for Container C (Reports) — weekly reports.
+#
+# Daily reports are chained at the end of the masfactory and hermes
+# cron entries (see systems/{masfactory,hermes}/crontab.sample). This
+# file covers ONLY the three weekly reports, fired together on Sundays.
+#
+# Install on the Hostinger VPS host (NOT inside the container) with:
+#   sudo cp systems/reports/crontab.sample /etc/cron.d/reports
+#   sudo chmod 0644 /etc/cron.d/reports
+#   sudo systemctl restart cron
+#
+# Sundays at 08:00 UTC (after both systems' Sunday morning scrapes have
+# finished). All three weekly reports written sequentially.
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# m h dom mon dow user  command
+0 8 * * 0   root   cd /opt/mas-deeptech-research && /usr/bin/docker compose run --rm reports weekly --system masfactory >> /var/log/reports.log 2>&1 && /usr/bin/docker compose run --rm reports weekly --system hermes >> /var/log/reports.log 2>&1 && /usr/bin/docker compose run --rm reports weekly-thesis >> /var/log/reports.log 2>&1

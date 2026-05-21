@@ -1,0 +1,73 @@
+"""Daily report generator.
+
+Pulls the last 24h of activity for one system from Supabase, feeds it to the
+LLM with the daily-report prompt, writes the resulting markdown to
+data/reports/daily/<YYYY-MM-DD>/<system>.md.
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+
+from .config import Settings
+from .openrouter import OpenRouterClient
+from .output_writer import write_report
+from .prompt_loader import load_prompt
+from .supabase_reader import SupabaseReader
+
+
+SYSTEM_LABELS = {
+    "masfactory": ("MASFactory System A", "A"),
+    "hermes": ("Hermes-pattern System B", "B"),
+}
+
+
+def generate_daily(*, settings: Settings, system: str) -> dict:
+    if system not in SYSTEM_LABELS:
+        raise ValueError(f"unknown system: {system}")
+    label, letter = SYSTEM_LABELS[system]
+
+    reader = SupabaseReader(settings)
+    snapshot = reader.daily_snapshot(system=system, window_hours=24)
+
+    now = datetime.now(timezone.utc)
+    date_iso = now.strftime("%Y-%m-%d")
+
+    prompt = load_prompt("daily")
+    user_payload = {
+        "system_label": label,
+        "system_letter": letter,
+        "date_iso": date_iso,
+        "summary": snapshot["summary"],
+        "signals": _trim_signals(snapshot["signals"]),
+        "actor_names_by_slug": {s: a["name"] for s, a in snapshot["actors_by_slug"].items()},
+    }
+
+    client = OpenRouterClient(settings)
+    body = client.chat(
+        messages=[
+            {"role": "system", "content": prompt.format(system_label=label, system_letter=letter, date_iso=date_iso)},
+            {"role": "user", "content": json.dumps(user_payload, default=str)},
+        ],
+        max_tokens=2048,
+        temperature=0.3,
+    )
+
+    rel_dir = f"daily/{date_iso}"
+    filename = f"{system}.md"
+    path = write_report(settings.reports_dir, rel_dir, filename, body)
+
+    return {
+        "path": path,
+        "snapshot_summary": snapshot["summary"],
+        "tokens": {"input": client.tally.input_tokens, "output": client.tally.output_tokens, "calls": client.tally.calls},
+    }
+
+
+def _trim_signals(signals: list[dict], max_signals: int = 50) -> list[dict]:
+    """Cap signals shipped to the LLM so daily reports stay bounded."""
+    return [
+        {k: s.get(k) for k in ("actor_slug", "dimension", "is_technical", "confidence", "title", "summary", "evidence_quote", "source_url", "source_kind")}
+        for s in signals[:max_signals]
+    ]

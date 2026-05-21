@@ -1,17 +1,20 @@
-# Sample host-side crontab entry for Container A (MASFactory).
+# Host-side crontab entry for System A (MASFactory).
 #
 # Install on the Hostinger VPS host (NOT inside the container) with:
-#
 #   sudo cp systems/masfactory/crontab.sample /etc/cron.d/masfactory
 #   sudo chmod 0644 /etc/cron.d/masfactory
 #   sudo systemctl restart cron
 #
-# The schedule below fires every 6 hours; adjust as needed. Environment
-# variables (OPENROUTER_API_KEY, SUPABASE_URL, ...) are read from the .env
-# file referenced by docker-compose.yml — they are NOT visible to cron itself.
+# Daily at 02:00 UTC: scrape all actors (MASF_LIMIT_ACTORS controls how
+# many), then write the daily report. Chained with `&&` so the report only
+# fires if the scrape didn't error.
+#
+# Environment variables (OPENROUTER_API_KEY, SUPABASE_URL, ...) are read
+# from the .env file referenced by docker-compose.yml — they are NOT
+# visible to cron itself.
 
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # m h dom mon dow user  command
-0 */6 * * *      root  cd /opt/mas-deeptech-research && /usr/bin/docker compose run --rm masfactory run-once >> /var/log/masfactory.log 2>&1
+0 2 * * *   root   cd /opt/mas-deeptech-research && /usr/bin/docker compose run --rm masfactory run-once >> /var/log/masfactory.log 2>&1 && /usr/bin/docker compose run --rm reports daily --system masfactory >> /var/log/reports.log 2>&1

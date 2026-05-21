@@ -64,8 +64,12 @@ create table if not exists public.token_usage (
     model_name      text not null,
     input_tokens    integer not null default 0,
     output_tokens   integer not null default 0,
+    calls           integer not null default 0,
     recorded_at     timestamptz not null default now()
 );
+
+-- Backwards-compat: if the table existed before `calls` was added.
+alter table public.token_usage add column if not exists calls integer not null default 0;
 
 create index if not exists token_usage_run_idx on public.token_usage (run_id);
 
@@ -79,3 +83,13 @@ create table if not exists public.audit_log (
 );
 
 create index if not exists audit_log_run_idx on public.audit_log (run_id);
+
+-- ---------- grants ----------
+-- Supabase newer projects do not auto-grant service_role on user-created
+-- tables in `public`. Both systems use the service_role key (not the anon
+-- key) so they need explicit grants. Idempotent — safe to re-run.
+grant usage on schema public to service_role;
+grant all on all tables    in schema public to service_role;
+grant all on all sequences in schema public to service_role;
+alter default privileges in schema public grant all on tables    to service_role;
+alter default privileges in schema public grant all on sequences to service_role;

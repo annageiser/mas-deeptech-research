@@ -8,13 +8,17 @@ data/reports/daily/<YYYY-MM-DD>/<system>.md.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from .config import Settings
 from .openrouter import OpenRouterClient
 from .output_writer import write_report
 from .prompt_loader import render_prompt
 from .supabase_reader import SupabaseReader
+
+
+_ZURICH = ZoneInfo("Europe/Zurich")
 
 
 SYSTEM_LABELS = {
@@ -31,8 +35,8 @@ def generate_daily(*, settings: Settings, system: str) -> dict:
     reader = SupabaseReader(settings)
     snapshot = reader.daily_snapshot(system=system, window_hours=24)
 
-    now = datetime.now(timezone.utc)
-    date_iso = now.strftime("%Y-%m-%d")
+    now = datetime.now(_ZURICH)
+    date_iso = now.strftime("%Y-%m-%d")  # CET / CEST date — matches when the cron fired
 
     prompt = render_prompt("daily", system_label=label, system_letter=letter, date_iso=date_iso)
     user_payload = {

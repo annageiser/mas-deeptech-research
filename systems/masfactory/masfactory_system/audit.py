@@ -4,6 +4,10 @@ Every `g.invoke()` gets a folder under `MASF_AUDIT_DIR` (defaults to
 /data/raw/runs). The Supabase tables are the authoritative store, but the
 on-disk audit folder is the artefact the thesis cites for reproducibility:
 prompts, raw outputs, token tallies, and final brief land here.
+
+Timestamps are in Europe/Zurich (CET / CEST) so the folder names match what
+the operator sees on the cron schedule. The trailing `+0200` / `+0100`
+suffix keeps them unambiguous across DST transitions.
 """
 
 from __future__ import annotations
@@ -13,10 +17,16 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
+
+
+_ZURICH = ZoneInfo("Europe/Zurich")
 
 
 def _ts_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    # Use colon-free format because some filesystems (and tools) treat ':'
+    # as a separator. `%z` gives `+0200`/`+0100` automatically.
+    return datetime.now(_ZURICH).strftime("%Y-%m-%dT%H-%M-%S%z")
 
 
 @dataclass

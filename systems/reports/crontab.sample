@@ -14,6 +14,7 @@
 
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Europe/Zurich
 
 # m h dom mon dow user  command
 0 8 * * 0   root   cd /opt/mas-deeptech-research && /usr/bin/docker compose run --rm reports weekly --system masfactory >> /var/log/reports.log 2>&1 && /usr/bin/docker compose run --rm reports weekly --system hermes >> /var/log/reports.log 2>&1 && /usr/bin/docker compose run --rm reports weekly-thesis >> /var/log/reports.log 2>&1

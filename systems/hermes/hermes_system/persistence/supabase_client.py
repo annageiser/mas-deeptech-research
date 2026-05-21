@@ -41,10 +41,32 @@ class SupabaseStore:
 
     # ---------- actors ----------
 
+    _ACTOR_STATIC_COLS = ("slug", "name", "category", "homepage")
+    _ACTOR_USER_EDITABLE = ("arxiv_query", "notes")
+
     def upsert_actors(self, actors: list[dict[str, Any]]) -> None:
+        """Seed new actors from YAML; preserve user-editable columns on existing rows.
+
+        See systems/masfactory/.../supabase_client.py upsert_actors for full
+        rationale. Same behaviour here so both systems stay aligned.
+        """
         if not actors:
             return
-        self._client.table("actors").upsert(actors, on_conflict="slug").execute()
+
+        existing_slugs = {
+            row["slug"]
+            for row in (self._client.table("actors").select("slug").execute().data or [])
+        }
+
+        payload: list[dict[str, Any]] = []
+        for a in actors:
+            if a["slug"] in existing_slugs:
+                payload.append({k: a.get(k) for k in self._ACTOR_STATIC_COLS})
+            else:
+                payload.append(a)
+
+        if payload:
+            self._client.table("actors").upsert(payload, on_conflict="slug").execute()
 
     # ---------- runs ----------
 
@@ -101,6 +123,7 @@ class SupabaseStore:
             {
                 "run_id": s.run_id,
                 "actor_slug": s.actor_slug,
+                "system": "hermes",
                 "source_kind": s.source_kind,
                 "source_url": s.source_url,
                 "title": s.title,

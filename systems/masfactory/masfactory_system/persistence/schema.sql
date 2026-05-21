@@ -35,6 +35,7 @@ create table if not exists public.signals (
     id              uuid primary key default gen_random_uuid(),
     run_id          uuid not null references public.runs(id) on delete cascade,
     actor_slug      text not null references public.actors(slug),
+    system          text not null default 'masfactory' check (system in ('masfactory', 'hermes')),
     source_kind     text not null check (source_kind in ('arxiv', 'website', 'swissreg', 'manual')),
     source_url      text not null,
     title           text not null,
@@ -50,9 +51,25 @@ create table if not exists public.signals (
     unique (actor_slug, source_url, content_hash)
 );
 
+-- Backwards-compat: if the table existed before `system` was added.
+alter table public.signals add column if not exists system text;
+update public.signals s set system = r.system
+    from public.runs r where r.id = s.run_id and (s.system is null or s.system = '');
+alter table public.signals alter column system set default 'masfactory';
+alter table public.signals alter column system set not null;
+do $$ begin
+    if not exists (
+        select 1 from information_schema.constraint_column_usage
+        where table_name='signals' and constraint_name='signals_system_check'
+    ) then
+        alter table public.signals add constraint signals_system_check check (system in ('masfactory', 'hermes'));
+    end if;
+end $$;
+
 create index if not exists signals_actor_idx on public.signals (actor_slug);
 create index if not exists signals_dimension_idx on public.signals (dimension);
 create index if not exists signals_run_idx on public.signals (run_id);
+create index if not exists signals_system_idx on public.signals (system);
 -- vector index left optional — populate first, then create via the Supabase UI
 -- create index on public.signals using ivfflat (embedding vector_cosine_ops) with (lists = 100);
 

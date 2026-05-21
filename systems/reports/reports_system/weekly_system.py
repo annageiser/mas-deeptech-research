@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from .config import Settings
 from .openrouter import OpenRouterClient
 from .output_writer import write_report
 from .prompt_loader import render_prompt
 from .supabase_reader import SupabaseReader
+
+
+_ZURICH = ZoneInfo("Europe/Zurich")
 
 
 SYSTEM_LABELS = {
@@ -35,7 +39,7 @@ def generate_weekly_system(*, settings: Settings, system: str) -> dict:
     from .supabase_reader import _summarise  # private helper, fine here
     prev_summary = _summarise(runs_prev, sigs_prev, toks_prev, this_week["actors_by_slug"])
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(_ZURICH)
     iso_week = now.strftime("%G-W%V")
 
     prompt = render_prompt("weekly_system", system_label=label, system_letter=letter, iso_week=iso_week)

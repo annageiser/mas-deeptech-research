@@ -1,43 +1,123 @@
-# Architecture — both systems
+# Architecture — both systems + reports + dashboard
 
-> Two systems, one task, one Supabase. The whole point of the comparative design is that signals produced by either system are stored in the same tables and the same audit folder convention, distinguishable only by `runs.system in ('masfactory','hermes')` and the suffix on the audit folder name.
+> Four containers on one VPS, one Supabase, one OpenRouter key. The comparative design means signals from either system land in the same tables, distinguishable by `runs.system in ('masfactory','hermes')` and now also by the denormalised `signals.system` column.
 
 ## High-level shape
 
+```mermaid
+flowchart TB
+    %% External services
+    subgraph external [External services]
+        OR[("OpenRouter API<br/><i>nvidia/nemotron-3-super-120b-a12b:free</i><br/>+ llama-3.3-70b fallback")]
+        SB[("Supabase<br/>Postgres + pgvector<br/>actors • runs • signals • token_usage • audit_log")]
+        ARX[("arXiv<br/><i>export.arxiv.org/api/query</i>")]
+        WEB[("Actor websites<br/>40 homepages")]
+    end
+
+    %% User access
+    USER[("User<br/>browser at<br/>mas-deeptech-research.cloud")]:::user
+
+    %% Host
+    subgraph vps ["Hostinger VPS · srv1684595 · Ubuntu 24.04"]
+        direction TB
+
+        subgraph cron [host cron · /etc/cron.d/*]
+            CR_A["02:00 CET daily<br/>System A scrape + daily report"]
+            CR_B["05:00 CET daily<br/>System B scrape + daily report"]
+            CR_W["Sun 08:00 CET<br/>3 weekly reports"]
+        end
+
+        subgraph compose ["docker compose (VPS)"]
+            direction TB
+
+            subgraph A [Container A — masfactory]
+                MA["RootGraph: Planner → Retriever → Extractor →<br/>Classifier → Critic → Analyst → Persistence"]
+            end
+
+            subgraph B [Container B — hermes]
+                HB["AIAgent core loop<br/>+ Tools Registry · Skills Loader<br/>+ Memory Manager (SQLite) · Providers"]
+            end
+
+            subgraph C [Container C — reports]
+                RC["daily / weekly / weekly-thesis<br/>reads Supabase + git log<br/>writes data/reports/*.md"]
+            end
+
+            subgraph D [Container D — dashboard]
+                DD["Streamlit on :8501<br/>Overview · Signals · Knowledge graph · Reports"]
+            end
+
+            subgraph E [Container E — caddy]
+                CY["reverse proxy<br/>auto-HTTPS via Let's Encrypt<br/>:80, :443 → dashboard:8501"]
+            end
+        end
+
+        subgraph fs ["Host bind-mounts (./data)"]
+            ACT["data/raw/actors.yaml<br/>(seed list)"]
+            AUDIT["data/raw/runs/&lt;CET-iso&gt;__&lt;system&gt;/<br/>(per-run audit)"]
+            REP["data/reports/{daily,weekly,thesis}/<br/>(generated markdown)"]
+            NOTES["data/raw/thesis_notes.md<br/>(Anna's journal)"]
+        end
+    end
+
+    %% External arrows
+    USER -->|HTTPS| CY
+    CY --> DD
+    DD --> SB
+
+    %% Cron arrows
+    CR_A --> MA
+    CR_A --> RC
+    CR_B --> HB
+    CR_B --> RC
+    CR_W --> RC
+
+    %% Data flow
+    MA --> ARX
+    MA --> WEB
+    HB --> ARX
+    HB --> WEB
+    MA --> OR
+    HB --> OR
+    RC --> OR
+    DD --> SB
+
+    MA --> SB
+    HB --> SB
+    MA --> AUDIT
+    HB --> AUDIT
+    RC --> SB
+    RC --> REP
+    RC --> NOTES
+
+    classDef user fill:#fff,stroke:#444,stroke-width:1px,color:#000
+    classDef cron fill:#eef,stroke:#447,color:#000
+    style external fill:#f5f5f5,stroke:#888,color:#000
+    style vps fill:#fafffa,stroke:#5a5,color:#000
+    style compose fill:#fff,stroke:#888,color:#000
+    style cron fill:#eef,stroke:#447,color:#000
+    style fs fill:#fffaf0,stroke:#a85,color:#000
 ```
-Hostinger Ubuntu VPS
-└── host cron ──> docker compose run --rm <service>
-                  │
-                  ▼
-        Docker Compose (VPS)
-        ├── Container A — masfactory  (System A)
-        │     RootGraph "masfactory_swiss_quantum"
-        │     Planner → Retriever → Extractor → Classifier
-        │              → Critic → Analyst → Persistence
-        │
-        └── Container B — hermes      (System B)
-              Single AIAgent loop with
-              Entry Points + Gateway, Tools Registry,
-              Skills Loader, Memory Manager, Providers,
-              Execution Environments
 
-         Both write to:                Both call:
-            Supabase                     OpenRouter API
-            (actors, signals,            ├── nvidia/nemotron-3-super-120b-a12b:free  (main)
-             runs, token_usage,          └── meta-llama/llama-3.3-70b-instruct:free  (fallback)
-             audit_log;
-             pgvector enabled)
+## Container responsibilities at a glance
 
-         Per-run audit folders on the host's bind-mounted ./data:
-            data/raw/runs/<iso-ts>__masfactory/
-            data/raw/runs/<iso-ts>__hermes/
-```
+| Container | Role | LLM cost / run | Driven by |
+|---|---|---|---|
+| **A — masfactory** | Orchestration-centric scrape (System A). 7 agents in a `RootGraph`. | ~10–20k tokens (40 actors) | cron 02:00 CET |
+| **B — hermes** | Memory + skill-centric scrape (System B). Single AIAgent loop with 4 skills + SQLite memory. | ~30–80k tokens (40 actors) | cron 05:00 CET |
+| **C — reports** | Synthesis layer. Reads Supabase + git. Writes daily + weekly markdown. | ~3–10k tokens / report | cron after each scrape + Sun 08:00 |
+| **D — dashboard** | Streamlit web UI. Read-only Supabase queries. Knowledge graph via networkx + pyvis. | none | continuously running |
+| **E — caddy** | TLS terminator + reverse proxy for `mas-deeptech-research.cloud`. Auto-Let's-Encrypt. | none | continuously running |
 
----
+## Why this shape
 
-## System A — MASFactory (orchestration-centric graph)
+- **Comparative validity:** A and B never share Python code beyond the data contract (the Supabase schema). C and D *read* from both but never *write*, so the comparison stays clean.
+- **Cron in the host, not the container:** simpler than a cron daemon inside each image; a missed tick leaves no zombie process.
+- **Caddy not nginx:** Caddy handles ACME / Let's Encrypt automatically — no certbot cron job, no renew script. One `Caddyfile` line per service.
+- **Streamlit not React+Flask:** ~50 lines per page, Python all the way down, no separate frontend build. Right shape for a thesis dashboard.
 
-Mirrors the architecture diagram exactly. Linear pipeline:
+## The 7 nodes of System A
+
+Mirrors the architecture diagram in the disposition exactly.
 
 | # | Node | Kind | Reads | Writes |
 |---|------|------|-------|--------|
@@ -51,74 +131,45 @@ Mirrors the architecture diagram exactly. Linear pipeline:
 
 Code: [`systems/masfactory/masfactory_system/graph.py`](../systems/masfactory/masfactory_system/graph.py).
 
-**Why MASFactory:** the disposition's first architectural strand — multi-agent orchestration as a directed graph of specialised nodes (Liu et al., 2026). Each node is an isolated unit with a single responsibility and a typed contract on its input/output.
-
-**Why the planner is an LLM agent (not Python):** even though for v1 it's mostly mechanical actor selection, modelling it as an agent now means the thesis can evolve it (priority by recent-signal volume, category balancing, news-driven triggers) without rewriting the graph.
-
----
-
-## System B — Hermes-pattern (memory- and skill-centric loop)
-
-Mirrors the diagram's component box exactly:
+## System B component map
 
 | Diagram label | Implementation |
 | --- | --- |
-| Entry Points + Gateway | `systems/hermes/hermes_system/entry_points/` + `runner.py` (CLI). Telegram is a `TelegramGatewayStub` — wiring exists, body is a no-op. |
+| Entry Points + Gateway | `systems/hermes/hermes_system/entry_points/` + `runner.py` (CLI). Telegram is a `TelegramGatewayStub`. |
 | AIAgent (Core Loop) | `systems/hermes/hermes_system/agent/core_loop.py` |
 | Tools Registry | `systems/hermes/hermes_system/tools_registry/registry.py` |
 | Skills Loader | `systems/hermes/hermes_system/skills_loader/loader.py` |
-| Memory Manager | `systems/hermes/hermes_system/memory/sqlite_manager.py` (SQLite) |
-| Providers (Model API) | `systems/hermes/hermes_system/providers/openrouter.py` (OpenAI SDK → OpenRouter) |
+| Memory Manager | `systems/hermes/hermes_system/memory/sqlite_manager.py` |
+| Providers (Model API) | `systems/hermes/hermes_system/providers/openrouter.py` |
 | Skills | `systems/hermes/skills/{arxiv,scrapling,parallel-cli,research-paper-writing}/SKILL.md` |
-| Execution Environments | this Docker container; the SSH execution environment from the diagram is out of scope for v1 |
-
-The core loop is intentionally a single LLM call sequence per actor:
-
-```
-for actor in actor_pool[:limit_actors]:
-    while iterations < HRM_MAX_ITERATIONS:
-        reply = provider.chat(messages)                       # OpenRouter call
-        step  = parse_json(reply)                             # {action, tool, args} or {action: finish, summary_md}
-        if step.action == "finish": break
-        output = tools_registry.call(step.tool, step.args)
-        messages.append(tool_result_as_user_message(output))
-    memory.record_procedure(actor.slug, brief, sources, dims) # procedural memory write
-    supabase.insert_signals(rows)
-```
-
-**Why Hermes-pattern (not the literal `hermes-agent` PyPI package):** Nous Research's Hermes Agent is a heavy interactive personal-assistant framework (~3500 files, chat gateways for Telegram/Discord/...). For a cron-driven batch task its interactive flow is the wrong shape, and importing it would also make the System A vs System B comparison unfair (different operational shapes). This system implements the *philosophy* — single long-running agent, procedural memory, skill files — without the gateway machinery. See [`docs/methodology.md`](methodology.md) for the rationale.
-
----
 
 ## Shared data contracts
 
-Both systems write to the same Supabase tables via different client implementations. The canonical schema is [`systems/masfactory/masfactory_system/persistence/schema.sql`](../systems/masfactory/masfactory_system/persistence/schema.sql) (apply once in the Supabase SQL editor).
+Both systems write to the same Supabase tables. The schema in [`systems/masfactory/masfactory_system/persistence/schema.sql`](../systems/masfactory/masfactory_system/persistence/schema.sql) is the canonical contract.
 
 | Table | Both systems write | Notes |
 |---|---|---|
-| `actors` | yes (upsert on `slug`) | Either system can refresh the row. |
-| `runs` | yes | `system in ('masfactory','hermes')`. One row per `g.invoke()` / per `run_once`. |
-| `signals` | yes (idempotent on `actor_slug,source_url,content_hash`) | Same dimensions, same source kinds. |
-| `token_usage` | yes | System A logs per node; System B logs per model under `node_name='ai_agent'`. |
-| `audit_log` | yes | Free-form JSON appended per node/event. |
+| `actors` | yes — initial seed from YAML; subsequent runs preserve `arxiv_query` / `notes` so Anna can edit them in the Supabase Table editor | primary key `slug` |
+| `runs` | yes | `system in ('masfactory','hermes')`; one row per `run-once` |
+| `signals` | yes (idempotent on `actor_slug, source_url, content_hash`) | denormalised `system` column for cheap per-system queries |
+| `token_usage` | yes | per-node (A) or per-model (B), plus `calls` count |
+| `audit_log` | yes | free-form JSON appended per node/event |
 
-Per-run **on-disk** audit folders live at `data/raw/runs/<iso-ts>__<system>/` so they're easy to grep by system.
+## Timezone
 
----
+Everything that an operator looks at is **Europe/Zurich** (CET in winter, CEST in summer):
 
-## Model + cost
+- cron schedules are interpreted in `Europe/Zurich` via `CRON_TZ=Europe/Zurich`
+- audit folder names are CET-stamped (`%Y-%m-%dT%H-%M-%S+0200`)
+- daily-report file paths use CET dates
 
-Both systems default to free `nvidia/nemotron-3-super-120b-a12b:free` (260k context, $0/M tokens) via OpenRouter, with `meta-llama/llama-3.3-70b-instruct:free` as the fallback. Token tallies land in `token_usage` per system per run — the thesis's "output quality per token cost" metric reads from here.
-
-System A uses MASFactory's `LegacyOpenAIModel` adapter (Chat Completions wire). System B uses the OpenAI Python SDK directly. Both end up making the same kind of HTTP call to the same OpenRouter base URL.
-
----
+Supabase `timestamptz` columns store UTC internally but the Table editor renders in the viewer's locale, so SQL dashboards Just Work.
 
 ## Cron schedule
 
-The host's cron drives both systems. Default schedules (see each system's `crontab.sample`):
-
-- **System A (MASFactory):** every 6 hours starting 00:00 → `0 */6 * * *`
-- **System B (Hermes):** every 6 hours starting 03:00 → `0 3,9,15,21 * * *`
-
-Offset by 3 hours so they never hit arXiv / the same actor website at the same moment.
+| When (CET/CEST) | Container | Action |
+|---|---|---|
+| 02:00 daily | masfactory → reports | Scrape all 40 actors, then write daily report |
+| 05:00 daily | hermes → reports     | Scrape all 40 actors, then write daily report |
+| Sun 08:00   | reports              | 3 weekly reports (System A, System B, thesis) |
+| continuous  | dashboard, caddy     | always up; survives container restarts |

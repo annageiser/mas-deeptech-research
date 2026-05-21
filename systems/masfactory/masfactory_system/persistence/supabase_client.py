@@ -48,10 +48,39 @@ class SupabaseStore:
 
     # ---------- actors ----------
 
+    # Columns that come from actors.yaml and SHOULD be refreshed on each run.
+    _ACTOR_STATIC_COLS = ("slug", "name", "category", "homepage")
+    # Columns that Anna may edit by hand in Supabase — never overwritten by YAML.
+    _ACTOR_USER_EDITABLE = ("arxiv_query", "notes")
+
     def upsert_actors(self, actors: list[dict[str, Any]]) -> None:
+        """Seed new actors from YAML, refresh static columns on existing ones.
+
+        User-editable columns (`arxiv_query`, `notes`) come from YAML *only*
+        when an actor is being inserted for the first time. For actors that
+        already exist in Supabase, those columns are preserved so Anna can
+        edit them directly in the Supabase Table editor without her changes
+        being clobbered by the next cron tick.
+        """
         if not actors:
             return
-        self._client.table("actors").upsert(actors, on_conflict="slug").execute()
+
+        existing_slugs = {
+            row["slug"]
+            for row in (self._client.table("actors").select("slug").execute().data or [])
+        }
+
+        payload: list[dict[str, Any]] = []
+        for a in actors:
+            if a["slug"] in existing_slugs:
+                # Existing actor: refresh only static columns.
+                payload.append({k: a.get(k) for k in self._ACTOR_STATIC_COLS})
+            else:
+                # New actor: insert everything we have from YAML.
+                payload.append(a)
+
+        if payload:
+            self._client.table("actors").upsert(payload, on_conflict="slug").execute()
 
     # ---------- runs ----------
 
@@ -92,6 +121,7 @@ class SupabaseStore:
         return {
             "run_id": s.run_id,
             "actor_slug": s.actor_slug,
+            "system": "masfactory",
             "source_kind": s.source_kind,
             "source_url": s.source_url,
             "title": s.title,

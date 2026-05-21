@@ -99,6 +99,28 @@ def cmd_run_once(args: argparse.Namespace) -> int:
 
     audit.write_json("final_attributes.json", _attrs_for_disk(attrs))
 
+    # MASFactory's LegacyOpenAIModel keeps a TokenUsageTracker on the model
+    # instance; every Agent node in the graph shares this model so the
+    # tracker holds the totals across all nodes for this run. We record one
+    # row in Supabase so the thesis cost analysis has matching data to
+    # System B's per-model token rows.
+    try:
+        tracker = getattr(model, "_token_tracker", None)
+        if tracker is not None:
+            input_tok = int(getattr(tracker, "total_input_usage", 0) or 0)
+            output_tok = int(getattr(tracker, "total_output_usage", 0) or 0)
+            tokens_payload = {
+                "node_name": "graph_total",
+                "model_name": settings.model_main,
+                "input_tokens": input_tok,
+                "output_tokens": output_tok,
+                "calls": 0,  # MASFactory tracker doesn't expose call count
+            }
+            store.record_token_usage(run_id, [tokens_payload])
+            audit.write_json("tokens.json", tokens_payload)
+    except Exception as exc:  # token recording must never fail a finished run
+        audit.write_text("tokens_error.txt", f"{type(exc).__name__}: {exc}")
+
     store.finish_run(run_id, status="ok")
     print(
         f"run {run_id}: kept={attrs.get('signals_kept', 0)} inserted={attrs.get('signals_inserted', 0)}"

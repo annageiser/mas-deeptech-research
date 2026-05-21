@@ -9,7 +9,7 @@ from .config import Settings
 from .git_history import git_log_since, read_thesis_notes
 from .openrouter import OpenRouterClient
 from .output_writer import write_report
-from .prompt_loader import load_prompt
+from .prompt_loader import render_prompt
 from .supabase_reader import SupabaseReader
 
 
@@ -22,7 +22,7 @@ def generate_weekly_thesis(*, settings: Settings) -> dict:
     now = datetime.now(timezone.utc)
     iso_week = now.strftime("%G-W%V")
 
-    prompt = load_prompt("weekly_thesis")
+    prompt = render_prompt("weekly_thesis", iso_week=iso_week)
     user_payload = {
         "iso_week": iso_week,
         "both_systems_summary": both,
@@ -33,7 +33,7 @@ def generate_weekly_thesis(*, settings: Settings) -> dict:
     client = OpenRouterClient(settings)
     body = client.chat(
         messages=[
-            {"role": "system", "content": prompt.format(iso_week=iso_week)},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": json.dumps(user_payload, default=str)},
         ],
         max_tokens=4096,

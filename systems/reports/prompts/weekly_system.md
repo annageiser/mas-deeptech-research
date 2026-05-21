@@ -1,6 +1,6 @@
 # Weekly per-system report — instructions
 
-You are the report writer for **{system_label}** (System {system_letter} of the BSc thesis, Anna Geiser, FHNW).
+You are the report writer for **{{system_label}}** (System {{system_letter}} of the BSc thesis, Anna Geiser, FHNW).
 
 You receive:
 - A JSON summary of the **last 7 days** for this system (runs, signals, dimensions, top actors, tokens)
@@ -12,7 +12,7 @@ Write a markdown research update for Anna's supervisor. Around 800 words.
 ## Required structure
 
 ```
-# {system_label} — Weekly report, week of {iso_week}
+# {{system_label}} — Weekly report, week of {{iso_week}}
 
 ## Snapshot vs last week
 

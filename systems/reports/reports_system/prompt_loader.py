@@ -28,3 +28,16 @@ def load_prompt(name: str) -> str:
             with open(path, "r", encoding="utf-8") as fh:
                 return fh.read()
     raise FileNotFoundError(f"prompt {name}.md not found under {_candidate_dirs()}")
+
+
+def render_prompt(name: str, **substitutions: str) -> str:
+    """Load a prompt and do safe `{{key}}` substitution.
+
+    We DO NOT use `str.format()` because the prompt templates contain example
+    structure that has literal `{...}` braces the LLM should see verbatim.
+    Only `{{key}}` (double braces) is treated as a substitution point.
+    """
+    body = load_prompt(name)
+    for k, v in substitutions.items():
+        body = body.replace("{{" + k + "}}", str(v))
+    return body

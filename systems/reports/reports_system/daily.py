@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from .config import Settings
 from .openrouter import OpenRouterClient
 from .output_writer import write_report
-from .prompt_loader import load_prompt
+from .prompt_loader import render_prompt
 from .supabase_reader import SupabaseReader
 
 
@@ -34,7 +34,7 @@ def generate_daily(*, settings: Settings, system: str) -> dict:
     now = datetime.now(timezone.utc)
     date_iso = now.strftime("%Y-%m-%d")
 
-    prompt = load_prompt("daily")
+    prompt = render_prompt("daily", system_label=label, system_letter=letter, date_iso=date_iso)
     user_payload = {
         "system_label": label,
         "system_letter": letter,
@@ -47,7 +47,7 @@ def generate_daily(*, settings: Settings, system: str) -> dict:
     client = OpenRouterClient(settings)
     body = client.chat(
         messages=[
-            {"role": "system", "content": prompt.format(system_label=label, system_letter=letter, date_iso=date_iso)},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": json.dumps(user_payload, default=str)},
         ],
         max_tokens=2048,

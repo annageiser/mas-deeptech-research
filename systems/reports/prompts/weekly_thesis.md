@@ -12,7 +12,7 @@ Write a markdown report Anna can send to her supervisor at the start of the triw
 ## Required structure
 
 ```
-# Thesis progress — week of {iso_week}
+# Thesis progress — week of {{iso_week}}
 
 ## Past week — what shipped
 

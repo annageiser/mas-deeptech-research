@@ -82,9 +82,9 @@ services:
       - ./data:/data:ro       # reports + actors.yaml, read-only
     expose:
       - "8501"
-    # No `ports:` — Caddy proxies; the container is only reachable from
-    # other containers on the default compose network. Add `ports: ["8501:8501"]`
-    # to expose directly for local debugging.
+    ports:
+      - "8501:8501"           # direct HTTP access at http://<vps-ip>:8501
+                              # (Caddy still proxies HTTPS via the domain once DNS resolves)
 
   caddy:
     image: caddy:2.10-alpine

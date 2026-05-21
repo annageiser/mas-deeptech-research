@@ -1,0 +1,30 @@
+# Caddy reverse-proxy config for mas-deeptech-research.cloud
+#
+# Caddy auto-provisions a Let's Encrypt TLS cert on first boot, as long as:
+#   1. mas-deeptech-research.cloud (and optionally www.) has an A record
+#      pointing at the VPS public IP (187.127.87.208).
+#   2. Ports 80 and 443 are reachable from the public internet.
+#
+# Renewal is automatic; no certbot, no cron.
+
+{
+    # Default global email used in Let's Encrypt ACME registration.
+    # Replace if you want LE notifications to go elsewhere.
+    email anna.geiser@fhnw.ch
+}
+
+mas-deeptech-research.cloud {
+    encode zstd gzip
+
+    # Streamlit's websocket lives at the root; pass everything to the dashboard container.
+    reverse_proxy dashboard:8501
+
+    # Healthcheck for `docker ps` and uptime monitoring.
+    @health path /healthz
+    respond @health "ok" 200
+}
+
+# Optional www → apex redirect (uncomment if you also point www.mas-deeptech-research.cloud at the VPS).
+# www.mas-deeptech-research.cloud {
+#     redir https://mas-deeptech-research.cloud{uri} 301
+# }

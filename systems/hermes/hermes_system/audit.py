@@ -3,6 +3,8 @@
 Same shape as System A's `data/raw/runs/<iso-ts>/`, with a `system: 'hermes'`
 marker file so it's easy to tell which folders belong to which system when
 both are running.
+
+Timestamps in Europe/Zurich (CET/CEST) to match cron-firing time.
 """
 
 from __future__ import annotations
@@ -12,10 +14,14 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
+
+
+_ZURICH = ZoneInfo("Europe/Zurich")
 
 
 def _ts_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    return datetime.now(_ZURICH).strftime("%Y-%m-%dT%H-%M-%S%z")
 
 
 @dataclass

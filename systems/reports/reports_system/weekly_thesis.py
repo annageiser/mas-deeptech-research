@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from .config import Settings
 from .git_history import git_log_since, read_thesis_notes
@@ -13,13 +14,16 @@ from .prompt_loader import render_prompt
 from .supabase_reader import SupabaseReader
 
 
+_ZURICH = ZoneInfo("Europe/Zurich")
+
+
 def generate_weekly_thesis(*, settings: Settings) -> dict:
     reader = SupabaseReader(settings)
     both = reader.both_systems_summary(window_hours=24 * 7)
     commits = git_log_since(repo_dir=settings.repo_dir, days=7)
     notes = read_thesis_notes(settings.thesis_notes_path)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(_ZURICH)
     iso_week = now.strftime("%G-W%V")
 
     prompt = render_prompt("weekly_thesis", iso_week=iso_week)

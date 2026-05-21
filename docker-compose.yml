@@ -1,21 +1,15 @@
 # Docker Compose stack for the BSc-thesis comparative MAS (Anna Geiser, FHNW).
 #
-# Mirrors the architecture diagram + reports synthesis layer:
-#   Container A — MASFactory (System A)         — daily scrape (signals into Supabase)
-#   Container B — Hermes-pattern agent (B)      — daily scrape (signals into Supabase)
-#   Container C — Reports synthesizer            — daily + weekly markdown reports
+# Five containers, one VPS, one Supabase:
+#   A — masfactory : System A scrape (cron-driven)
+#   B — hermes     : System B scrape (cron-driven)
+#   C — reports    : daily + weekly markdown synthesis (cron-driven)
+#   D — dashboard  : Streamlit web UI on :8501 (continuously running)
+#   E — caddy      : TLS reverse proxy on :80 / :443 (continuously running)
 #
-# All three containers share .env (OpenRouter key + Supabase URL/key) and
-# the same `./data` host bind-mount, so:
-#   - the actors list lives once at data/raw/actors.yaml
-#   - per-run audit folders land in data/raw/runs/<iso-ts>__<system>/
-#   - both systems write to the same Supabase tables, distinguished by
-#     runs.system in ('masfactory','hermes')
-#   - reports land in data/reports/{daily,weekly,thesis}/...
-#
-# Container C is a synthesis layer — it reads what A and B produced and
-# writes markdown briefings. It does NOT influence either system's outputs,
-# so the comparative validity of A vs B is preserved.
+# Internal Docker network: A, B, C exit after their run (cron-driven). D and
+# E stay up so the public dashboard is always reachable at
+# mas-deeptech-research.cloud.
 
 services:
   masfactory:
@@ -24,7 +18,7 @@ services:
       dockerfile: Dockerfile
     image: mas-deeptech-research/masfactory:0.1.0
     container_name: masfactory-system-a
-    restart: "no"          # cron drives invocations; the container exits after each run
+    restart: "no"
     env_file:
       - .env
     environment:
@@ -64,10 +58,49 @@ services:
       - .env
     environment:
       RPT_REPORTS_DIR: /data/reports
-      RPT_REPO_DIR: /repo            # mount the repo so weekly-thesis can read git log
+      RPT_REPO_DIR: /repo
       RPT_THESIS_NOTES_PATH: /data/raw/thesis_notes.md
       TZ: Europe/Zurich
     volumes:
       - ./data:/data
-      - .:/repo:ro                   # the whole repo, read-only, for git log
+      - .:/repo:ro
     command: ["build-check"]
+
+  dashboard:
+    build:
+      context: ./systems/dashboard
+      dockerfile: Dockerfile
+    image: mas-deeptech-research/dashboard:0.1.0
+    container_name: dashboard-container-d
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DASH_REPORTS_DIR: /data/reports
+      TZ: Europe/Zurich
+    volumes:
+      - ./data:/data:ro       # reports + actors.yaml, read-only
+    expose:
+      - "8501"
+    # No `ports:` — Caddy proxies; the container is only reachable from
+    # other containers on the default compose network. Add `ports: ["8501:8501"]`
+    # to expose directly for local debugging.
+
+  caddy:
+    image: caddy:2.10-alpine
+    container_name: caddy-container-e
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"        # HTTP/3 (QUIC)
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      TZ: Europe/Zurich
+
+volumes:
+  caddy_data:    # persists Let's Encrypt certs across container restarts
+  caddy_config:

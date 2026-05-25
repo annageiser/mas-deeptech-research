@@ -41,11 +41,22 @@ scores["category_pretty"] = scores["category"].map(lambda c: L.category(c) if c 
 
 
 def _render_table(view: pd.DataFrame, score_col: str, score_help: str, fmt: str = "%.2f", show_progress: bool = True):
-    cols = ["display", "category_pretty", score_col, "signal_count", "diversity", "momentum"]
+    # `score_col` is one of momentum / diversity / signal_count / impact / authority.
+    # Build the column list deduped, in display order, with the score column always second-from-left.
+    base = ["display", "category_pretty", score_col, "signal_count", "diversity", "momentum"]
+    seen: set[str] = set()
+    cols = [c for c in base if not (c in seen or seen.add(c))]
+    score_label = {
+        "impact": "Impact",
+        "momentum": "Δ week",
+        "diversity": "Dimensions",
+        "authority": "Authority",
+        "signal_count": "Signals",
+    }.get(score_col, score_col.title().replace("_", " "))
     pretty = {
         "display": "Actor",
         "category_pretty": "Category",
-        score_col: score_col.title().replace("_", " "),
+        score_col: score_label,
         "signal_count": "Signals",
         "diversity": "Dimensions",
         "momentum": "Δ week",

@@ -55,6 +55,7 @@ class OpenRouterProvider:
             api_key=settings.openrouter_api_key,
             base_url=settings.openrouter_base_url,
             default_headers=default_headers,
+            timeout=90.0,   # cap one Nemotron call so a run can't hang for hours
         )
 
     @tenacity.retry(

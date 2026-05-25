@@ -55,9 +55,12 @@ LEGITIMACY_DIMENSIONS = {
     "market_positioning",
 }
 
-# Weight per dimension when computing an Impact score. Calibrated so a single
-# funding-round signal carries more than a single positioning quote, but
-# capability evidence still dominates. Weights documented in Methodology.
+# Weight per dimension when computing an Impact score.
+#
+# CANONICAL SOURCE: systems/masfactory/masfactory_system/classification/schema.yaml
+# Keep these values in sync with the `weight` field there. The dashboard reads
+# them from this file (not the YAML) because the dashboard container doesn't
+# bundle the masfactory package. If you edit one place, edit the other.
 DIMENSION_WEIGHT = {
     "technical_capability":    1.3,
     "research_output":         1.0,
@@ -131,6 +134,9 @@ def category(key: str) -> str:
 
 def system_label(key: str) -> str:
     return SYSTEM_LABEL.get(key, key)
+
+def system_short_label(key: str) -> str:
+    return SYSTEM_SHORT.get(key, key)
 
 def source_kind(key: str) -> str:
     return SOURCE_KIND_LABEL.get(key, key.title())

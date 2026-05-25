@@ -26,12 +26,18 @@ from .config import Settings
 
 
 def _openrouter_kwargs(settings: Settings) -> dict:
-    """OpenRouter recommends sending HTTP-Referer and X-Title for analytics."""
+    """OpenRouter recommends sending HTTP-Referer and X-Title for analytics.
+
+    Also: a bounded timeout. The OpenAI SDK's default is 600 s per call;
+    with MASFactory's tenacity retries (3×) and our failover (×2 models),
+    one slow Nemotron call can hang the whole run for 60 min. Bound at 90 s.
+    """
     return {
+        "timeout": 90.0,
         "default_headers": {
             "HTTP-Referer": settings.http_referer,
             "X-Title": settings.app_title,
-        }
+        },
     }
 
 

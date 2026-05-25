@@ -83,6 +83,19 @@ def test_prepare_current_actor_picks_index():
     assert out["critique_json"] == ""
 
 
+def test_normalise_arxiv_query_passes_through_field_prefixes():
+    from masfactory_system.collection.arxiv import _normalise_arxiv_query
+    # Bare text gets wrapped as all:
+    assert _normalise_arxiv_query("Swiss Quantum Initiative") == "all:Swiss Quantum Initiative"
+    # aff: passed through verbatim
+    assert _normalise_arxiv_query('aff:"ETH Zurich" AND (qubit OR quantum)') == 'aff:"ETH Zurich" AND (qubit OR quantum)'
+    # Whitespace handling
+    assert _normalise_arxiv_query("  ") == ""
+    # Other field prefixes
+    assert _normalise_arxiv_query("au:Klauser") == "au:Klauser"
+    assert _normalise_arxiv_query("ti:fault-tolerance") == "ti:fault-tolerance"
+
+
 def test_accumulate_actor_appends_and_filters_cross_attribution():
     import json
     from masfactory_system.agents.loop_nodes import _accumulate_actor

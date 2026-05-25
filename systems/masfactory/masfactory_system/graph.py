@@ -137,7 +137,17 @@ ActorLoopNode = NodeTemplate(
         ("extractor", "classifier", {"candidates_json": "Signal candidates"}),
         ("classifier", "critic", {"classified_json": "Classified signals"}),
         ("critic", "accumulate-actor", {"critique_json": "Critique decisions"}),
-        ("accumulate-actor", "controller", {}),
+        # Loopback edge carries the keys we want exposed on the Loop's outer
+        # output port — these flow through the controller into the implicit
+        # terminate message that becomes the Loop node's output.
+        ("accumulate-actor", "controller", {
+            "surviving_signals_json": "Run-wide surviving signals as JSON",
+            "all_classified": "Run-wide classified signals",
+            "all_surviving_signals": "Run-wide surviving signals list",
+            "all_critique": "Run-wide critique decisions",
+            "dropped_cross_actor": "Cross-actor attribution drops",
+            "actor_loop_index": "Next actor index",
+        }),
     ],
 )
 

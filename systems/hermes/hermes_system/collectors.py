@@ -33,14 +33,29 @@ FEED_MIME_HINTS = ("rss", "atom", "xml")
 
 # ---------- arXiv ----------
 
+_ARXIV_FIELD_PREFIXES = ("ti:", "au:", "abs:", "co:", "jr:", "cat:", "rn:", "id:", "all:", "aff:")
+
+
+def _normalise_arxiv_query(raw: str) -> str:
+    """Pass through `aff:` / `au:` etc. unchanged; wrap bare text as `all:`."""
+    s = raw.strip()
+    if not s:
+        return ""
+    lo = s.lower()
+    if any(lo.startswith(p) for p in _ARXIV_FIELD_PREFIXES):
+        return s
+    return f"all:{s}"
+
+
 def collect_arxiv_for_query(*, query: str, max_results: int, actor_slug: str) -> list[dict]:
-    if not query.strip():
+    normalised = _normalise_arxiv_query(query)
+    if not normalised:
         return []
     url = (
         f"{ARXIV_ENDPOINT}?"
         + urlencode(
             {
-                "search_query": f"all:{query.strip()}",
+                "search_query": normalised,
                 "sortBy": "submittedDate",
                 "sortOrder": "descending",
                 "max_results": str(max(1, min(20, int(max_results)))),

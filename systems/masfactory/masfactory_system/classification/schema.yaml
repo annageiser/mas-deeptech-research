@@ -1,64 +1,153 @@
-# Signal classification taxonomy.
+# Signal classification taxonomy — Swiss quantum-computing ecosystem.
 #
-# A starter schema grounded in the disposition's references on signalling
-# theory in emergent technology domains (Ehrenthal et al. 2026; Suchman 1995;
-# Knight & Cavusgil 2004; Mohr & Sarin 2009). The literature-review milestone
-# (M2) will refine this — the file is intentionally human-editable so the
-# thesis can iterate without code changes.
+# This taxonomy operationalises the thesis's core framing:
+# Ehrenthal, Gonzalez-Padron & Gruen (2026) "Global Strategic Marketing When
+# Performance Is Noncommensurable: How Quantum-Computing Vendors Articulate
+# Global Positions Through Nontechnical Signals" — the central proposition
+# that, in markets where comparable performance metrics do not exist, actors
+# articulate position through OBSERVABLE SIGNALS that fall into two broad
+# channels: capability evidence and legitimacy evidence.
+#
+# - "Capability" dimensions surface what an actor can technically *do*: papers,
+#   patents, infrastructure (Knight & Cavusgil 2004 on capability-based
+#   competitive advantage; Tomesh et al. 2022 on the absence of unified quantum
+#   benchmarks justifying paper/IP/infra as the proxies that remain).
+# - "Legitimacy" dimensions surface social acceptance: partnerships, funding,
+#   hires, policy presence, market positioning (Suchman 1995 — the canonical
+#   strategic / pragmatic / cognitive legitimacy split; Hilkamo & Granqvist 2022
+#   on sense-making in de novo quantum-computing market categories; Robinson &
+#   Veresiu 2025 on legitimacy timing; Song, Zhao & Wei 2025 on coattail effects
+#   in high-tech legitimacy building).
+#
+# This file is HUMAN-EDITABLE. Anna and her supervisor can revise weights /
+# add dimensions as the literature review evolves — the dashboard and the
+# Critic agents read this YAML at runtime.
 
-version: 0.1.0
+version: 0.2.0
+last_revised: "2026-05-25"
 
+# Two channels (Suchman 1995 + Ehrenthal et al. 2026)
+channels:
+  - key: capability
+    label: Capability evidence
+    description: >-
+      What the actor can technically *do*. Costly signals in the
+      signalling-theory sense (Knight & Cavusgil 2004) — papers, patents,
+      infrastructure all require sustained investment to produce.
+  - key: legitimacy
+    label: Legitimacy evidence
+    description: >-
+      Social acceptance and category-membership (Suchman 1995). Critical in
+      de novo markets where capability is hard to externally verify (Hilkamo
+      & Granqvist 2022 on quantum specifically; Mohr & Sarin 2009 on
+      high-tech marketing).
+
+# Dimensions: each signal is classified into exactly one.
 dimensions:
   - key: technical_capability
+    channel: capability
     is_technical: true
+    weight: 1.3
     description: >-
-      Claims about hardware/software capability — qubit counts, gate fidelity,
+      Hardware/software capability claims — qubit counts, gate fidelity,
       coherence times, new architectures, software toolchain releases.
+    grounding: >-
+      Tomesh et al. 2022 (SupermarQ) shows no unified quantum benchmark
+      exists; thus public capability claims (this dimension) carry the
+      signal weight that "benchmarks" would in a mature market.
 
   - key: research_output
+    channel: capability
     is_technical: true
+    weight: 1.0
     description: >-
-      Peer-reviewed or pre-print publications, datasets, benchmarks released by
-      the actor or with the actor as a major affiliation.
+      Peer-reviewed or pre-print publications, datasets, benchmarks released
+      by the actor or with the actor as a major affiliation.
+    grounding: >-
+      Knight & Cavusgil 2004 — research output as direct evidence of
+      innovation capability; Reid & de Brentani 2010 on market visioning
+      requiring research grounding.
 
   - key: ip_filing
+    channel: capability
     is_technical: true
+    weight: 1.4
     description: >-
-      Patent applications, granted patents, design rights, or trademark
-      filings — including Swissreg / WIPO filings (Rieger et al. 2025).
+      Patent applications, granted patents, design rights, trademark filings
+      (including Swissreg / WIPO filings).
+    grounding: >-
+      Rieger, Dreller & Engelen 2025 — trademark applications specifically
+      shown to predict venture capital seed funding; patents as legally
+      observable capability proxy.
 
   - key: infrastructure_or_facility
+    channel: capability
     is_technical: true
+    weight: 1.2
     description: >-
       New lab, cleanroom, fabrication line, on-prem quantum processor, HPC
       integration, or cloud-access endpoint.
+    grounding: >-
+      Blomqvist et al. 2008 on trust-and-contracts in technology-intensive
+      firms — physical infrastructure as a costly trust signal.
 
   - key: partnership_or_alliance
+    channel: legitimacy
     is_technical: false
+    weight: 0.9
     description: >-
       Announced collaborations, MoUs, joint labs, customer wins, distribution
       agreements, ecosystem memberships.
+    grounding: >-
+      Adner 2017 (Ecosystem as Structure) — partnership topology is the
+      observable shape of an ecosystem; Song, Zhao & Wei 2025 on coattail
+      legitimacy effects from partner choice.
 
   - key: funding_or_grant
+    channel: legitimacy
     is_technical: false
+    weight: 1.5
     description: >-
-      Funding rounds (seed → growth), SNF / Innosuisse / Horizon Europe grants,
-      public RFPs awarded, government contracts.
+      Funding rounds (seed → growth), SNF / Innosuisse / Horizon Europe
+      grants, public RFPs awarded, government contracts.
+    grounding: >-
+      Costly-to-fake legitimacy signal in the Suchman 1995 framework
+      (pragmatic legitimacy); Rieger et al. 2025 link early IP signals to
+      funding outcomes.
 
   - key: hiring_or_talent
+    channel: legitimacy
     is_technical: false
+    weight: 0.8
     description: >-
       Named leadership hires, named scientific advisors, large hiring drives,
       visiting professorships, student-recruitment programmes.
+    grounding: >-
+      Hilkamo & Granqvist 2022 on quantum market sense-making through named
+      personalities; Mohr & Sarin 2009 on talent as the limiting input in
+      high-technology market formation.
 
   - key: regulatory_or_policy
+    channel: legitimacy
     is_technical: false
+    weight: 0.7
     description: >-
-      National strategy publications, export-control changes, standards work,
-      participation in policy consultations, certification milestones.
+      National strategy publications, export-control changes, standards
+      work, participation in policy consultations, certification milestones.
+    grounding: >-
+      Suchman 1995 cognitive legitimacy — being part of the policy
+      conversation signals categorical recognition by the state.
 
   - key: market_positioning
+    channel: legitimacy
     is_technical: false
+    weight: 0.4
     description: >-
-      Roadmaps, positioning statements, market narratives, conference keynotes,
-      branding shifts — explicit attempts to claim a category position.
+      Roadmaps, positioning statements, market narratives, conference
+      keynotes, branding shifts — explicit attempts to claim a category
+      position.
+    grounding: >-
+      Ehrenthal, Gonzalez-Padron & Gruen 2026 — *the* dimension their paper
+      directly observes among quantum vendors articulating noncommensurable
+      position; weighted lightest because positioning statements are the
+      cheapest signal in Suchman's framework.

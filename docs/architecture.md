@@ -1,6 +1,6 @@
-# Architecture — both systems + reports + dashboard
+# Architecture — both systems + reports + dashboard + reverse proxy
 
-> Four containers on one VPS, one Supabase, one OpenRouter key. The comparative design means signals from either system land in the same tables, distinguishable by `runs.system in ('masfactory','hermes')` and now also by the denormalised `signals.system` column.
+> Five containers on one VPS, one Supabase, one OpenRouter key. The comparative design means signals from either system land in the same tables, distinguishable by `runs.system in ('masfactory','hermes')` and now also by the denormalised `signals.system` column.
 
 ## High-level shape
 

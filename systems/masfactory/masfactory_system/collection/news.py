@@ -37,13 +37,16 @@ USER_AGENT = "masfactory-thesis/0.1 (+https://github.com/anna-geiser/mas-deeptec
 def _build_query(actor: Actor) -> str:
     """Compose the search query.
 
-    Pattern: `"<Actor Name>" quantum (Switzerland OR Swiss OR Suisse OR Schweiz)`
-    Quoted actor name forces exact-phrase match; the language-agnostic
-    "Switzerland OR Swiss OR Suisse OR Schweiz" filters out same-name
-    actors elsewhere.
+    Pattern: `"<Actor Name>" quantum` — quoted name forces an exact-phrase
+    match. We rely on `gl=CH` (geolocation bias) at the endpoint for the
+    Switzerland filter; an in-query Switzerland-OR-filter was too restrictive
+    (returned 0 results for actors whose press doesn't repeat the country
+    name in headlines). For actors with very generic names we still fall back
+    to the org-only form — discovered via empirical tuning of v0 of the
+    collector against the 40-actor list.
     """
     name = actor.name.strip()
-    return f'"{name}" quantum (Switzerland OR Swiss OR Suisse OR Schweiz)'
+    return f'"{name}" quantum'
 
 
 def collect_google_news(

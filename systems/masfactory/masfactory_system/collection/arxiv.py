@@ -16,7 +16,7 @@ import httpx
 from ..schema import Actor, Document
 
 
-ARXIV_ENDPOINT = "http://export.arxiv.org/api/query"
+ARXIV_ENDPOINT = "https://export.arxiv.org/api/query"
 
 # arXiv field prefixes — if the caller-provided query already starts with one
 # of these, we use it verbatim (no `all:` wrap). Otherwise we wrap as `all:`
@@ -63,7 +63,13 @@ def collect_arxiv(actor: Actor, *, max_results: int = 5, timeout: float = 30.0) 
     )
     url = f"{ARXIV_ENDPOINT}?{params}"
 
-    with httpx.Client(timeout=timeout, headers={"User-Agent": "masfactory-thesis/0.1 (research)"}) as client:
+    # arXiv now serves https; the http endpoint returns 301. Follow redirects
+    # so we don't lose every actor's papers to the http→https hop.
+    with httpx.Client(
+        timeout=timeout,
+        headers={"User-Agent": "masfactory-thesis/0.1 (research)"},
+        follow_redirects=True,
+    ) as client:
         resp = client.get(url)
         resp.raise_for_status()
 

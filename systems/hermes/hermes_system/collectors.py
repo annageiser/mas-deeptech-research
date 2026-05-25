@@ -20,7 +20,7 @@ import httpx
 from selectolax.parser import HTMLParser
 
 
-ARXIV_ENDPOINT = "http://export.arxiv.org/api/query"
+ARXIV_ENDPOINT = "https://export.arxiv.org/api/query"
 GNEWS_ENDPOINT = "https://news.google.com/rss/search"
 USER_AGENT = "hermes-thesis/0.1 (+https://github.com/anna-geiser/mas-deeptech-research)"
 WEB_CACHE_DIR = os.environ.get("HRM_WEB_CACHE_DIR", "/data/raw/hermes_web_cache")
@@ -62,7 +62,7 @@ def collect_arxiv_for_query(*, query: str, max_results: int, actor_slug: str) ->
             }
         )
     )
-    with httpx.Client(timeout=30, headers={"User-Agent": USER_AGENT}) as client:
+    with httpx.Client(timeout=30, headers={"User-Agent": USER_AGENT}, follow_redirects=True) as client:
         resp = client.get(url)
         resp.raise_for_status()
     feed = feedparser.parse(resp.text)
@@ -288,7 +288,10 @@ def collect_google_news_for_actor(*, actor_name: str, max_results: int, actor_sl
     """
     if not actor_name.strip():
         return []
-    q = f'"{actor_name.strip()}" quantum (Switzerland OR Swiss OR Suisse OR Schweiz)'
+    # Loosened from `"<name>" quantum (Switzerland OR Swiss OR Suisse OR
+    # Schweiz)` — the country filter was too restrictive. gl=CH on the
+    # endpoint already biases toward Switzerland.
+    q = f'"{actor_name.strip()}" quantum'
     url = f"{GNEWS_ENDPOINT}?{urlencode({'q': q, 'hl': 'en', 'gl': 'CH', 'ceid': 'CH:en'})}"
     try:
         with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:

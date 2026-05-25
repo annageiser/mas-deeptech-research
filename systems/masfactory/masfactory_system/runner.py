@@ -83,6 +83,7 @@ def cmd_run_once(args: argparse.Namespace) -> int:
                     "limit_actors": limit_actors,
                     "limit_arxiv_per_actor": settings.limit_arxiv_per_actor,
                     "limit_website_pages_per_actor": settings.limit_website_pages_per_actor,
+                    "limit_news_per_actor": settings.limit_news_per_actor,
                     "web_cache_dir": "/data/raw/web_cache",
                     "store": store,
                     "audit_folder": audit,

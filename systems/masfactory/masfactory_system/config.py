@@ -31,6 +31,7 @@ class Settings:
     limit_actors: int
     limit_arxiv_per_actor: int
     limit_website_pages_per_actor: int
+    limit_news_per_actor: int
     audit_dir: str
     http_referer: str
     app_title: str
@@ -84,6 +85,7 @@ def load_settings(*, require_supabase: bool = True) -> Settings:
         limit_actors=_int("MASF_LIMIT_ACTORS", 3),
         limit_arxiv_per_actor=_int("MASF_LIMIT_ARXIV", 5),
         limit_website_pages_per_actor=_int("MASF_LIMIT_WEBSITE", 3),
+        limit_news_per_actor=_int("MASF_LIMIT_NEWS", 5),
         audit_dir=os.environ.get("MASF_AUDIT_DIR", "/data/raw/runs").strip() or "/data/raw/runs",
         http_referer=os.environ.get("OPENROUTER_HTTP_REFERER", DEFAULT_HTTP_REFERER).strip()
         or DEFAULT_HTTP_REFERER,

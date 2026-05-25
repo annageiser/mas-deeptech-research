@@ -44,15 +44,31 @@ def _persist(_input: dict, attrs: dict) -> dict:
     audit = attrs.get("audit_folder")
     run_id = attrs.get("run_id")
 
-    classified = _safe_json_load(attrs.get("classified_json", ""), tag="classified_json").get("classified", [])
-    critique = _safe_json_load(attrs.get("critique_json", ""), tag="critique_json").get("decisions", [])
+    # Prefer the run-wide accumulators populated by AccumulateActor inside the
+    # per-actor Loop. Fall back to the single-pass scratch keys if a caller is
+    # running the legacy linear graph (e.g. unit tests or a future config that
+    # disables the loop).
+    if attrs.get("all_classified") or attrs.get("all_surviving_signals"):
+        classified = list(attrs.get("all_classified") or [])
+        critique = list(attrs.get("all_critique") or [])
+        accumulator_surviving = list(attrs.get("all_surviving_signals") or [])
+    else:
+        classified = _safe_json_load(attrs.get("classified_json", ""), tag="classified_json").get("classified", [])
+        critique = _safe_json_load(attrs.get("critique_json", ""), tag="critique_json").get("decisions", [])
+        accumulator_surviving = []
 
-    keep_indices = {d["signal_index"] for d in critique if d.get("keep")}
-    # Default to keeping everything if the Critic returns no decisions — recall
-    # matters more than precision at this stage of the thesis.
-    if not critique:
-        keep_indices = set(range(len(classified)))
-    surviving = [s for i, s in enumerate(classified) if i in keep_indices]
+    if accumulator_surviving:
+        # AccumulateActor already filtered by Critic decisions per iteration —
+        # trust it. (Also avoids re-filtering when critique indices have been
+        # rewritten to be run-wide rather than per-iteration.)
+        surviving = accumulator_surviving
+    else:
+        keep_indices = {d["signal_index"] for d in critique if d.get("keep")}
+        # Default to keeping everything if the Critic returns no decisions —
+        # recall matters more than precision at this stage of the thesis.
+        if not critique:
+            keep_indices = set(range(len(classified)))
+        surviving = [s for i, s in enumerate(classified) if i in keep_indices]
 
     # ---------- defensive validation: drop hallucinated attributions ----------
     # The LLM has occasionally been observed to attribute a signal to a
@@ -83,6 +99,11 @@ def _persist(_input: dict, attrs: dict) -> dict:
         audit.write_json("signals.json", validated)
         if dropped:
             audit.write_json("dropped_hallucinations.json", dropped)
+        # The per-actor Loop's AccumulateActor records its own
+        # cross-actor drops; surface them in the audit too.
+        cross_dropped = attrs.get("dropped_cross_actor") or []
+        if cross_dropped:
+            audit.write_json("dropped_cross_actor.json", cross_dropped)
         brief = attrs.get("brief_md")
         if brief:
             audit.write_text("brief.md", brief if isinstance(brief, str) else str(brief))

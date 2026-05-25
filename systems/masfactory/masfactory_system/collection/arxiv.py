@@ -16,22 +16,46 @@ import httpx
 from ..schema import Actor, Document
 
 
-ARXIV_ENDPOINT = "http://export.arxiv.org/api/query"
+ARXIV_ENDPOINT = "https://export.arxiv.org/api/query"
+
+# arXiv field prefixes — if the caller-provided query already starts with one
+# of these, we use it verbatim (no `all:` wrap). Otherwise we wrap as `all:`
+# so a bare actor name still searches across all metadata.
+# Ref: https://info.arxiv.org/help/api/user-manual.html#query_details
+_ARXIV_FIELD_PREFIXES = ("ti:", "au:", "abs:", "co:", "jr:", "cat:", "rn:", "id:", "all:", "aff:")
+
+
+def _normalise_arxiv_query(raw: str) -> str:
+    """Pass through `aff:` / `au:` etc. unchanged; wrap bare text as `all:`.
+
+    Several actor records use `aff:"ETH Zurich" AND (qubit OR quantum)` to
+    bias toward affiliation matches. Wrapping that in `all:` would break the
+    field operator; the older collector did exactly that, which silently
+    weakened affiliation filtering for ~half the actors.
+    """
+    s = raw.strip()
+    if not s:
+        return ""
+    lo = s.lower()
+    if any(lo.startswith(p) for p in _ARXIV_FIELD_PREFIXES):
+        return s
+    return f"all:{s}"
 
 
 def collect_arxiv(actor: Actor, *, max_results: int = 5, timeout: float = 30.0) -> list[Document]:
     """Return up to `max_results` recent arXiv entries for an actor.
 
-    `actor.arxiv_query` is used directly; falls back to the actor's name if not
-    set. The query is wrapped to limit results and sort by submission date.
+    `actor.arxiv_query` is used directly when it starts with an arXiv field
+    operator (`aff:`, `au:`, `ti:`, etc.); otherwise it's wrapped as
+    `all:<query>`. Falls back to the actor's name if `arxiv_query` is empty.
     """
-    query = (actor.arxiv_query or actor.name).strip()
+    query = _normalise_arxiv_query(actor.arxiv_query or actor.name)
     if not query:
         return []
 
     params = urlencode(
         {
-            "search_query": f"all:{query}",
+            "search_query": query,
             "sortBy": "submittedDate",
             "sortOrder": "descending",
             "max_results": str(max_results),
@@ -39,7 +63,13 @@ def collect_arxiv(actor: Actor, *, max_results: int = 5, timeout: float = 30.0) 
     )
     url = f"{ARXIV_ENDPOINT}?{params}"
 
-    with httpx.Client(timeout=timeout, headers={"User-Agent": "masfactory-thesis/0.1 (research)"}) as client:
+    # arXiv now serves https; the http endpoint returns 301. Follow redirects
+    # so we don't lose every actor's papers to the http→https hop.
+    with httpx.Client(
+        timeout=timeout,
+        headers={"User-Agent": "masfactory-thesis/0.1 (research)"},
+        follow_redirects=True,
+    ) as client:
         resp = client.get(url)
         resp.raise_for_status()
 

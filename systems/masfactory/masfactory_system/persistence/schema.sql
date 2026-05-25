@@ -36,7 +36,7 @@ create table if not exists public.signals (
     run_id          uuid not null references public.runs(id) on delete cascade,
     actor_slug      text not null references public.actors(slug),
     system          text not null default 'masfactory' check (system in ('masfactory', 'hermes')),
-    source_kind     text not null check (source_kind in ('arxiv', 'website', 'swissreg', 'manual')),
+    source_kind     text not null check (source_kind in ('arxiv', 'website', 'swissreg', 'manual', 'news')),
     source_url      text not null,
     title           text not null,
     summary         text not null,
@@ -100,6 +100,24 @@ create table if not exists public.audit_log (
 );
 
 create index if not exists audit_log_run_idx on public.audit_log (run_id);
+
+-- ---------- migrations (idempotent) ----------
+-- Add 'news' to the allowed source_kind values for existing deployments
+-- where the CHECK constraint was created before this migration shipped.
+-- Safe to run repeatedly.
+do $$
+begin
+    if exists (
+        select 1 from pg_constraint
+        where conname = 'signals_source_kind_check'
+          and conrelid = 'public.signals'::regclass
+          and not pg_get_constraintdef(oid) ilike '%news%'
+    ) then
+        alter table public.signals drop constraint signals_source_kind_check;
+        alter table public.signals add constraint signals_source_kind_check
+            check (source_kind in ('arxiv', 'website', 'swissreg', 'manual', 'news'));
+    end if;
+end $$;
 
 -- ---------- grants ----------
 -- Supabase newer projects do not auto-grant service_role on user-created

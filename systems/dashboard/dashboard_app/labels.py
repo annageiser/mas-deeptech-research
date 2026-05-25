@@ -117,6 +117,7 @@ SYSTEM_SHORT = {
 SOURCE_KIND_LABEL = {
     "arxiv":    "arXiv paper",
     "website":  "Actor website",
+    "news":     "News article",
     "swissreg": "Swissreg patent",
     "manual":   "Manual entry",
 }

@@ -2,6 +2,10 @@
 
 The thesis follows the **constructive research approach** (Kasanen, Lukka & Siitonen, 1993): build an artefact that addresses a real problem and evaluate how well it does so. This document records the design decisions that turn the disposition's plan into running code.
 
+> **For the substantive signal-theory grounding** — why we measure what we measure, how every score is computed, full per-dimension citations to Ehrenthal et al. (2026), Suchman (1995), Knight & Cavusgil (2004), Hilkamo & Granqvist (2022), Adner (2017), Rieger et al. (2025), Robinson & Veresiu (2025), Song et al. (2025), Tomesh et al. (2022), Mohr & Sarin (2009) — see the live **Methodology** page on the dashboard at `https://mas-deeptech-research.cloud` (or its source at [`systems/dashboard/dashboard_app/pages/9_Methodology.py`](../systems/dashboard/dashboard_app/pages/9_Methodology.py)). The per-dimension literature grounding is also embedded directly in [`systems/masfactory/masfactory_system/classification/schema.yaml`](../systems/masfactory/masfactory_system/classification/schema.yaml) as a `grounding:` field on every dimension.
+>
+> *This* document covers methodology in the narrower software-research sense (Kasanen et al.), not signal theory.
+
 ## Two-step validation
 
 | Stage | What the disposition says | Where it lives in this repo |
@@ -45,13 +49,20 @@ Both systems' code surfaces are deliberately small so a single B–E–R cycle i
 
 Triweekly supervisor reviews should bring at most two prompt/skill changes between reviews — anything larger should escalate to a graph-shape change (System A) or a new tool / memory layer (System B), which is what the architecture-gap analysis is *for*.
 
+## Already shipped (in scope but worth flagging as substantial)
+
+- **Streamlit dashboard** (Container D, milestone M7) — live at `https://mas-deeptech-research.cloud`. 9 pages, scoring + labels modules, full Methodology page with literature grounding.
+- **Synthesis reports** (Container C) — daily per-system + weekly per-system + weekly thesis-progress markdown reports.
+- **Per-system signal column** (`signals.system`) — denormalised + backfilled so cross-system queries don't have to join on `runs`.
+- **Hand-editable actors** — Supabase Table editor can edit `arxiv_query` and `notes` without next run overwriting them.
+
 ## Deliberate omissions in v1
 
 The disposition's evaluation depends on the *gap* between the ideal architecture and what's built. These omissions are intentional in v1 so the gap analysis has honest material:
 
 - **Embeddings on `signals.embedding`** (pgvector column exists but is unused). Adding a SentenceTransformer-based embedder in either system is a one-file change.
 - **Swissreg patent ingestion**. Schema reserves `source_kind='swissreg'`; both systems would need a new collector.
-- **Streamlit dashboard** (milestone M7). Tables are structured enough; dashboard is a separate workstream.
+- **Broader-web signal scraping** — Google News, arXiv-affiliation search, press-release aggregator. Academically supported by Kolbe & Burnett (1991) on content-analysis methodology; deferred to a focused follow-up session.
 - **Telegram gateway on System B** (`TelegramGatewayStub` exists with a no-op body). Flip-the-switch addition.
-- **Parallel actor processing** in either system. Both currently process sequentially within one cron tick.
+- **Per-actor processing Loop in the System A graph** — Extractor currently sees all actors' documents in one prompt, which is the root cause of the residual attribution challenge. Per-actor Loop (the pattern MASFactory uses in its NowWhat reference app) would isolate each actor's documents.
 - **Loop-based "discuss until consensus" critic** on System A. Architecture diagram does not include such a loop; literature review may justify adding one.

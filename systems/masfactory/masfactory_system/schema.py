@@ -22,7 +22,7 @@ ActorCategory = Literal[
     "government",
 ]
 
-SourceKind = Literal["arxiv", "website", "swissreg", "manual"]
+SourceKind = Literal["arxiv", "website", "swissreg", "manual", "news"]
 
 
 SignalDimension = Literal[

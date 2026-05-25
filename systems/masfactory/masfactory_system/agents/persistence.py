@@ -54,13 +54,40 @@ def _persist(_input: dict, attrs: dict) -> dict:
         keep_indices = set(range(len(classified)))
     surviving = [s for i, s in enumerate(classified) if i in keep_indices]
 
+    # ---------- defensive validation: drop hallucinated attributions ----------
+    # The LLM has occasionally been observed to attribute a signal to a
+    # different actor than the source document's actor (e.g. mentioning PSI
+    # inside an SQI page and tagging it as a PSI signal). This breaks the
+    # comparative analysis. We enforce: the signal's actor_slug AND source_url
+    # must appear together in at least one input document.
+    documents = attrs.get("documents") or []
+    doc_pairs = {(d.get("actor_slug"), d.get("source_url")) for d in documents}
+    doc_actors = {d.get("actor_slug") for d in documents}
+
+    dropped: list[dict] = []
+    validated: list[dict] = []
+    for s in surviving:
+        a, u = s.get("actor_slug"), s.get("source_url")
+        # Strict: (actor, url) must match exactly. Fallback if URL drifted:
+        # at minimum the actor_slug must be one we fed in this run.
+        if (a, u) in doc_pairs or (a in doc_actors and u and any(
+            d.get("source_url") == u for d in documents
+        )):
+            validated.append(s)
+        else:
+            dropped.append({"signal": s, "reason": "actor_slug/source_url not in input documents"})
+
     if audit is not None:
         audit.write_json("classifications.json", classified)
         audit.write_json("critique.json", critique)
-        audit.write_json("signals.json", surviving)
+        audit.write_json("signals.json", validated)
+        if dropped:
+            audit.write_json("dropped_hallucinations.json", dropped)
         brief = attrs.get("brief_md")
         if brief:
             audit.write_text("brief.md", brief if isinstance(brief, str) else str(brief))
+
+    surviving = validated
 
     inserted = 0
     if store is not None and run_id is not None and surviving:

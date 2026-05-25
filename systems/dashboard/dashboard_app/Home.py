@@ -1,7 +1,8 @@
-"""Streamlit entry point — Home / Overview.
+"""Stakeholder landing page — Swiss quantum-computing ecosystem at a glance.
 
-Run with:
-    streamlit run dashboard_app/Home.py --server.port 8501 --server.address 0.0.0.0
+Audience: researchers, investors, business advisors. They want a fast read of
+the ecosystem in 60 seconds, then a path into deeper drill-down via the
+other pages. No DB column names in this UI — see `labels.py`.
 """
 
 from __future__ import annotations
@@ -11,143 +12,259 @@ import pandas as pd
 import streamlit as st
 
 from dashboard_app import data_access as da
+from dashboard_app import labels as L
+from dashboard_app.scoring import (
+    actor_impact_table,
+    attach_actor_metadata,
+    ecosystem_summary,
+)
 
 
 st.set_page_config(
-    page_title="mas-deeptech-research dashboard",
-    page_icon="🔬",
+    page_title="Swiss Quantum Ecosystem · Signal Dashboard",
+    page_icon="⚛️",
     layout="wide",
 )
 
-st.title("Mas-Deeptech-Research · Dashboard")
+st.title("Swiss Quantum Ecosystem · Signal Dashboard")
 st.caption(
-    "Comparative MAS for the Swiss quantum-computing ecosystem · BSc thesis, Anna Geiser, FHNW. "
-    "Read-only view onto Supabase. Cron-driven scrapes land daily at 02:00 (System A) and 05:00 (System B) Europe/Zurich."
+    "Who has impact in Swiss quantum computing right now, what signals they're sending, "
+    "and how their position is shifting week over week — collected automatically from public "
+    "sources (arXiv, official websites) every day. "
+    "Two independent AI systems harvest the data in parallel so the findings can be cross-checked. "
+    "Bachelor Thesis · Anna Geiser · FHNW · supervised by Prof. Dr. J. Ehrenthal."
 )
 
-# Top filters — propagate via session_state to all pages
+# ---------- Sidebar filters ----------
 with st.sidebar:
     st.header("Filters")
-    system = st.selectbox(
-        "System",
-        options=["both", "masfactory", "hermes"],
+    sys_choice = st.selectbox(
+        "Data source",
+        options=["Both systems (recommended)", L.SYSTEM_LABEL["masfactory"], L.SYSTEM_LABEL["hermes"]],
         index=0,
-        help="Restrict all queries to one system (A=masfactory, B=hermes) or compare side-by-side.",
+        help=(
+            "The dashboard reads from two independent AI pipelines that scrape the same "
+            "ecosystem in parallel. Cross-system agreement is one of the thesis's quality checks. "
+            "Use 'Both systems' unless you want to compare the two."
+        ),
     )
-    st.session_state["filter_system"] = None if system == "both" else system
-    days = st.slider("Lookback window (days)", min_value=1, max_value=90, value=30)
+    system = None
+    if sys_choice == L.SYSTEM_LABEL["masfactory"]:
+        system = "masfactory"
+    elif sys_choice == L.SYSTEM_LABEL["hermes"]:
+        system = "hermes"
+    st.session_state["filter_system"] = system
+
+    days = st.slider(
+        "Time window (days)",
+        min_value=7,
+        max_value=180,
+        value=30,
+        step=7,
+        help="All metrics on the dashboard are computed over this window.",
+    )
     st.session_state["filter_days"] = days
+
     st.markdown("---")
-    st.markdown("**Pages**\n\n- Home (this page)\n- Signals explorer\n- Knowledge graph\n- Reports browser")
+    st.markdown(
+        "**Navigate**\n"
+        "- 🏆 Impact leaderboard\n"
+        "- 🔬 Actor spotlight\n"
+        "- ⚖️ Compare two actors\n"
+        "- 🗺️ Ecosystem map\n"
+        "- 🕸️ Knowledge graph\n"
+        "- 📊 Signals (raw table)\n"
+        "- 📄 Reports\n"
+        "- 📐 Methodology"
+    )
 
-# ---------- Top-line numbers ----------
-runs_df = da.runs(days=days)
-signals_df = da.signals(days=days)
+# ---------- Load ----------
+signals_df = da.signals(system=system, days=days)
+actors_df = da.actors()
+runs_df = da.runs(system=system, days=days)
 
-if signals_df.empty and runs_df.empty:
-    st.warning("No runs or signals in the lookback window. Either the system just started or cron hasn't fired yet.")
+if signals_df.empty:
+    st.info(
+        "No signals in the current window yet. The system collects daily at "
+        "02:00 (System A) and 05:00 (System B) Europe/Zurich. If you just deployed, "
+        "wait for tomorrow's run or trigger a manual scrape via SSH."
+    )
     st.stop()
 
+scores_df = attach_actor_metadata(actor_impact_table(signals_df), actors_df)
+es = ecosystem_summary(scores_df)
 
-def _scoped(df: pd.DataFrame, sys: str | None) -> pd.DataFrame:
-    if df.empty or sys is None:
-        return df
-    return df[df["system"] == sys]
-
-
+# ---------- Hero metrics ----------
+n_actors_total = len(actors_df)
 c1, c2, c3, c4 = st.columns(4)
-sys_filter = st.session_state.get("filter_system")
-sf_runs = _scoped(runs_df, sys_filter)
-sf_signals = _scoped(signals_df, sys_filter)
-
-c1.metric("Runs", len(sf_runs), help="All runs in the lookback window.")
+c1.metric(
+    "Actors tracked",
+    f"{n_actors_total}",
+    help="The full Swiss quantum-computing actor list maintained in the database.",
+)
 c2.metric(
-    "Successful runs",
-    int((sf_runs["status"] == "ok").sum()) if not sf_runs.empty else 0,
-    delta=f"-{int((sf_runs['status'] == 'error').sum()) if not sf_runs.empty else 0} errors",
-    delta_color="inverse",
+    "Active in this window",
+    f"{es['n_actors_with_signals']} / {n_actors_total}",
+    help="Actors with at least one signal observed in the selected time window.",
 )
-c3.metric("Signals", len(sf_signals))
+c3.metric(
+    "New signals collected",
+    f"{len(signals_df):,}",
+    delta=f"{int(scores_df['signal_count_this_week'].sum())} this week",
+    help="Each signal is one piece of public evidence about an actor's position.",
+)
 c4.metric(
-    "Actors with ≥1 signal",
-    int(sf_signals["actor_slug"].nunique()) if not sf_signals.empty else 0,
-    help=f"out of {len(da.actors())} actors in the catalogue.",
+    "Ecosystem momentum",
+    f"{es['total_momentum']:+d}",
+    help="Signal-count change between this week and the previous week, summed across all actors.",
+    delta=f"{es['total_momentum']:+d} vs. prev week",
+    delta_color="normal",
 )
 
-# ---------- Side-by-side comparison when system='both' ----------
-st.markdown("### Per-system snapshot")
-per_sys = (
-    signals_df.groupby("system")
-    .agg(
-        signals=("id", "count"),
-        actors=("actor_slug", "nunique"),
-        technical=("is_technical", lambda s: int(s.sum())),
-        avg_confidence=("confidence", "mean"),
+st.markdown("---")
+
+# ---------- Two columns: Top actors + Recent signals ----------
+left, right = st.columns([0.55, 0.45], gap="large")
+
+with left:
+    st.markdown("### 🏆 Top actors by impact, this window")
+    st.caption(
+        "Impact = the weighted sum of all signals, where each dimension carries a weight reflecting "
+        "how much it tells a market observer (funding > positioning, etc.). See the Methodology page."
     )
-    .reset_index()
-    if not signals_df.empty
-    else pd.DataFrame(columns=["system", "signals", "actors", "technical", "avg_confidence"])
-)
-if not per_sys.empty:
-    per_sys["non_technical"] = per_sys["signals"] - per_sys["technical"]
-    per_sys["avg_confidence"] = per_sys["avg_confidence"].round(3)
-    st.dataframe(per_sys, use_container_width=True, hide_index=True)
+    top_n = min(10, len(scores_df))
+    top = scores_df.head(top_n).copy()
+    top["display"] = top.apply(lambda r: r.get("name") or r["actor_slug"], axis=1)
+    top["category_pretty"] = top["category"].map(lambda c: L.category(c) if c else "—")
+    top["momentum_arrow"] = top["momentum"].map(lambda m: "▲" if m > 0 else ("▼" if m < 0 else "·"))
 
-# ---------- Dimension mix ----------
-st.markdown("### Signal dimensions")
-if not sf_signals.empty:
-    dim = sf_signals.groupby(["system", "dimension"]).size().reset_index(name="count")
-    chart = (
-        alt.Chart(dim)
-        .mark_bar()
-        .encode(
-            x=alt.X("dimension:N", sort="-y"),
-            y="count:Q",
-            color="system:N",
-            tooltip=["system", "dimension", "count"],
+    st.dataframe(
+        top[["display", "category_pretty", "impact", "momentum_arrow", "momentum", "signal_count", "diversity"]].rename(
+            columns={
+                "display": "Actor",
+                "category_pretty": "Category",
+                "impact": "Impact",
+                "momentum_arrow": "",
+                "momentum": "Δ week",
+                "signal_count": "Signals",
+                "diversity": "Dimensions",
+            }
+        ),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Impact": st.column_config.ProgressColumn(
+                "Impact",
+                help="Weighted signal sum. Higher = louder, more diversely sourced positioning.",
+                format="%.2f",
+                min_value=0.0,
+                max_value=float(top["impact"].max()) if len(top) else 1.0,
+            ),
+            "Δ week": st.column_config.NumberColumn(
+                "Δ week", help="Net change in signal count vs the previous 7-day window."
+            ),
+            "Dimensions": st.column_config.NumberColumn(
+                "Dimensions",
+                help=f"Number of distinct signal types this actor has shown. Max 9.",
+            ),
+        },
+    )
+
+with right:
+    st.markdown("### ⏱ Latest signals")
+    st.caption("The most recent evidence captured by either system.")
+    recent = signals_df.copy()
+    recent["actor_name"] = recent["actor_slug"].map(
+        lambda s: dict(zip(actors_df["slug"], actors_df["name"])).get(s, s) if not actors_df.empty else s
+    )
+    recent["dim_label"] = recent["dimension"].map(L.dimension)
+    recent["when"] = pd.to_datetime(recent["inserted_at"], utc=True, errors="coerce").dt.tz_convert("Europe/Zurich").dt.strftime("%Y-%m-%d %H:%M")
+
+    show_n = min(8, len(recent))
+    for _, r in recent.head(show_n).iterrows():
+        st.markdown(
+            f"**{r['actor_name']}** · _{r['dim_label']}_  \n"
+            f"{r.get('summary', '')[:200]}{'…' if len(r.get('summary','')) > 200 else ''}  \n"
+            f"<span style='color:#888;font-size:0.85em'>{r['when']} · "
+            f"<a href='{r['source_url']}' target='_blank'>source ↗</a></span>",
+            unsafe_allow_html=True,
         )
-        .properties(height=320)
-    )
-    st.altair_chart(chart, use_container_width=True)
-else:
-    st.info("No signals in this window — nothing to chart.")
+        st.markdown("")
 
-# ---------- Token spend over time ----------
-st.markdown("### Token spend over time")
-tokens_df = da.token_usage(days=days)
-if not tokens_df.empty:
-    tokens_df["recorded_at"] = pd.to_datetime(tokens_df["recorded_at"])
-    tok_daily = (
-        tokens_df.assign(day=tokens_df["recorded_at"].dt.date)
-        .groupby(["day", "system"])
-        .agg(input=("input_tokens", "sum"), output=("output_tokens", "sum"))
+st.markdown("---")
+
+# ---------- Category mix ----------
+st.markdown("### 🗺 Where is the signal coming from?")
+st.caption("Signal volume by actor category, this window. Click categories on the chart to filter.")
+
+sig_with_meta = signals_df.merge(
+    actors_df[["slug", "category"]].rename(columns={"slug": "actor_slug"}),
+    on="actor_slug",
+    how="left",
+)
+sig_with_meta["category_label"] = sig_with_meta["category"].map(lambda c: L.category(c) if c else "Unknown")
+sig_with_meta["dim_label"] = sig_with_meta["dimension"].map(L.dimension)
+
+cat_chart = (
+    alt.Chart(sig_with_meta)
+    .mark_bar()
+    .encode(
+        x=alt.X("count():Q", title="Signals"),
+        y=alt.Y("category_label:N", sort="-x", title=None),
+        color=alt.Color(
+            "dim_label:N",
+            title="Signal type",
+            scale=alt.Scale(scheme="tableau10"),
+        ),
+        tooltip=[
+            alt.Tooltip("category_label:N", title="Category"),
+            alt.Tooltip("dim_label:N", title="Signal type"),
+            alt.Tooltip("count():Q", title="Signals"),
+        ],
+    )
+    .properties(height=340)
+)
+st.altair_chart(cat_chart, use_container_width=True)
+
+st.markdown("---")
+
+# ---------- Cross-system sanity ----------
+if system is None and "system" in signals_df.columns:
+    st.markdown("### 🔁 Cross-system sanity check")
+    st.caption(
+        "Both AI systems harvest the same ecosystem independently. The thesis treats the two "
+        "as alternative readings, not duplicates — so divergence here is interesting, not wrong."
+    )
+    per_sys = (
+        signals_df.groupby("system")
+        .agg(signals=("id", "count"), actors=("actor_slug", "nunique"))
         .reset_index()
     )
-    tok_long = tok_daily.melt(
-        id_vars=["day", "system"], value_vars=["input", "output"], var_name="kind", value_name="tokens"
-    )
-    chart = (
-        alt.Chart(tok_long)
-        .mark_line(point=True)
-        .encode(
-            x="day:T",
-            y="tokens:Q",
-            color="system:N",
-            strokeDash="kind:N",
-            tooltip=["day", "system", "kind", "tokens"],
-        )
-        .properties(height=280)
-    )
-    st.altair_chart(chart, use_container_width=True)
-else:
-    st.info("No token usage rows yet.")
+    per_sys["system_label"] = per_sys["system"].map(L.system_label)
 
-# ---------- Recent errors ----------
-errs = runs_df[runs_df["status"] == "error"] if not runs_df.empty else pd.DataFrame()
-if not errs.empty:
-    st.markdown("### Recent error runs")
+    runs_per_sys = (
+        runs_df.groupby("system").agg(runs=("id", "count")).reset_index()
+        if not runs_df.empty
+        else pd.DataFrame(columns=["system", "runs"])
+    )
+    combined = per_sys.merge(runs_per_sys, on="system", how="left").fillna({"runs": 0})
+    combined["runs"] = combined["runs"].astype(int)
+
     st.dataframe(
-        errs[["started_at", "system", "error_message"]].head(10),
+        combined[["system_label", "runs", "signals", "actors"]].rename(
+            columns={
+                "system_label": "System",
+                "runs": "Runs",
+                "signals": "Signals collected",
+                "actors": "Distinct actors",
+            }
+        ),
         use_container_width=True,
         hide_index=True,
     )
+
+st.markdown("---")
+st.caption(
+    "Data sources: arXiv (research output), actor websites (other signal types). "
+    "Updates: every 24 h via cron. Open the Methodology page for the full taxonomy and scoring formulas."
+)

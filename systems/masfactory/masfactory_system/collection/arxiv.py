@@ -1,12 +1,20 @@
 """arXiv collector — uses the public Atom export, no auth required.
 
-We deliberately use the documented `http://export.arxiv.org/api/query` endpoint
-(returns Atom XML). Each entry becomes one Document for the Extractor.
+We deliberately use the documented `https://export.arxiv.org/api/query`
+endpoint (returns Atom XML). Each entry becomes one Document for the
+Extractor.
+
+Throttling: arXiv's terms of use ask for at most 1 request every 3 seconds.
+The per-actor Loop in System A hits this collector once per actor in fast
+succession, so we keep a module-level "last call" timestamp and sleep just
+enough between requests to stay under the limit.
 """
 
 from __future__ import annotations
 
 import hashlib
+import threading
+import time
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
@@ -14,6 +22,21 @@ import feedparser
 import httpx
 
 from ..schema import Actor, Document
+
+
+_ARXIV_MIN_INTERVAL = 3.1  # seconds — arXiv asks for ≥3s between requests
+_last_call_at = 0.0
+_throttle_lock = threading.Lock()
+
+
+def _throttle() -> None:
+    """Sleep just enough since the previous arXiv request."""
+    global _last_call_at
+    with _throttle_lock:
+        elapsed = time.monotonic() - _last_call_at
+        if elapsed < _ARXIV_MIN_INTERVAL:
+            time.sleep(_ARXIV_MIN_INTERVAL - elapsed)
+        _last_call_at = time.monotonic()
 
 
 ARXIV_ENDPOINT = "https://export.arxiv.org/api/query"
@@ -65,6 +88,7 @@ def collect_arxiv(actor: Actor, *, max_results: int = 5, timeout: float = 30.0) 
 
     # arXiv now serves https; the http endpoint returns 301. Follow redirects
     # so we don't lose every actor's papers to the http→https hop.
+    _throttle()
     with httpx.Client(
         timeout=timeout,
         headers={"User-Agent": "masfactory-thesis/0.1 (research)"},

@@ -47,6 +47,23 @@ def _normalise_arxiv_query(raw: str) -> str:
     return f"all:{s}"
 
 
+# arXiv's terms ask for >=3s between requests. Module-level throttle keeps
+# the Loop / agent from bursting requests across actors.
+import threading as _threading
+_ARXIV_MIN_INTERVAL = 3.1
+_arxiv_last_call_at = 0.0
+_arxiv_throttle_lock = _threading.Lock()
+
+
+def _throttle_arxiv() -> None:
+    global _arxiv_last_call_at
+    with _arxiv_throttle_lock:
+        elapsed = time.monotonic() - _arxiv_last_call_at
+        if elapsed < _ARXIV_MIN_INTERVAL:
+            time.sleep(_ARXIV_MIN_INTERVAL - elapsed)
+        _arxiv_last_call_at = time.monotonic()
+
+
 def collect_arxiv_for_query(*, query: str, max_results: int, actor_slug: str) -> list[dict]:
     normalised = _normalise_arxiv_query(query)
     if not normalised:
@@ -62,6 +79,7 @@ def collect_arxiv_for_query(*, query: str, max_results: int, actor_slug: str) ->
             }
         )
     )
+    _throttle_arxiv()
     with httpx.Client(timeout=30, headers={"User-Agent": USER_AGENT}, follow_redirects=True) as client:
         resp = client.get(url)
         resp.raise_for_status()

@@ -69,10 +69,30 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
             except Exception as exc:
                 errors.append({"slug": slug, "source": "news", "error": str(exc)})
 
+    # Group documents by actor_slug so the per-actor Loop downstream can
+    # process one actor at a time (smaller Extractor prompts → cleaner
+    # attribution + lower context-window risk). Order preserved by plan.
+    grouped: list[dict] = []
+    seen: set[str] = set()
+    for entry in plan.get("selected", []):
+        slug = entry.get("slug")
+        if not slug or slug in seen:
+            continue
+        seen.add(slug)
+        actor_docs = [d for d in documents if d.get("actor_slug") == slug]
+        if actor_docs:  # skip actors with zero docs (Loop has nothing to process)
+            grouped.append({"actor_slug": slug, "documents": actor_docs})
+
     return {
         "documents": documents,
         "documents_count": len(documents),
         "documents_json": json.dumps(documents),
+        "documents_by_actor": grouped,
+        "documents_by_actor_count": len(grouped),
+        "actor_loop_index": 0,
+        "all_classified": [],
+        "all_critique": [],
+        "all_surviving_signals": [],
         "retriever_errors": errors,
     }
 

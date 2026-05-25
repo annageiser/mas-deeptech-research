@@ -31,7 +31,7 @@ flowchart TB
             direction TB
 
             subgraph A [Container A — masfactory]
-                MA["RootGraph: Planner → Retriever → Extractor →<br/>Classifier → Critic → Analyst → Persistence"]
+                MA["RootGraph: Planner → Retriever →<br/>PerActorLoop(Extractor → Classifier → Critic → Accumulate)<br/>→ Analyst → Persistence"]
             end
 
             subgraph B [Container B — hermes]
@@ -115,21 +115,30 @@ flowchart TB
 - **Caddy not nginx:** Caddy handles ACME / Let's Encrypt automatically — no certbot cron job, no renew script. One `Caddyfile` line per service.
 - **Streamlit not React+Flask:** ~50 lines per page, Python all the way down, no separate frontend build. Right shape for a thesis dashboard.
 
-## The 7 nodes of System A
+## The nodes of System A
 
-Mirrors the architecture diagram in the disposition exactly.
+The original disposition diagram lists 7 nodes (Planner → Retriever →
+Extractor → Classifier → Critic → Analyst → Persistence). The live graph
+adds three helper CustomNodes — PrepareCurrentActor, AccumulateActor, and
+the standalone Survivor (kept for backward-compat tests) — and wraps
+Extractor + Classifier + Critic in a **per-actor Loop** so each actor's
+documents are processed in isolation. Same conceptual flow, cleaner
+attribution at scale.
 
-| # | Node | Kind | Reads | Writes |
-|---|------|------|-------|--------|
-| 1 | Planner    | `Agent`      | `candidate_actors_json`, `limit_actors` | `plan_json` |
-| 2 | Retriever  | `CustomNode` | `plan_json`, `actor_pool`               | `documents_json`, `documents_count` |
-| 3 | Extractor  | `Agent`      | `documents_json`                        | `candidates_json` |
-| 4 | Classifier | `Agent`      | `candidates_json`                       | `classified_json` |
-| 5 | Critic     | `Agent`      | `classified_json`                       | `critique_json` |
-| 6 | Analyst    | `Agent`      | `plan_json`, `surviving_signals_json`   | `brief_md` |
-| 7 | Persistence| `CustomNode` | `classified_json`, `critique_json`, `brief_md`, `store`, `audit_folder`, `run_id` | `signals_kept`, `signals_inserted`, `surviving_signals_json` |
+| # | Node | Kind | Loop? | Reads | Writes |
+|---|------|------|-------|-------|--------|
+| 1 | Planner             | `Agent`      | no  | `candidate_actors_json`, `limit_actors` | `plan_json` |
+| 2 | Retriever           | `CustomNode` | no  | `plan_json`, `actor_pool`               | `documents`, `documents_by_actor`, `actor_loop_index=0`, accumulators |
+| 3 | PrepareCurrentActor | `CustomNode` | yes | `documents_by_actor`, `actor_loop_index`| `current_actor_slug`, `documents_json` (1 actor's docs), clears scratch |
+| 4 | Extractor           | `Agent`      | yes | `documents_json`                        | `candidates_json` |
+| 5 | Classifier          | `Agent`      | yes | `candidates_json`                       | `classified_json` |
+| 6 | Critic              | `Agent`      | yes | `classified_json`                       | `critique_json` |
+| 7 | AccumulateActor     | `CustomNode` | yes | per-iteration scratch + accumulators    | `all_classified`, `all_critique`, `all_surviving_signals`, `surviving_signals_json`, `dropped_cross_actor`, `actor_loop_index += 1` |
+| 8 | Analyst             | `Agent`      | no  | `plan_json`, `surviving_signals_json`   | `brief_md` |
+| 9 | Persistence         | `CustomNode` | no  | `all_*` accumulators, `brief_md`, `store`, `audit_folder`, `run_id` | `signals_kept`, `signals_inserted` |
 
 Code: [`systems/masfactory/masfactory_system/graph.py`](../systems/masfactory/masfactory_system/graph.py).
+Loop helpers: [`systems/masfactory/masfactory_system/agents/loop_nodes.py`](../systems/masfactory/masfactory_system/agents/loop_nodes.py).
 
 ## System B component map
 

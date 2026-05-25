@@ -176,7 +176,7 @@ def _docs_from_feed(actor: Actor, feed_xml: str, max_entries: int) -> list[Docum
 def collect_website(
     actor: Actor,
     *,
-    max_pages: int = 5,
+    max_pages: int = 3,
     cache_dir: str = "/data/raw/web_cache",
     timeout: float = 20.0,
     delay_seconds: float = 1.0,

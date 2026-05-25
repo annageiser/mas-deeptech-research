@@ -1,8 +1,16 @@
 """RootGraph wiring for System A.
 
-Linear pipeline matching the architecture diagram:
+Strictly linear pipeline:
 
-  ENTRY → Planner → Retriever → Extractor → Classifier → Critic → Analyst → Persistence → EXIT
+  ENTRY → Planner → Retriever → Extractor → Classifier → Critic
+        → Survivor → Analyst → Persistence → EXIT
+
+Survivor (a small CustomNode) is the bridge between Critic and Analyst:
+it filters the classified signals by the Critic's keep-decisions and
+emits `surviving_signals_json` so the Analyst can write its brief from
+real data. Without this bridge the Analyst saw an empty input and was
+filling in plausible-sounding content from the model's training data —
+a silent correctness bug discovered in the 2026-05-25 04:00 audit folder.
 
 The model is bound to all Agent nodes at runtime via
 `template_defaults_for(type_filter=Agent, model=...)` (a context manager
@@ -22,6 +30,7 @@ from .agents import (
     PersistenceNode,
     PlannerNode,
     RetrieverNode,
+    SurvivorNode,
 )
 
 
@@ -30,7 +39,7 @@ WORKFLOW_ATTRIBUTES: dict[str, object] = {
     "actor_pool": [],
     "limit_actors": 3,
     "limit_arxiv_per_actor": 5,
-    "limit_website_pages_per_actor": 2,
+    "limit_website_pages_per_actor": 5,
     "web_cache_dir": "/data/raw/web_cache",
     "store": None,
     "audit_folder": None,
@@ -54,11 +63,6 @@ WORKFLOW_ATTRIBUTES: dict[str, object] = {
 
 
 def build_graph() -> RootGraph:
-    """Construct the workflow without binding a model.
-
-    The runner wraps `build()` + `invoke()` in `template_defaults_for(Agent, model=...)`
-    so every Agent node receives the live `LegacyOpenAIModel`.
-    """
     g = RootGraph(
         name="masfactory_swiss_quantum",
         attributes=dict(WORKFLOW_ATTRIBUTES),
@@ -68,6 +72,7 @@ def build_graph() -> RootGraph:
             ("extractor", ExtractorNode),
             ("classifier", ClassifierNode),
             ("critic", CriticNode),
+            ("survivor", SurvivorNode),
             ("analyst", AnalystNode),
             ("persistence", PersistenceNode),
         ],
@@ -77,9 +82,8 @@ def build_graph() -> RootGraph:
             ("retriever", "extractor", {"documents_json": "Raw documents"}),
             ("extractor", "classifier", {"candidates_json": "Signal candidates"}),
             ("classifier", "critic", {"classified_json": "Classified signals"}),
-            ("classifier", "persistence", {"classified_json": "Classified signals (for audit/upsert)"}),
-            ("critic", "persistence", {"critique_json": "Critique decisions"}),
-            ("critic", "analyst", {"surviving_signals_json": "Surviving signals after critic"}),
+            ("critic", "survivor", {"critique_json": "Critique decisions"}),
+            ("survivor", "analyst", {"surviving_signals_json": "Signals surviving the critic"}),
             ("analyst", "persistence", {"brief_md": "Markdown brief"}),
             ("persistence", "EXIT", {"signals_kept": "Count kept", "signals_inserted": "Count inserted"}),
         ],

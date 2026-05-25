@@ -102,6 +102,10 @@ ActorLoopNode = NodeTemplate(
         "all_critique": "Accumulated critique decisions",
         "all_surviving_signals": "Accumulated surviving signals",
         "dropped_cross_actor": "Cross-actor attribution drops",
+        # MASFactory's Loop requires a key to be in pull_keys for it to be
+        # tracked and pushed back out — even when only the inner accumulator
+        # populates it. Default = empty string.
+        "surviving_signals_json": "Run-wide surviving signals as JSON (for Analyst)",
     },
     push_keys={
         "all_classified": "...",

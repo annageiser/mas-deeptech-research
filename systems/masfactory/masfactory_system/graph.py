@@ -5,6 +5,15 @@ Strictly linear pipeline:
   ENTRY → Planner → Retriever → Extractor → Classifier → Critic
         → Survivor → Analyst → Persistence → EXIT
 
+Sources the Retriever can pull per actor (sources field in plan_json):
+  - "arxiv"   — papers from export.arxiv.org/api/query
+  - "website" — actor homepage + RSS feeds + newsy subpages (depth 2)
+  - "news"    — third-party coverage via Google News RSS, Switzerland-biased
+                (Kolbe & Burnett 1991 — broader content analysis;
+                 Suchman 1995 — strategic vs cognitive legitimacy is more
+                 honest when both actor-controlled and third-party
+                 sources are sampled).
+
 Survivor (a small CustomNode) is the bridge between Critic and Analyst:
 it filters the classified signals by the Critic's keep-decisions and
 emits `surviving_signals_json` so the Analyst can write its brief from

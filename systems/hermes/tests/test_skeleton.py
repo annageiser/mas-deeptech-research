@@ -70,4 +70,4 @@ def test_tools_registry_lists_four_tools():
     buffer: list[dict] = []
     register_default_tools(reg, actor_slug="test", signal_buffer=buffer)
     names = sorted(t.name for t in reg.list())
-    assert names == ["arxiv_search", "finish_actor", "register_signal", "website_fetch"]
+    assert names == ["arxiv_search", "finish_actor", "news_search", "register_signal", "website_fetch"]

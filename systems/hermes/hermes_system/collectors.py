@@ -21,6 +21,7 @@ from selectolax.parser import HTMLParser
 
 
 ARXIV_ENDPOINT = "http://export.arxiv.org/api/query"
+GNEWS_ENDPOINT = "https://news.google.com/rss/search"
 USER_AGENT = "hermes-thesis/0.1 (+https://github.com/anna-geiser/mas-deeptech-research)"
 WEB_CACHE_DIR = os.environ.get("HRM_WEB_CACHE_DIR", "/data/raw/hermes_web_cache")
 NEWSY_HINTS = (
@@ -258,3 +259,47 @@ def collect_website_for_url(*, url: str, max_pages: int, actor_slug: str) -> lis
             docs.append(sub_doc)
 
     return docs[:max_pages]
+
+
+# ---------- Google News (broader third-party coverage) ----------
+
+def collect_google_news_for_actor(*, actor_name: str, max_results: int, actor_slug: str) -> list[dict]:
+    """Fetch Google News RSS, biased to Switzerland.
+
+    Same logic as systems/masfactory's collect_google_news — kept
+    code-independent for the comparative invariant. Justified
+    academically by Kolbe & Burnett 1991 (content analysis) and
+    Suchman 1995 (legitimacy via third-party recognition).
+    """
+    if not actor_name.strip():
+        return []
+    q = f'"{actor_name.strip()}" quantum (Switzerland OR Swiss OR Suisse OR Schweiz)'
+    url = f"{GNEWS_ENDPOINT}?{urlencode({'q': q, 'hl': 'en', 'gl': 'CH', 'ceid': 'CH:en'})}"
+    try:
+        with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:
+            resp = client.get(url)
+            resp.raise_for_status()
+    except Exception:
+        return []
+    feed = feedparser.parse(resp.text)
+    docs: list[dict] = []
+    now = datetime.now(timezone.utc).isoformat()
+    for entry in feed.entries[: max(1, min(20, int(max_results)))]:
+        link = (entry.get("link") or "").strip()
+        title = (entry.get("title") or "").strip()
+        summary = (entry.get("summary") or entry.get("description") or "").strip()
+        if not link or not title:
+            continue
+        body = f"{title}\n\n{summary}".strip()
+        docs.append(
+            {
+                "source_kind": "news",
+                "source_url": link,
+                "actor_slug": actor_slug,
+                "title": title,
+                "text": body[:8_000],
+                "fetched_at": now,
+                "content_hash": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+            }
+        )
+    return docs

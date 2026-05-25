@@ -11,7 +11,7 @@ import json
 
 from masfactory import CustomNode, NodeTemplate
 
-from ..collection import collect_arxiv, collect_website
+from ..collection import collect_arxiv, collect_google_news, collect_website
 from ..schema import Actor
 
 
@@ -29,6 +29,7 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
     actors_by_slug: dict[str, dict] = {a["slug"]: a for a in attrs.get("actor_pool", [])}
     limit_arxiv = int(attrs.get("limit_arxiv_per_actor", 5) or 5)
     limit_web = int(attrs.get("limit_website_pages_per_actor", 2) or 2)
+    limit_news = int(attrs.get("limit_news_per_actor", 5) or 5)
     cache_dir = attrs.get("web_cache_dir", "/data/raw/web_cache") or "/data/raw/web_cache"
 
     documents: list[dict] = []
@@ -56,6 +57,17 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
                 )
             except Exception as exc:
                 errors.append({"slug": slug, "source": "website", "error": str(exc)})
+
+        # Google News is broader-web third-party coverage. Always opt in unless
+        # the plan explicitly says no — gives non-actor-controlled signal.
+        if "news" in sources or not sources or ("arxiv" in sources or "website" in sources):
+            try:
+                documents.extend(
+                    d.model_dump(mode="json")
+                    for d in collect_google_news(actor, max_results=limit_news)
+                )
+            except Exception as exc:
+                errors.append({"slug": slug, "source": "news", "error": str(exc)})
 
     return {
         "documents": documents,

@@ -62,7 +62,7 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
     `signal_buffer` is a shared list the `register_signal` tool appends to;
     the runner reads it after the loop finishes and ships rows to Supabase.
     """
-    from ..collectors import collect_arxiv_for_query, collect_website_for_url
+    from ..collectors import collect_arxiv_for_query, collect_google_news_for_actor, collect_website_for_url
 
     def arxiv_search(query: str, max_results: int = 5) -> str:
         docs = collect_arxiv_for_query(query=query, max_results=max_results, actor_slug=actor_slug)
@@ -70,6 +70,14 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
 
     def website_fetch(url: str, max_pages: int = 1) -> str:
         docs = collect_website_for_url(url=url, max_pages=max_pages, actor_slug=actor_slug)
+        return json.dumps(docs)
+
+    def news_search(actor_name: str, max_results: int = 5) -> str:
+        """Google News RSS biased to Switzerland. Pass the actor's display
+        name (not slug) — Google News matches better on real names."""
+        docs = collect_google_news_for_actor(
+            actor_name=actor_name, max_results=max_results, actor_slug=actor_slug
+        )
         return json.dumps(docs)
 
     def register_signal(
@@ -104,6 +112,10 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
                          {"query": "string", "max_results": "int (default 5)"}))
     registry.add(ToolDef("website_fetch", "Fetch + extract visible text from one URL.", website_fetch,
                          {"url": "string", "max_pages": "int (default 1)"}))
+    registry.add(ToolDef("news_search",
+                         "Search Google News for third-party coverage of the actor (Switzerland-biased).",
+                         news_search,
+                         {"actor_name": "string (the actor's display name)", "max_results": "int (default 5)"}))
     registry.add(ToolDef("register_signal",
                          "Record one classified signal — call this once per evidence item.",
                          register_signal,

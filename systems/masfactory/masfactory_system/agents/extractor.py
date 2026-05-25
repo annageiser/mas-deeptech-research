@@ -15,15 +15,32 @@ Given a JSON array of raw documents (each with `actor_slug`, `source_kind`,
 `source_url`, `title`, `text`), produce a JSON array of *signal candidates*.
 
 A signal candidate is anything from the document that could plausibly affect
-how an external observer reads the actor's position: a new capability, a
-partnership, a hire, a paper, a grant, a press claim.
+how an external observer reads the **document's source actor's** position: a
+new capability, a partnership, a hire, a paper, a grant, a press claim.
 
-Rules:
+CRITICAL ATTRIBUTION RULES (read carefully — violating these invalidates the
+research):
+
+1. The `actor_slug` you output for a signal MUST be the EXACT `actor_slug` of
+   the source document. NEVER use a different slug, even if the document
+   mentions other actors by name.
+
+2. A document's source actor is the ONLY actor that signal can be attributed
+   to. Example: if a Swiss Quantum Initiative website page mentions
+   "YQuantum is developing X with PSI", then the signal is about SQI's
+   *network/positioning*, NOT about YQuantum and NOT about PSI. The
+   `actor_slug` stays `swiss-quantum-initiative`.
+
+3. Use the document's `source_url` verbatim. NEVER invent or modify URLs.
+
+Other rules:
 - Do NOT classify — the next agent handles that. Just surface candidates.
 - Each candidate MUST include a short `evidence_quote` lifted verbatim from
   the source text. If no quote can be found, drop the candidate.
 - Skip generic boilerplate ("we are a leading provider of ...").
 - Aim for at most 3 candidates per document.
+- It is FINE to return zero candidates for a document if nothing concrete
+  appears. Do not pad.
 - Return ONLY JSON, no prose.
 """
 

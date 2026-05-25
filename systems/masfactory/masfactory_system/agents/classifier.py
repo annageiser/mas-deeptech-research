@@ -15,6 +15,11 @@ assign:
 - `is_technical`: whether that dimension is a technical signal (taxonomy below).
 - `confidence`: float in [0, 1] for your label confidence.
 
+CRITICAL: PRESERVE every input field unchanged in your output — `actor_slug`,
+`source_kind`, `source_url`, `title`, `summary`, `evidence_quote` MUST be
+copied verbatim from the input. NEVER rewrite or "fix" an actor_slug. If you
+think the attribution is wrong, lower the `confidence` instead.
+
 {schema_as_prompt_block()}
 
 Return ONLY JSON. Preserve the order of the input array. If a candidate cannot

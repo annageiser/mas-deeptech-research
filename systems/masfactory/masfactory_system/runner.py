@@ -101,23 +101,43 @@ def cmd_run_once(args: argparse.Namespace) -> int:
 
     # MASFactory's LegacyOpenAIModel keeps a TokenUsageTracker on the model
     # instance; every Agent node in the graph shares this model so the
-    # tracker holds the totals across all nodes for this run. We record one
-    # row in Supabase so the thesis cost analysis has matching data to
-    # System B's per-model token rows.
+    # tracker holds the totals across all nodes for this run.
+    #
+    # When the FailoverLegacyOpenAIModel switches to the fallback model on
+    # OpenRouter no-choices errors, the fallback has its own token tracker —
+    # so we write up to two rows (primary + fallback) per run.
     try:
-        tracker = getattr(model, "_token_tracker", None)
-        if tracker is not None:
-            input_tok = int(getattr(tracker, "total_input_usage", 0) or 0)
-            output_tok = int(getattr(tracker, "total_output_usage", 0) or 0)
-            tokens_payload = {
-                "node_name": "graph_total",
-                "model_name": settings.model_main,
-                "input_tokens": input_tok,
-                "output_tokens": output_tok,
-                "calls": 0,  # MASFactory tracker doesn't expose call count
+        payloads: list[dict[str, Any]] = []
+
+        def _tracker_row(model_obj, model_name, node_name):
+            tracker = getattr(model_obj, "_token_tracker", None)
+            if tracker is None:
+                return None
+            return {
+                "node_name": node_name,
+                "model_name": model_name,
+                "input_tokens": int(getattr(tracker, "total_input_usage", 0) or 0),
+                "output_tokens": int(getattr(tracker, "total_output_usage", 0) or 0),
+                "calls": 0,  # MASFactory's tracker doesn't expose call count
             }
-            store.record_token_usage(run_id, [tokens_payload])
-            audit.write_json("tokens.json", tokens_payload)
+
+        primary_row = _tracker_row(model, settings.model_main, "graph_total")
+        if primary_row:
+            payloads.append(primary_row)
+
+        # If the failover wrapper was used and ever switched, record fallback usage too.
+        fallback_model = getattr(model, "fallback", None)
+        if fallback_model is not None:
+            fb_row = _tracker_row(fallback_model, settings.model_fallback, "graph_total_fallback")
+            if fb_row and (fb_row["input_tokens"] or fb_row["output_tokens"]):
+                payloads.append(fb_row)
+
+        if payloads:
+            store.record_token_usage(run_id, payloads)
+            audit.write_json("tokens.json", {
+                "rows": payloads,
+                "failover_count": int(getattr(model, "failover_count", 0) or 0),
+            })
     except Exception as exc:  # token recording must never fail a finished run
         audit.write_text("tokens_error.txt", f"{type(exc).__name__}: {exc}")
 

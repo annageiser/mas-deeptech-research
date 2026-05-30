@@ -1,0 +1,334 @@
+"""FastAPI app — read-only JSON over the shared Supabase signal database.
+
+All scoring is the literature-grounded model in scoring.py (impact,
+credibility = cost-discounted impact, cheap_talk_ratio, authority, momentum,
+diversity). See /api/meta for the full methodology.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Any, Optional
+
+import pandas as pd
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+
+from . import data_access as da
+from . import labels as L
+from . import reports as R
+from .config import load_settings
+from .knowledge_graph import build_graph_json
+from .meta import meta_payload
+from .scoring import actor_impact_table, attach_actor_metadata, ecosystem_summary
+
+
+app = FastAPI(
+    title="MAS Deep-Tech Research API",
+    version="0.1.0",
+    description="Read-only JSON over the Swiss-quantum-ecosystem signal database. "
+                "Literature-grounded signalling-theory scoring.",
+)
+
+_settings = load_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_settings.cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
+VALID_SYSTEMS = {"masfactory", "hermes"}
+
+
+# ---------- helpers ----------
+
+def _norm_system(system: Optional[str]) -> Optional[str]:
+    if system in (None, "", "both", "all"):
+        return None
+    if system not in VALID_SYSTEMS:
+        raise HTTPException(status_code=400, detail=f"unknown system '{system}'")
+    return system
+
+
+def _records(df: pd.DataFrame) -> list[dict[str, Any]]:
+    """DataFrame → JSON-safe list of dicts (NaN/inf → None)."""
+    if df is None or df.empty:
+        return []
+    safe = df.where(pd.notnull(df), None)
+    out: list[dict[str, Any]] = []
+    for row in safe.to_dict(orient="records"):
+        clean = {}
+        for k, v in row.items():
+            if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                clean[k] = None
+            else:
+                clean[k] = v
+        out.append(clean)
+    return out
+
+
+def _scored(system: Optional[str], days: int) -> pd.DataFrame:
+    sig = da.signals(system=system, days=days)
+    scores = attach_actor_metadata(actor_impact_table(sig), da.actors())
+    if not scores.empty:
+        scores["name"] = scores.apply(lambda r: r.get("name") or r["actor_slug"], axis=1)
+        scores["category_label"] = scores["category"].map(lambda c: L.category(c) if c else "—")
+    return scores
+
+
+# ---------- routes ----------
+
+@app.get("/api/health")
+def health() -> dict:
+    s = load_settings()
+    return {"ok": True, "supabase_configured": s.has_supabase}
+
+
+@app.get("/api/meta")
+def meta() -> dict:
+    return meta_payload()
+
+
+@app.get("/api/actors")
+def get_actors() -> dict:
+    return {"actors": _records(da.actors())}
+
+
+@app.get("/api/signals")
+def get_signals(
+    system: Optional[str] = None,
+    days: int = Query(30, ge=1, le=365),
+    actor: Optional[str] = None,
+    dimension: Optional[str] = None,
+    source_kind: Optional[str] = None,
+    min_confidence: float = Query(0.0, ge=0.0, le=1.0),
+    limit: int = Query(500, ge=1, le=5000),
+) -> dict:
+    sys = _norm_system(system)
+    df = da.signals(system=sys, days=days)
+    if df.empty:
+        return {"signals": [], "count": 0}
+    if actor:
+        df = df[df["actor_slug"] == actor]
+    if dimension:
+        df = df[df["dimension"] == dimension]
+    if source_kind:
+        df = df[df["source_kind"] == source_kind]
+    if min_confidence > 0:
+        df = df[df["confidence"].fillna(0) >= min_confidence]
+    df = df.head(limit)
+    # enrich with friendly labels
+    actor_name = dict(zip(da.actors()["slug"], da.actors()["name"])) if not da.actors().empty else {}
+    if not df.empty:
+        df = df.assign(
+            actor_name=df["actor_slug"].map(lambda s: actor_name.get(s, s)),
+            dimension_label=df["dimension"].map(L.dimension),
+            source_kind_label=df["source_kind"].map(L.source_kind),
+            cost_class=df["dimension"].map(L.cost_class),
+        )
+    return {"signals": _records(df), "count": int(len(df))}
+
+
+@app.get("/api/scores")
+def get_scores(system: Optional[str] = None, days: int = Query(30, ge=1, le=365)) -> dict:
+    sys = _norm_system(system)
+    return {"scores": _records(_scored(sys, days))}
+
+
+@app.get("/api/ecosystem")
+def get_ecosystem(system: Optional[str] = None, days: int = Query(30, ge=1, le=365)) -> dict:
+    sys = _norm_system(system)
+    scores = _scored(sys, days)
+    sig = da.signals(system=sys, days=days)
+    actors_df = da.actors()
+
+    # dimension mix
+    dim_mix: list[dict] = []
+    if not sig.empty:
+        dm = sig.groupby("dimension").size().reset_index(name="count")
+        dim_mix = [
+            {"dimension": r["dimension"], "label": L.dimension(r["dimension"]),
+             "count": int(r["count"]), "cost_class": L.cost_class(r["dimension"])}
+            for _, r in dm.iterrows()
+        ]
+
+    # category mix
+    cat_mix: list[dict] = []
+    if not sig.empty and not actors_df.empty:
+        merged = sig.merge(actors_df[["slug", "category"]].rename(columns={"slug": "actor_slug"}),
+                           on="actor_slug", how="left")
+        cm = merged.groupby("category").size().reset_index(name="count")
+        cat_mix = [
+            {"category": r["category"], "label": L.category(r["category"]) if r["category"] else "Unknown",
+             "count": int(r["count"]), "color": L.CATEGORY_COLOR.get(r["category"], "#666")}
+            for _, r in cm.iterrows()
+        ]
+
+    summary = ecosystem_summary(scores)
+    if summary.get("top_actor") and not scores.empty:
+        match = scores[scores["actor_slug"] == summary["top_actor"]]
+        if not match.empty:
+            summary["top_actor_name"] = match.iloc[0].get("name") or summary["top_actor"]
+
+    return {
+        "summary": summary,
+        "actors_total": int(len(actors_df)),
+        "dimension_mix": sorted(dim_mix, key=lambda d: -d["count"]),
+        "category_mix": sorted(cat_mix, key=lambda d: -d["count"]),
+        "top_actors": _records(scores.head(10)),
+    }
+
+
+@app.get("/api/signalling")
+def get_signalling(system: Optional[str] = None, days: int = Query(30, ge=1, le=365)) -> dict:
+    """Ehrenthal's research question made measurable: cheap talk vs costly signal."""
+    sys = _norm_system(system)
+    sig = da.signals(system=sys, days=days)
+    scores = _scored(sys, days)
+
+    cost_mix = {"high": 0, "medium": 0, "low": 0}
+    channel_mix = {"capability": 0, "legitimacy": 0}
+    if not sig.empty:
+        for _, s in sig.iterrows():
+            cost_mix[L.cost_class(s["dimension"])] = cost_mix.get(L.cost_class(s["dimension"]), 0) + 1
+            ch = "capability" if s["dimension"] in L.CAPABILITY_DIMENSIONS else "legitimacy"
+            channel_mix[ch] += 1
+
+    total = sum(cost_mix.values()) or 1
+    return {
+        "cost_mix": cost_mix,
+        "cost_mix_pct": {k: round(100 * v / total, 1) for k, v in cost_mix.items()},
+        "channel_mix": channel_mix,
+        "ecosystem_cheap_talk_ratio": round(cost_mix.get("low", 0) / total, 3),
+        # per-actor: cheap_talk_ratio vs credibility — does cheap talk track costly signal?
+        "actors": _records(scores[[
+            "actor_slug", "name", "category_label", "impact", "credibility",
+            "cheap_talk_ratio", "high_cost", "low_cost", "authority", "signal_count",
+        ]]) if not scores.empty else [],
+    }
+
+
+@app.get("/api/actor/{slug}")
+def get_actor(slug: str, system: Optional[str] = None, days: int = Query(30, ge=1, le=365)) -> dict:
+    sys = _norm_system(system)
+    actors_df = da.actors()
+    match = actors_df[actors_df["slug"] == slug] if not actors_df.empty else pd.DataFrame()
+    if match.empty:
+        raise HTTPException(status_code=404, detail=f"actor '{slug}' not found")
+    actor = match.iloc[0].to_dict()
+
+    sig = da.signals(system=sys, days=days)
+    actor_sig = sig[sig["actor_slug"] == slug] if not sig.empty else pd.DataFrame()
+
+    scores = _scored(sys, days)
+    my = scores[scores["actor_slug"] == slug] if not scores.empty else pd.DataFrame()
+    score = _records(my)[0] if not my.empty else None
+
+    # peer rank within category
+    rank = None
+    peers_total = None
+    if score and not scores.empty:
+        cat = actor.get("category")
+        peers = scores[scores["category"] == cat].sort_values("impact", ascending=False).reset_index(drop=True)
+        if not peers.empty:
+            idx = peers.index[peers["actor_slug"] == slug].tolist()
+            if idx:
+                rank = int(idx[0]) + 1
+                peers_total = int(len(peers))
+
+    # signal mix + enrich
+    if not actor_sig.empty:
+        actor_sig = actor_sig.assign(
+            dimension_label=actor_sig["dimension"].map(L.dimension),
+            source_kind_label=actor_sig["source_kind"].map(L.source_kind),
+            cost_class=actor_sig["dimension"].map(L.cost_class),
+        )
+    mix = []
+    if not actor_sig.empty:
+        m = actor_sig.groupby("dimension").size().reset_index(name="count")
+        mix = [{"dimension": r["dimension"], "label": L.dimension(r["dimension"]), "count": int(r["count"])}
+               for _, r in m.iterrows()]
+
+    return {
+        "actor": {**actor, "category_label": L.category(actor.get("category", "")) if actor.get("category") else None},
+        "score": score,
+        "rank_in_category": rank,
+        "peers_in_category": peers_total,
+        "signal_mix": sorted(mix, key=lambda d: -d["count"]),
+        "signals": _records(actor_sig.sort_values("inserted_at", ascending=False)),
+    }
+
+
+@app.get("/api/compare")
+def get_compare(days: int = Query(30, ge=1, le=365)) -> dict:
+    """System A vs System B head-to-head."""
+    out: dict[str, Any] = {}
+    runs_all = da.runs(system=None, days=days)
+    sig_all = da.signals(system=None, days=days)
+    tok_all = da.token_usage(system=None, days=days)
+    actors_df = da.actors()
+    actor_name = dict(zip(actors_df["slug"], actors_df["name"])) if not actors_df.empty else {}
+
+    per_system = {}
+    for sys_ in ("masfactory", "hermes"):
+        s_runs = runs_all[runs_all["system"] == sys_] if not runs_all.empty else pd.DataFrame()
+        s_sig = sig_all[sig_all["system"] == sys_] if ("system" in sig_all.columns and not sig_all.empty) else pd.DataFrame()
+        s_tok = tok_all[tok_all["system"] == sys_] if not tok_all.empty else pd.DataFrame()
+        in_tok = int(s_tok["input_tokens"].sum()) if not s_tok.empty else 0
+        out_tok = int(s_tok["output_tokens"].sum()) if not s_tok.empty else 0
+        n_sig = int(len(s_sig))
+        per_system[sys_] = {
+            "label": L.system_label(sys_),
+            "runs": int(len(s_runs)),
+            "runs_ok": int((s_runs["status"] == "ok").sum()) if not s_runs.empty else 0,
+            "runs_error": int((s_runs["status"] == "error").sum()) if not s_runs.empty else 0,
+            "signals": n_sig,
+            "actors": int(s_sig["actor_slug"].nunique()) if not s_sig.empty else 0,
+            "input_tokens": in_tok,
+            "output_tokens": out_tok,
+            "signals_per_1k_tokens": round(n_sig / max(1, (in_tok + out_tok) / 1000), 2) if (in_tok + out_tok) else None,
+        }
+
+    # per-actor impact agreement
+    def _impact_map(sys_):
+        s = sig_all[sig_all["system"] == sys_] if ("system" in sig_all.columns and not sig_all.empty) else pd.DataFrame()
+        sc = actor_impact_table(s)
+        return dict(zip(sc["actor_slug"], sc["impact"])) if not sc.empty else {}
+
+    a_map, b_map = _impact_map("masfactory"), _impact_map("hermes")
+    agreement = []
+    for slug in sorted(set(a_map) | set(b_map)):
+        ai, bi = float(a_map.get(slug, 0.0)), float(b_map.get(slug, 0.0))
+        if ai == 0 and bi == 0:
+            continue
+        status = "both" if (ai > 0 and bi > 0) else ("only_a" if ai > 0 else "only_b")
+        agreement.append({"actor_slug": slug, "name": actor_name.get(slug, slug),
+                          "system_a_impact": round(ai, 2), "system_b_impact": round(bi, 2), "status": status})
+
+    out["per_system"] = per_system
+    out["agreement"] = sorted(agreement, key=lambda r: -r["system_a_impact"])
+    out["agreement_counts"] = {
+        "both": sum(1 for r in agreement if r["status"] == "both"),
+        "only_a": sum(1 for r in agreement if r["status"] == "only_a"),
+        "only_b": sum(1 for r in agreement if r["status"] == "only_b"),
+    }
+    return out
+
+
+@app.get("/api/knowledge-graph")
+def get_kg(system: Optional[str] = None, days: int = Query(30, ge=1, le=365),
+           threshold: int = Query(2, ge=1, le=9)) -> dict:
+    sys = _norm_system(system)
+    return build_graph_json(da.signals(system=sys, days=days), da.actors(), shared_dim_threshold=threshold)
+
+
+@app.get("/api/reports")
+def get_reports(kind: Optional[str] = None, period: Optional[str] = None, file: Optional[str] = None) -> dict:
+    if period and file and kind:
+        body = R.get_report(kind, period, file)
+        if body is None:
+            raise HTTPException(status_code=404, detail="report not found")
+        return {"kind": kind, "period": period, "file": file, "markdown": body}
+    return {"reports": R.list_reports(kind)}

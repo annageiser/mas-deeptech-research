@@ -73,6 +73,49 @@ DIMENSION_WEIGHT = {
     "market_positioning":      0.4,
 }
 
+# Signal-cost class per dimension — the heart of signalling theory: costly,
+# hard-to-fake signals (Rieger et al. 2025; Suchman 1995) carry more
+# information than cheap talk. Mirrors `signal_cost` in schema.yaml.
+DIMENSION_COST = {
+    "technical_capability":    "medium",
+    "research_output":         "high",
+    "ip_filing":               "high",
+    "infrastructure_or_facility": "high",
+    "partnership_or_alliance": "medium",
+    "funding_or_grant":        "high",
+    "hiring_or_talent":        "medium",
+    "regulatory_or_policy":    "medium",
+    "market_positioning":      "low",
+}
+
+# Credibility multiplier per cost class. Mirrors `cost_classes` in schema.yaml.
+COST_MULTIPLIER = {"high": 1.0, "medium": 0.7, "low": 0.4}
+
+# Public observability per dimension. Mirrors `observability` in schema.yaml.
+DIMENSION_OBSERVABILITY = {
+    "technical_capability":    "medium",
+    "research_output":         "high",
+    "ip_filing":               "high",
+    "infrastructure_or_facility": "medium",
+    "partnership_or_alliance": "high",
+    "funding_or_grant":        "high",
+    "hiring_or_talent":        "high",
+    "regulatory_or_policy":    "high",
+    "market_positioning":      "high",
+}
+
+COST_LABEL = {"high": "High-cost (hard to fake)", "medium": "Medium-cost", "low": "Low-cost (cheap talk)"}
+
+
+def cost_class(dimension_key: str) -> str:
+    return DIMENSION_COST.get(dimension_key, "medium")
+
+def cost_multiplier(dimension_key: str) -> float:
+    return COST_MULTIPLIER.get(cost_class(dimension_key), 0.7)
+
+def cost_label(dimension_key: str) -> str:
+    return COST_LABEL.get(cost_class(dimension_key), "Medium-cost")
+
 
 # ---------------------------------------------------------------------------
 # Actor categories (from data/raw/actors.yaml)

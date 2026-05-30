@@ -5,132 +5,203 @@
 # Performance Is Noncommensurable: How Quantum-Computing Vendors Articulate
 # Global Positions Through Nontechnical Signals" — the central proposition
 # that, in markets where comparable performance metrics do not exist, actors
-# articulate position through OBSERVABLE SIGNALS that fall into two broad
-# channels: capability evidence and legitimacy evidence.
+# articulate position through OBSERVABLE SIGNALS.
 #
-# - "Capability" dimensions surface what an actor can technically *do*: papers,
-#   patents, infrastructure (Knight & Cavusgil 2004 on capability-based
-#   competitive advantage; Tomesh et al. 2022 on the absence of unified quantum
-#   benchmarks justifying paper/IP/infra as the proxies that remain).
-# - "Legitimacy" dimensions surface social acceptance: partnerships, funding,
-#   hires, policy presence, market positioning (Suchman 1995 — the canonical
-#   strategic / pragmatic / cognitive legitimacy split; Hilkamo & Granqvist 2022
-#   on sense-making in de novo quantum-computing market categories; Robinson &
-#   Veresiu 2025 on legitimacy timing; Song, Zhao & Wei 2025 on coattail effects
-#   in high-tech legitimacy building).
+# The schema models a signal along THREE literature-grounded axes:
 #
-# This file is HUMAN-EDITABLE. Anna and her supervisor can revise weights /
-# add dimensions as the literature review evolves — the dashboard and the
-# Critic agents read this YAML at runtime.
+#  1. CHANNEL — capability vs legitimacy evidence.
+#     - Capability: what the actor can technically *do* (Knight & Cavusgil
+#       2004; Tomesh et al. 2022 — absent a unified quantum benchmark,
+#       papers / patents / infrastructure are the proxies that remain).
+#     - Legitimacy: social acceptance and category-membership (Suchman 1995
+#       strategic/pragmatic/cognitive legitimacy; Hilkamo & Granqvist 2022 on
+#       sense-making in de novo quantum markets; Robinson & Veresiu 2025 on
+#       legitimacy timing; Song, Zhao & Wei 2025 on coattail legitimacy).
+#
+#  2. SIGNAL COST — high / medium / low. The core of signalling theory: a
+#     signal is informative to the extent it is COSTLY or hard to fake.
+#     Rieger, Dreller & Engelen (2025) show costly signals (trademark
+#     applications) predict venture-capital funding; Suchman (1995) frames
+#     pragmatic legitimacy as resting on costly, verifiable commitments.
+#     A high-cost signal (a granted patent, a funding round, a peer-reviewed
+#     paper) carries more weight than a low-cost one (a roadmap slide).
+#
+#  3. OBSERVABILITY — high / medium / low. How publicly verifiable the signal
+#     is by an external receiver. Ehrenthal et al. (2026) study precisely the
+#     observable nontechnical signals; a signal must be observable to function
+#     (Connelly-style receiver condition, anchored here to Suchman's
+#     "audiences" and Kolbe & Burnett 1991 on content-analysable evidence).
+#
+# The analytical pay-off (and a genuine thesis research question): in a
+# noncommensurable market, do actors lean on CHEAP, highly-observable signals
+# (market positioning) as substitutes for COSTLY capability evidence — and
+# does cheap-signal volume actually track costly-signal volume? The dashboard
+# exposes both so the comparison can be made.
+#
+# This file is HUMAN-EDITABLE. Anna and her supervisor revise weights / costs
+# / dimensions as the literature review evolves — the dashboard and the
+# Classifier/Critic agents read this YAML at runtime.
 
-version: 0.2.0
-last_revised: "2026-05-25"
+version: 0.3.0
+last_revised: "2026-05-26"
 
-# Two channels (Suchman 1995 + Ehrenthal et al. 2026)
+# ----------------------------------------------------------------------------
+# Signalling-theory reference (documentation block; read by the Methodology
+# page so the live site cites the same sources as the code).
+# ----------------------------------------------------------------------------
+signalling_theory:
+  premise: >-
+    In markets with noncommensurable performance (no shared price / share /
+    benchmark), actors and observers rely on signals. A signal's information
+    value rises with its cost (hard-to-fake) and its observability (publicly
+    verifiable).
+  cost_principle: >-
+    Costly, hard-to-fake signals (patents, funding, peer-reviewed research)
+    separate genuine capability from cheap talk (Rieger et al. 2025; Suchman
+    1995). Low-cost signals (positioning statements) are informative only
+    when corroborated by costly ones.
+  references:
+    - "Ehrenthal, Gonzalez-Padron & Gruen (2026) — noncommensurable performance, nontechnical signals"
+    - "Suchman (1995) — legitimacy as the receiver-side evaluation of signals"
+    - "Rieger, Dreller & Engelen (2025) — costly trademark signals predict VC funding"
+    - "Knight & Cavusgil (2004) — capability-based competitive advantage"
+    - "Hilkamo & Granqvist (2022) — de novo quantum market sense-making"
+    - "Tomesh et al. (2022) — no unified quantum benchmark, hence signals as proxies"
+    - "Kolbe & Burnett (1991) — content analysis of observable evidence"
+
+# ----------------------------------------------------------------------------
+# Channels (Suchman 1995 + Ehrenthal et al. 2026)
+# ----------------------------------------------------------------------------
 channels:
   - key: capability
     label: Capability evidence
     description: >-
-      What the actor can technically *do*. Costly signals in the
-      signalling-theory sense (Knight & Cavusgil 2004) — papers, patents,
-      infrastructure all require sustained investment to produce.
+      What the actor can technically *do*. Papers, patents, infrastructure —
+      typically costly to produce (Knight & Cavusgil 2004).
   - key: legitimacy
     label: Legitimacy evidence
     description: >-
       Social acceptance and category-membership (Suchman 1995). Critical in
       de novo markets where capability is hard to externally verify (Hilkamo
-      & Granqvist 2022 on quantum specifically; Mohr & Sarin 2009 on
-      high-tech marketing).
+      & Granqvist 2022; Mohr & Sarin 2009).
 
+# ----------------------------------------------------------------------------
+# Cost classes (used for the credibility weighting; see scoring.py).
+# ----------------------------------------------------------------------------
+cost_classes:
+  high:   {multiplier: 1.0, label: "High-cost (hard to fake)"}
+  medium: {multiplier: 0.7, label: "Medium-cost"}
+  low:    {multiplier: 0.4, label: "Low-cost (cheap talk)"}
+
+# ----------------------------------------------------------------------------
 # Dimensions: each signal is classified into exactly one.
+#   weight        — base impact weight (volume of position-relevant info)
+#   signal_cost   — high/medium/low (credibility / hard-to-fake-ness)
+#   observability — high/medium/low (public verifiability by a receiver)
+# ----------------------------------------------------------------------------
 dimensions:
   - key: technical_capability
     channel: capability
     is_technical: true
     weight: 1.3
+    signal_cost: medium
+    observability: medium
     description: >-
       Hardware/software capability claims — qubit counts, gate fidelity,
       coherence times, new architectures, software toolchain releases.
     grounding: >-
       Tomesh et al. 2022 (SupermarQ) shows no unified quantum benchmark
-      exists; thus public capability claims (this dimension) carry the
-      signal weight that "benchmarks" would in a mature market.
+      exists; capability *claims* are therefore only medium-cost (partially
+      unverifiable cheap talk) until corroborated by research or IP.
 
   - key: research_output
     channel: capability
     is_technical: true
     weight: 1.0
+    signal_cost: high
+    observability: high
     description: >-
       Peer-reviewed or pre-print publications, datasets, benchmarks released
       by the actor or with the actor as a major affiliation.
     grounding: >-
-      Knight & Cavusgil 2004 — research output as direct evidence of
-      innovation capability; Reid & de Brentani 2010 on market visioning
-      requiring research grounding.
+      Knight & Cavusgil 2004 — research output as costly, hard-to-fake
+      evidence of innovation capability; publicly observable via arXiv / DOIs.
 
   - key: ip_filing
     channel: capability
     is_technical: true
     weight: 1.4
+    signal_cost: high
+    observability: high
     description: >-
       Patent applications, granted patents, design rights, trademark filings
       (including Swissreg / WIPO filings).
     grounding: >-
-      Rieger, Dreller & Engelen 2025 — trademark applications specifically
-      shown to predict venture capital seed funding; patents as legally
-      observable capability proxy.
+      Rieger, Dreller & Engelen 2025 — costly trademark/patent signals
+      specifically shown to predict venture-capital seed funding; publicly
+      observable in patent registries.
 
   - key: infrastructure_or_facility
     channel: capability
     is_technical: true
     weight: 1.2
+    signal_cost: high
+    observability: medium
     description: >-
       New lab, cleanroom, fabrication line, on-prem quantum processor, HPC
       integration, or cloud-access endpoint.
     grounding: >-
-      Blomqvist et al. 2008 on trust-and-contracts in technology-intensive
-      firms — physical infrastructure as a costly trust signal.
+      Blomqvist et al. 2008 — physical infrastructure as a costly trust
+      signal in technology-intensive firms; capital-intensive hence high-cost.
 
   - key: partnership_or_alliance
     channel: legitimacy
     is_technical: false
     weight: 0.9
+    signal_cost: medium
+    observability: high
     description: >-
       Announced collaborations, MoUs, joint labs, customer wins, distribution
       agreements, ecosystem memberships.
     grounding: >-
       Adner 2017 (Ecosystem as Structure) — partnership topology is the
       observable shape of an ecosystem; Song, Zhao & Wei 2025 on coattail
-      legitimacy effects from partner choice.
+      legitimacy. Medium-cost: MoUs are cheap, joint labs costly.
 
   - key: funding_or_grant
     channel: legitimacy
     is_technical: false
     weight: 1.5
+    signal_cost: high
+    observability: high
     description: >-
       Funding rounds (seed → growth), SNF / Innosuisse / Horizon Europe
       grants, public RFPs awarded, government contracts.
     grounding: >-
-      Costly-to-fake legitimacy signal in the Suchman 1995 framework
-      (pragmatic legitimacy); Rieger et al. 2025 link early IP signals to
-      funding outcomes.
+      Highest-cost legitimacy signal — a third party commits real capital
+      (Suchman 1995 pragmatic legitimacy; Rieger et al. 2025 link early
+      signals to funding outcomes). Publicly announced hence high-observability.
 
   - key: hiring_or_talent
     channel: legitimacy
     is_technical: false
     weight: 0.8
+    signal_cost: medium
+    observability: high
     description: >-
       Named leadership hires, named scientific advisors, large hiring drives,
       visiting professorships, student-recruitment programmes.
     grounding: >-
-      Hilkamo & Granqvist 2022 on quantum market sense-making through named
-      personalities; Mohr & Sarin 2009 on talent as the limiting input in
-      high-technology market formation.
+      Hilkamo & Granqvist 2022 on quantum sense-making through named
+      personalities; Mohr & Sarin 2009 on talent as the limiting input.
+      Medium-cost: a named senior hire is costly, a hiring drive is cheap.
 
   - key: regulatory_or_policy
     channel: legitimacy
     is_technical: false
     weight: 0.7
+    signal_cost: medium
+    observability: high
     description: >-
       National strategy publications, export-control changes, standards
       work, participation in policy consultations, certification milestones.
@@ -142,12 +213,14 @@ dimensions:
     channel: legitimacy
     is_technical: false
     weight: 0.4
+    signal_cost: low
+    observability: high
     description: >-
       Roadmaps, positioning statements, market narratives, conference
       keynotes, branding shifts — explicit attempts to claim a category
       position.
     grounding: >-
-      Ehrenthal, Gonzalez-Padron & Gruen 2026 — *the* dimension their paper
-      directly observes among quantum vendors articulating noncommensurable
-      position; weighted lightest because positioning statements are the
-      cheapest signal in Suchman's framework.
+      Ehrenthal, Gonzalez-Padron & Gruen 2026 — *the* nontechnical signal
+      their paper observes. Low-cost ("cheap talk") but highly observable;
+      the analytical question is whether it tracks costly signals or
+      substitutes for them.

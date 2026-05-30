@@ -22,6 +22,8 @@ import pandas as pd
 
 from .labels import (
     CAPABILITY_DIMENSIONS,
+    COST_MULTIPLIER,
+    DIMENSION_COST,
     DIMENSION_WEIGHT,
     LEGITIMACY_DIMENSIONS,
 )
@@ -73,8 +75,13 @@ def actor_impact_table(
     df["confidence"] = _confidence_safe(df["confidence"])
     df["dim_weight"] = df["dimension"].map(DIMENSION_WEIGHT).fillna(0.8)
     df["weighted"] = df["dim_weight"] * df["confidence"]
+    # Signalling-theory credibility weighting: discount cheap-talk signals.
+    df["cost_mult"] = df["dimension"].map(lambda d: COST_MULTIPLIER.get(DIMENSION_COST.get(d, "medium"), 0.7))
+    df["credibility_weighted"] = df["weighted"] * df["cost_mult"]
     df["is_capability"] = df["dimension"].isin(CAPABILITY_DIMENSIONS)
     df["is_legitimacy"] = df["dimension"].isin(LEGITIMACY_DIMENSIONS)
+    df["is_high_cost"] = df["dimension"].map(lambda d: DIMENSION_COST.get(d, "medium") == "high")
+    df["is_low_cost"] = df["dimension"].map(lambda d: DIMENSION_COST.get(d, "medium") == "low")
 
     now = now or datetime.now(timezone.utc)
     week_ago = now - timedelta(days=7)
@@ -85,28 +92,39 @@ def actor_impact_table(
 
     grouped = df.groupby("actor_slug", as_index=False).agg(
         impact=("weighted", "sum"),
+        credibility=("credibility_weighted", "sum"),
         signal_count=("dimension", "count"),
         diversity=("dimension", "nunique"),
         capability=("is_capability", "sum"),
         legitimacy=("is_legitimacy", "sum"),
+        high_cost=("is_high_cost", "sum"),
+        low_cost=("is_low_cost", "sum"),
         signal_count_this_week=("is_this_week", "sum"),
         signal_count_prev_week=("is_prev_week", "sum"),
     )
 
     grouped["impact"] = grouped["impact"].round(2)
+    grouped["credibility"] = grouped["credibility"].round(2)
     # Authority with Laplace smoothing (+1, +2) so a single-signal actor doesn't blow to 0 or 1.
     grouped["authority"] = (
         (grouped["capability"] + 1) / (grouped["capability"] + grouped["legitimacy"] + 2)
     ).round(3)
+    # Cheap-talk ratio: share of signals that are low-cost. Ehrenthal's research
+    # question — do actors substitute cheap signals for costly capability evidence?
+    grouped["cheap_talk_ratio"] = (grouped["low_cost"] / grouped["signal_count"].clip(lower=1)).round(3)
     grouped["momentum"] = grouped["signal_count_this_week"].astype(int) - grouped["signal_count_prev_week"].astype(int)
 
     return grouped[
         [
             "actor_slug",
             "impact",
+            "credibility",
             "momentum",
             "diversity",
             "authority",
+            "cheap_talk_ratio",
+            "high_cost",
+            "low_cost",
             "signal_count",
             "signal_count_this_week",
             "signal_count_prev_week",

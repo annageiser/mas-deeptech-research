@@ -25,3 +25,22 @@ def schema_as_prompt_block() -> str:
     lines.append("")
     lines.append("Each signal MUST quote a short verbatim snippet from the source as `evidence_quote`.")
     return "\n".join(lines)
+
+
+@lru_cache(maxsize=1)
+def dimension_cost_map() -> dict[str, str]:
+    """dimension key -> signal_cost class ('high'|'medium'|'low')."""
+    return {d["key"]: d.get("signal_cost", "medium") for d in load_schema()["dimensions"]}
+
+
+@lru_cache(maxsize=1)
+def dimension_observability_map() -> dict[str, str]:
+    """dimension key -> observability class ('high'|'medium'|'low')."""
+    return {d["key"]: d.get("observability", "medium") for d in load_schema()["dimensions"]}
+
+
+@lru_cache(maxsize=1)
+def cost_multipliers() -> dict[str, float]:
+    """cost class -> credibility multiplier (from schema `cost_classes`)."""
+    classes = load_schema().get("cost_classes", {})
+    return {k: float(v.get("multiplier", 0.7)) for k, v in classes.items()}

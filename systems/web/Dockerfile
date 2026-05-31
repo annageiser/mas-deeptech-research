@@ -3,16 +3,20 @@
 
 FROM node:20-slim AS deps
 WORKDIR /app
-COPY package.json ./
-# No committed lockfile → use install (not ci). Reproducibility is bounded by
-# the pinned versions in package.json.
-RUN npm install --no-audit --no-fund
+COPY package.json package-lock.json ./
+# Use the lockfile so Docker resolves the SAME sub-dep tree we tested
+# locally. Without it the typescript/Next sub-deps drifted and webpack
+# stopped honouring tsconfig path aliases.
+RUN npm ci --no-audit --no-fund --include=dev
 
 FROM node:20-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Diagnostic — make sure tsconfig + src actually arrived (cheap; helps next
+# time the build breaks for an obscure reason).
+RUN test -f tsconfig.json && test -f src/lib/api.ts || (echo "BUILD CONTEXT MISSING FILES" && ls -la && exit 1)
 RUN npm run build
 
 FROM node:20-slim AS runner
@@ -22,7 +26,6 @@ ENV NODE_ENV=production \
     PORT=3000 \
     TZ=Europe/Zurich
 RUN apt-get update && apt-get install -y --no-install-recommends curl tzdata && rm -rf /var/lib/apt/lists/*
-# Standalone output bundles the server + traced node_modules.
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public

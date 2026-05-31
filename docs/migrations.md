@@ -119,6 +119,91 @@ The function is already in the canonical [`schema.sql`](../systems/masfactory/ma
 
 ---
 
+## 2026-06-01 — schema v0.4.0: Ehrenthal four-signal scheme
+
+Migrates `signals.dimension` from the legacy 9-key v0.3.0 set to the 18-key
+v0.4.0 set aligned with **Ehrenthal, Gonzalez-Padron & Gruen (2026)**'s
+official four-signal scheme. Adds two columns:
+
+- `signal_type` — Ehrenthal's top-level category (legitimacy /
+  customer_cocreation / community_ecosystem / future_trajectory)
+- `dimension_legacy` — preserves the original v0.3.0 value so pre-migration
+  analyses are still reproducible
+
+Required after pulling commits in the "schema v0.4.0" merge or later;
+without it, the API still works (labels.py normalises legacy keys) but
+the new charts that group by `signal_type` will see NULL.
+
+**Paste this into the Supabase SQL editor and Run:**
+
+```sql
+alter table public.signals add column if not exists signal_type      text;
+alter table public.signals add column if not exists dimension_legacy text;
+
+update public.signals
+   set dimension_legacy = dimension
+ where dimension_legacy is null;
+
+update public.signals set dimension = case dimension
+    when 'technical_capability'       then 'technological_advances'
+    when 'research_output'            then 'publications'
+    when 'ip_filing'                  then 'patents'
+    when 'infrastructure_or_facility' then 'hpc_collaborations'
+    when 'partnership_or_alliance'    then 'industry_partnerships'
+    when 'funding_or_grant'           then 'funding_event'
+    when 'hiring_or_talent'           then 'leadership_expertise'
+    when 'regulatory_or_policy'       then 'regulatory_recognition'
+    when 'market_positioning'         then 'roadmaps'
+    else dimension
+ end
+ where dimension in (
+    'technical_capability', 'research_output', 'ip_filing',
+    'infrastructure_or_facility', 'partnership_or_alliance',
+    'funding_or_grant', 'hiring_or_talent', 'regulatory_or_policy',
+    'market_positioning'
+ );
+
+update public.signals set signal_type = case dimension
+    when 'leadership_expertise'        then 'legitimacy'
+    when 'patents'                     then 'legitimacy'
+    when 'publications'                then 'legitimacy'
+    when 'awards'                      then 'legitimacy'
+    when 'testimonials'                then 'legitimacy'
+    when 'educational_outreach'        then 'legitimacy'
+    when 'funding_event'               then 'legitimacy'
+    when 'regulatory_recognition'      then 'legitimacy'
+    when 'collaborations_applications' then 'customer_cocreation'
+    when 'pilots_pocs'                 then 'customer_cocreation'
+    when 'customer_training'           then 'customer_cocreation'
+    when 'cloud_platform_listings'     then 'community_ecosystem'
+    when 'hpc_collaborations'          then 'community_ecosystem'
+    when 'industry_partnerships'       then 'community_ecosystem'
+    when 'academic_partnerships'       then 'community_ecosystem'
+    when 'roadmaps'                    then 'future_trajectory'
+    when 'milestones'                  then 'future_trajectory'
+    when 'technological_advances'      then 'future_trajectory'
+    when 'long_horizon_claims'         then 'future_trajectory'
+    else signal_type
+ end
+ where signal_type is null;
+
+create index if not exists signals_signal_type_idx       on public.signals (signal_type);
+create index if not exists signals_dimension_legacy_idx on public.signals (dimension_legacy);
+```
+
+**Verify** (every signal now has both a v0.4.0 dimension and a signal_type):
+
+```sql
+select dimension, signal_type, count(*)
+  from public.signals
+ group by 1, 2
+ order by signal_type, dimension;
+```
+
+Idempotent — re-running the block is a no-op once migrated.
+
+---
+
 ## How to apply
 
 1. Open <https://supabase.com/dashboard> → your project → **SQL editor**

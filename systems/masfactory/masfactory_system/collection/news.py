@@ -37,16 +37,20 @@ USER_AGENT = "masfactory-thesis/0.1 (+https://github.com/anna-geiser/mas-deeptec
 def _build_query(actor: Actor) -> str:
     """Compose the search query.
 
-    Pattern: `"<Actor Name>" quantum` — quoted name forces an exact-phrase
-    match. We rely on `gl=CH` (geolocation bias) at the endpoint for the
-    Switzerland filter; an in-query Switzerland-OR-filter was too restrictive
-    (returned 0 results for actors whose press doesn't repeat the country
-    name in headlines). For actors with very generic names we still fall back
-    to the org-only form — discovered via empirical tuning of v0 of the
-    collector against the 40-actor list.
+    Pattern: `"<Actor Name>" (quantum OR qubit OR QKD)` — quoted name forces
+    an exact-phrase match. The keyword OR-group widens the technology axis
+    so we catch quantum-subfield coverage (computing / sensing / key
+    distribution / metrology) that "quantum" alone may miss — Ehrenthal et
+    al. 2026's vendor-comms corpus explicitly covers these sub-fields.
+
+    `gl=CH` (geolocation bias) at the endpoint biases toward Switzerland;
+    an in-query Switzerland-OR-filter was too restrictive in v0 (returned
+    0 results for actors whose press doesn't repeat the country name in
+    headlines). The Critic now filters hard for actor + quantum relevance
+    so a wider funnel doesn't degrade the final corpus.
     """
     name = actor.name.strip()
-    return f'"{name}" quantum'
+    return f'"{name}" (quantum OR qubit OR QKD)'
 
 
 def collect_google_news(

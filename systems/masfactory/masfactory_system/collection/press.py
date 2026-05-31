@@ -60,15 +60,16 @@ PR_KEYWORDS = ("announces", "launches", "partners", "funding", "breakthrough")
 def _build_query(actor: Actor) -> str:
     """Compose a press-release-biased query.
 
-    Pattern: `"<Actor Name>" quantum (kw1 OR kw2 OR ...)` — quoted name
-    forces exact-phrase match; the OR-group nudges Bing's ranker toward
-    PR-wire hits. Bing News accepts `site:` operators but we deliberately
-    avoid them: the goal is broad press coverage, not an artificially
-    narrow whitelist of two or three distribution wires.
+    Pattern: `"<Actor Name>" (quantum OR qubit) (kw1 OR kw2 OR ...)` —
+    quoted name forces exact-phrase match; the first OR-group widens the
+    technology axis (quantum subfields); the second OR-group nudges Bing's
+    ranker toward PR-wire hits. Bing News accepts `site:` operators but we
+    deliberately avoid them: the goal is broad press coverage, not an
+    artificially narrow whitelist.
     """
     name = actor.name.strip()
     or_group = " OR ".join(PR_KEYWORDS)
-    return f'"{name}" quantum ({or_group})'
+    return f'"{name}" (quantum OR qubit) ({or_group})'
 
 
 def collect_press_releases(

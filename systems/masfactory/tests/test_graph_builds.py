@@ -103,9 +103,9 @@ def test_accumulate_actor_appends_and_filters_cross_attribution():
     # Iteration's classified contains 2 valid + 1 misattributed signal.
     classified_payload = {
         "classified": [
-            {"actor_slug": "a1", "source_url": "u1", "dimension": "research_output", "is_technical": True, "confidence": 0.8},
-            {"actor_slug": "a2", "source_url": "u-wrong", "dimension": "funding_or_grant", "is_technical": False, "confidence": 0.9},  # misattributed
-            {"actor_slug": "a1", "source_url": "u2", "dimension": "partnership_or_alliance", "is_technical": False, "confidence": 0.6},
+            {"actor_slug": "a1", "source_url": "u1", "dimension": "publications", "is_technical": True, "confidence": 0.8},
+            {"actor_slug": "a2", "source_url": "u-wrong", "dimension": "funding_event", "is_technical": False, "confidence": 0.9},  # misattributed
+            {"actor_slug": "a1", "source_url": "u2", "dimension": "industry_partnerships", "is_technical": False, "confidence": 0.6},
         ]
     }
     critique_payload = {

@@ -24,6 +24,12 @@ export interface Signal {
   evidence_quote: string;
   dimension: string;
   dimension_label?: string;
+  // Ehrenthal et al. (2026) top-level signal type. Optional on older rows
+  // that pre-date the v0.4.0 migration (those have `dimension_legacy` set
+  // and `signal_type` NULL until the SQL backfill runs).
+  signal_type?: string;
+  signal_type_label?: string;
+  dimension_legacy?: string;
   cost_class?: string;
   is_technical: boolean;
   confidence: number;
@@ -75,6 +81,8 @@ export interface SignallingResponse {
 export interface MetaDimension {
   key: string;
   label: string;
+  signal_type?: string;       // v0.4.0+ — Ehrenthal top-level
+  signal_type_label?: string;
   channel: string;
   channel_label: string;
   is_technical: boolean;
@@ -85,6 +93,17 @@ export interface MetaDimension {
   observability: string;
   description: string;
   grounding: string;
+  extension?: boolean;        // true for our two extensions to Ehrenthal's coding scheme
+}
+
+export interface MetaSignalType {
+  key: string;
+  label: string;
+  short_label: string;
+  description: string;
+  grounding: string;
+  color: string;
+  dimensions: string[]; // dimension keys belonging to this signal_type
 }
 
 export interface MetaResponse {
@@ -97,10 +116,13 @@ export interface MetaResponse {
     cost_principle?: string;
     references?: string[];
   };
+  // v0.4.0+ — Ehrenthal four-signal scheme spine.
+  signal_types?: MetaSignalType[];
   dimensions: MetaDimension[];
   category_labels: Record<string, string>;
   category_colors: Record<string, string>;
   system_labels: Record<string, string>;
+  legacy_dimension_map?: Record<string, string>;
 }
 
 export interface CompareResponse {
@@ -132,11 +154,19 @@ export interface KnowledgeGraphNode {
   id: string;
   kind: "actor" | "dimension";
   label: string;
+  // Actor nodes:
+  actor_slug?: string;
   category?: string;
   category_label?: string;
+  dimensions?: number;
+  // Dimension nodes:
+  dimension_key?: string;
+  signal_type?: string;
+  signal_type_label?: string;
+  cost_class?: string;
+  // Both:
   color: string;
   size: number;
-  dimensions?: number;
 }
 
 export interface KnowledgeGraphEdge {
@@ -146,7 +176,19 @@ export interface KnowledgeGraphEdge {
   // String at the wire layer (FastAPI returns whatever build_graph_json emits);
   // the renderer narrows it to the discriminated union it cares about.
   kind: "actor-dim" | "actor-actor" | string;
-  shared?: string[];
+  // actor-dim edges:
+  count?: number;
+  actor_label?: string;
+  dimension_label?: string;
+  signal_type?: string;
+  signal_type_label?: string;
+  cost_class?: string;
+  sample_titles?: string[];
+  // actor-actor edges:
+  actor_a_label?: string;
+  actor_b_label?: string;
+  shared?: string[];               // shared dimension labels
+  shared_signal_types?: string[];  // shared Ehrenthal signal_types
 }
 
 export interface KnowledgeGraph {

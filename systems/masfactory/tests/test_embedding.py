@@ -47,13 +47,13 @@ def test_compose_signal_text_includes_key_fields() -> None:
         "title": "SQI announces CHF 50M funding round",
         "evidence_quote": "The Swiss Quantum Initiative said it had closed a CHF 50M Series B...",
         "summary": "First major Swiss-quantum private-investor round of 2026.",
-        "dimension": "funding_or_grant",
+        "dimension": "funding_event",
     }
     text = embedding.compose_signal_text(signal)
     assert "SQI announces CHF 50M funding round" in text
     assert "Swiss Quantum Initiative said it" in text
     assert "First major Swiss-quantum" in text
-    assert "dimension:funding_or_grant" in text
+    assert "dimension:funding_event" in text
 
 
 def test_compose_signal_text_handles_missing_fields() -> None:
@@ -63,9 +63,9 @@ def test_compose_signal_text_handles_missing_fields() -> None:
     assert text.strip() == "dimension:unknown"
 
     # Some fields present
-    text = embedding.compose_signal_text({"title": "X", "dimension": "hiring_or_talent"})
+    text = embedding.compose_signal_text({"title": "X", "dimension": "leadership_expertise"})
     assert "X" in text
-    assert "dimension:hiring_or_talent" in text
+    assert "dimension:leadership_expertise" in text
 
 
 def test_model_dim_matches_schema_column() -> None:

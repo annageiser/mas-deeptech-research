@@ -136,6 +136,79 @@ begin
     end if;
 end $$;
 
+-- ---------- schema v0.4.0 migration: Ehrenthal four-signal scheme ----------
+-- Adds two columns:
+--   signal_type      — Ehrenthal's top-level four-signal scheme key
+--   dimension_legacy — preserves the v0.3.0 dimension value
+--
+-- Then rewrites `signals.dimension` in place from the legacy nine-key set to
+-- the new eighteen-key set, and back-fills `signal_type` from the (rewritten)
+-- dimension. Idempotent — safe to re-run; the rewrite is keyed on the legacy
+-- value set so re-runs are no-ops once migrated.
+alter table public.signals add column if not exists signal_type      text;
+alter table public.signals add column if not exists dimension_legacy text;
+
+-- Preserve the original value before we rewrite `dimension`. Only fills
+-- rows that haven't been preserved yet so re-runs don't clobber.
+update public.signals
+   set dimension_legacy = dimension
+ where dimension_legacy is null;
+
+-- Remap v0.3.0 → v0.4.0 dimension keys in place. The mapping is the
+-- canonical truth in schema.yaml (legacy_dimensions: on each entry) and
+-- must stay in sync — classification.legacy_dimension_map() reads from
+-- the same source.
+update public.signals set dimension = case dimension
+    when 'technical_capability'       then 'technological_advances'
+    when 'research_output'            then 'publications'
+    when 'ip_filing'                  then 'patents'
+    when 'infrastructure_or_facility' then 'hpc_collaborations'
+    when 'partnership_or_alliance'    then 'industry_partnerships'
+    when 'funding_or_grant'           then 'funding_event'
+    when 'hiring_or_talent'           then 'leadership_expertise'
+    when 'regulatory_or_policy'       then 'regulatory_recognition'
+    when 'market_positioning'         then 'roadmaps'
+    else dimension
+ end
+ where dimension in (
+    'technical_capability', 'research_output', 'ip_filing',
+    'infrastructure_or_facility', 'partnership_or_alliance',
+    'funding_or_grant', 'hiring_or_talent', 'regulatory_or_policy',
+    'market_positioning'
+ );
+
+-- Backfill signal_type from the (now-migrated) dimension.
+update public.signals set signal_type = case dimension
+    -- Legitimacy
+    when 'leadership_expertise'        then 'legitimacy'
+    when 'patents'                     then 'legitimacy'
+    when 'publications'                then 'legitimacy'
+    when 'awards'                      then 'legitimacy'
+    when 'testimonials'                then 'legitimacy'
+    when 'educational_outreach'        then 'legitimacy'
+    when 'funding_event'               then 'legitimacy'
+    when 'regulatory_recognition'      then 'legitimacy'
+    -- Customer co-creation
+    when 'collaborations_applications' then 'customer_cocreation'
+    when 'pilots_pocs'                 then 'customer_cocreation'
+    when 'customer_training'           then 'customer_cocreation'
+    -- Community-ecosystem
+    when 'cloud_platform_listings'     then 'community_ecosystem'
+    when 'hpc_collaborations'          then 'community_ecosystem'
+    when 'industry_partnerships'       then 'community_ecosystem'
+    when 'academic_partnerships'       then 'community_ecosystem'
+    -- Future-trajectory
+    when 'roadmaps'                    then 'future_trajectory'
+    when 'milestones'                  then 'future_trajectory'
+    when 'technological_advances'      then 'future_trajectory'
+    when 'long_horizon_claims'         then 'future_trajectory'
+    else signal_type
+ end
+ where signal_type is null;
+
+create index if not exists signals_signal_type_idx on public.signals (signal_type);
+create index if not exists signals_dimension_legacy_idx on public.signals (dimension_legacy);
+
 -- ---------- semantic-dedup RPC (uses pgvector cosine distance) ----------
 -- Returns the nearest existing signals for a given (actor_slug, query
 -- embedding) pair within the last N days. The persistence step calls this

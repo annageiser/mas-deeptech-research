@@ -25,16 +25,43 @@ ActorCategory = Literal[
 SourceKind = Literal["arxiv", "website", "swissreg", "manual", "news"]
 
 
+# Ehrenthal et al. (2026) four-signal scheme — the top-level taxonomy.
+SignalType = Literal[
+    "legitimacy",
+    "customer_cocreation",
+    "community_ecosystem",
+    "future_trajectory",
+]
+
+# Sub-categories (dimensions) under the four signal_types. Eighteen total;
+# sixteen match Ehrenthal's coded markers verbatim, two are explicit
+# extensions documented in schema.yaml (funding_event, regulatory_recognition).
+# Legacy v0.3.0 keys are migrated via the SQL block in persistence/schema.sql
+# and `classification.legacy_dimension_map()`.
 SignalDimension = Literal[
-    "technical_capability",
-    "research_output",
-    "partnership_or_alliance",
-    "funding_or_grant",
-    "ip_filing",
-    "hiring_or_talent",
-    "regulatory_or_policy",
-    "market_positioning",
-    "infrastructure_or_facility",
+    # Legitimacy
+    "leadership_expertise",
+    "patents",
+    "publications",
+    "awards",
+    "testimonials",
+    "educational_outreach",
+    "funding_event",
+    "regulatory_recognition",
+    # Customer co-creation
+    "collaborations_applications",
+    "pilots_pocs",
+    "customer_training",
+    # Community-ecosystem
+    "cloud_platform_listings",
+    "hpc_collaborations",
+    "industry_partnerships",
+    "academic_partnerships",
+    # Future-trajectory
+    "roadmaps",
+    "milestones",
+    "technological_advances",
+    "long_horizon_claims",
 ]
 
 
@@ -78,6 +105,11 @@ class ClassifiedSignal(SignalCandidate):
     """A SignalCandidate after the Classifier has labelled it."""
 
     dimension: SignalDimension
+    # Top-level Ehrenthal four-signal scheme. Defaults to None for old code
+    # paths that haven't been migrated yet — the Persistence node fills it
+    # from `dimension` via classification.signal_type_for_dimension() if
+    # the Classifier didn't emit it directly.
+    signal_type: Optional[SignalType] = None
     is_technical: bool
     confidence: float = Field(ge=0.0, le=1.0)
 

@@ -23,6 +23,7 @@ import os
 
 from masfactory import CustomNode, NodeTemplate
 
+from ..classification import normalise_dimension, signal_type_for_dimension
 from ..embedding import compose_signal_text, embed_text, is_enabled as embeddings_enabled
 from ..persistence import SignalRow
 
@@ -198,6 +199,13 @@ def _persist(_input: dict, attrs: dict) -> dict:
                     })
                     continue  # skip the insert
 
+            # Normalise dimension defensively — accepts a v0.3.0 key (and
+            # migrates it) or a v0.4.0 key (passes through). Then resolve
+            # signal_type from the canonical map, preferring the LLM's
+            # value when it provided one and falls back to the dimension-
+            # derived value otherwise.
+            new_dim = normalise_dimension(s.get("dimension", "") or "")
+            sig_type = s.get("signal_type") or signal_type_for_dimension().get(new_dim)
             rows.append(
                 SignalRow(
                     run_id=run_id,
@@ -207,11 +215,12 @@ def _persist(_input: dict, attrs: dict) -> dict:
                     title=s.get("title", ""),
                     summary=s.get("summary", ""),
                     evidence_quote=evidence,
-                    dimension=s["dimension"],
+                    dimension=new_dim,
                     is_technical=bool(s["is_technical"]),
                     confidence=float(s.get("confidence", 0.0)),
                     content_hash=content_hash,
                     embedding=emb,
+                    signal_type=sig_type,
                 )
             )
         inserted = store.insert_signals(rows)

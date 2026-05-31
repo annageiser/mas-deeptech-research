@@ -22,7 +22,7 @@ export default async function Graph({ searchParams }: SP) {
     <>
       <PageHeader
         title="Knowledge graph"
-        lead="Inner ring: signal types. Outer ring: actors, grouped by category (colour) and sized by how many distinct signal types they cover. Lines connect actors to the signal types they emit. Hover any node to isolate its connections; tick the peer-edges box to overlay actor↔actor co-occurrence."
+        lead="Inner ring: signal types (Ehrenthal four-signal scheme). Outer ring: actors, grouped by category (colour) and sized by how many distinct signal types they cover. Lines connect actors to the signal types they emit. Hover any node OR edge to inspect: actor-dim edges show the dimension, count, and sample signal titles; actor-actor edges show shared Ehrenthal categories. Tick the peer-edges box to overlay actor↔actor co-occurrence."
       />
       <Card>
         <div className="small muted" style={{ marginBottom: "0.5rem" }}>

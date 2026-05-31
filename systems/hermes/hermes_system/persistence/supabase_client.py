@@ -34,6 +34,10 @@ class SignalRow:
     # 768d BGE embedding — see hermes_system/embedding.py. Optional, gated by
     # HRM_EMBEDDINGS=1. None → NULL in the pgvector column.
     embedding: Optional[list[float]] = None
+    # Ehrenthal four-signal scheme. Filled from dimension in derive_signal_rows
+    # if the agent didn't emit it (the AIAgent's register_signal tool now
+    # accepts it as an optional kw).
+    signal_type: Optional[str] = None
 
 
 class SupabaseStore:
@@ -94,6 +98,47 @@ class SupabaseStore:
 
     # ---------- signals ----------
 
+    # ---- dimension/signal_type normalisation (mirrors masfactory) ----
+    # Lookup tables vendored here so Hermes doesn't import from masfactory
+    # (comparative-validity invariant: code-independent, same external schema).
+    _LEGACY_DIMENSION_MAP = {
+        "technical_capability":       "technological_advances",
+        "research_output":            "publications",
+        "ip_filing":                  "patents",
+        "infrastructure_or_facility": "hpc_collaborations",
+        "partnership_or_alliance":    "industry_partnerships",
+        "funding_or_grant":           "funding_event",
+        "hiring_or_talent":           "leadership_expertise",
+        "regulatory_or_policy":       "regulatory_recognition",
+        "market_positioning":         "roadmaps",
+    }
+    _DIMENSION_SIGNAL_TYPE = {
+        # legitimacy
+        "leadership_expertise": "legitimacy", "patents": "legitimacy",
+        "publications": "legitimacy", "awards": "legitimacy",
+        "testimonials": "legitimacy", "educational_outreach": "legitimacy",
+        "funding_event": "legitimacy", "regulatory_recognition": "legitimacy",
+        # customer co-creation
+        "collaborations_applications": "customer_cocreation",
+        "pilots_pocs": "customer_cocreation", "customer_training": "customer_cocreation",
+        # community-ecosystem
+        "cloud_platform_listings": "community_ecosystem",
+        "hpc_collaborations": "community_ecosystem",
+        "industry_partnerships": "community_ecosystem",
+        "academic_partnerships": "community_ecosystem",
+        # future-trajectory
+        "roadmaps": "future_trajectory", "milestones": "future_trajectory",
+        "technological_advances": "future_trajectory", "long_horizon_claims": "future_trajectory",
+    }
+
+    @classmethod
+    def _normalise_dimension(cls, key: str) -> str:
+        if not key:
+            return key
+        if key in cls._DIMENSION_SIGNAL_TYPE:
+            return key
+        return cls._LEGACY_DIMENSION_MAP.get(key, key)
+
     def derive_signal_rows(
         self, run_id: str, raw_signals: list[dict[str, Any]]
     ) -> list[SignalRow]:
@@ -150,6 +195,8 @@ class SupabaseStore:
                     # what we'd point at).
                     continue
 
+            new_dim = self._normalise_dimension(s.get("dimension", "") or "")
+            sig_type = s.get("signal_type") or self._DIMENSION_SIGNAL_TYPE.get(new_dim)
             rows.append(
                 SignalRow(
                     run_id=run_id,
@@ -159,11 +206,12 @@ class SupabaseStore:
                     title=s.get("title", ""),
                     summary=s.get("summary", ""),
                     evidence_quote=evidence,
-                    dimension=s["dimension"],
+                    dimension=new_dim,
                     is_technical=bool(s["is_technical"]),
                     confidence=float(s.get("confidence", 0.0)),
                     content_hash=content_hash,
                     embedding=emb,
+                    signal_type=sig_type,
                 )
             )
         return rows
@@ -218,6 +266,8 @@ class SupabaseStore:
             }
             if s.embedding is not None:
                 row["embedding"] = s.embedding
+            if s.signal_type is not None:
+                row["signal_type"] = s.signal_type
             payload.append(row)
         resp = (
             self._client.table("signals")

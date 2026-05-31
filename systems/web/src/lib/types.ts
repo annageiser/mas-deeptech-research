@@ -154,11 +154,19 @@ export interface KnowledgeGraphNode {
   id: string;
   kind: "actor" | "dimension";
   label: string;
+  // Actor nodes:
+  actor_slug?: string;
   category?: string;
   category_label?: string;
+  dimensions?: number;
+  // Dimension nodes:
+  dimension_key?: string;
+  signal_type?: string;
+  signal_type_label?: string;
+  cost_class?: string;
+  // Both:
   color: string;
   size: number;
-  dimensions?: number;
 }
 
 export interface KnowledgeGraphEdge {
@@ -168,7 +176,19 @@ export interface KnowledgeGraphEdge {
   // String at the wire layer (FastAPI returns whatever build_graph_json emits);
   // the renderer narrows it to the discriminated union it cares about.
   kind: "actor-dim" | "actor-actor" | string;
-  shared?: string[];
+  // actor-dim edges:
+  count?: number;
+  actor_label?: string;
+  dimension_label?: string;
+  signal_type?: string;
+  signal_type_label?: string;
+  cost_class?: string;
+  sample_titles?: string[];
+  // actor-actor edges:
+  actor_a_label?: string;
+  actor_b_label?: string;
+  shared?: string[];               // shared dimension labels
+  shared_signal_types?: string[];  // shared Ehrenthal signal_types
 }
 
 export interface KnowledgeGraph {

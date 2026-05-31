@@ -136,6 +136,47 @@ begin
     end if;
 end $$;
 
+-- ---------- semantic-dedup RPC (uses pgvector cosine distance) ----------
+-- Returns the nearest existing signals for a given (actor_slug, query
+-- embedding) pair within the last N days. The persistence step calls this
+-- before insert and drops signals whose nearest neighbour is closer than
+-- the configured threshold (default 0.92 cosine similarity).
+--
+-- Idempotent — CREATE OR REPLACE makes this safe to re-run on every
+-- schema.sql apply.
+create or replace function public.find_similar_signals(
+    p_actor_slug text,
+    p_query_embedding vector(768),
+    p_days_back integer default 30,
+    p_limit integer default 1
+)
+returns table (
+    id uuid,
+    title text,
+    evidence_quote text,
+    source_url text,
+    system text,
+    similarity double precision,
+    inserted_at timestamptz
+)
+language sql
+stable
+as $$
+    select s.id,
+           s.title,
+           s.evidence_quote,
+           s.source_url,
+           s.system,
+           1 - (s.embedding <=> p_query_embedding)::double precision as similarity,
+           s.inserted_at
+    from public.signals s
+    where s.actor_slug = p_actor_slug
+      and s.embedding is not null
+      and s.inserted_at > now() - (p_days_back || ' days')::interval
+    order by s.embedding <=> p_query_embedding asc
+    limit greatest(1, least(20, p_limit));
+$$;
+
 -- ---------- grants ----------
 -- Supabase newer projects do not auto-grant service_role on user-created
 -- tables in `public`. Both systems use the service_role key (not the anon
@@ -143,5 +184,7 @@ end $$;
 grant usage on schema public to service_role;
 grant all on all tables    in schema public to service_role;
 grant all on all sequences in schema public to service_role;
+grant execute on function public.find_similar_signals(text, vector, integer, integer) to service_role;
 alter default privileges in schema public grant all on tables    to service_role;
 alter default privileges in schema public grant all on sequences to service_role;
+alter default privileges in schema public grant execute on functions to service_role;

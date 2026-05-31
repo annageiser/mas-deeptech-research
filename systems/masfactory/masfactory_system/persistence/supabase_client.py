@@ -145,6 +145,46 @@ class SupabaseStore:
             row["embedding"] = s.embedding
         return row
 
+    # ---------- semantic dedup (pgvector cosine via RPC) ----------
+
+    def find_similar_signal(
+        self,
+        *,
+        actor_slug: str,
+        embedding: list[float],
+        days_back: int = 30,
+    ) -> Optional[dict[str, Any]]:
+        """Return the single nearest existing signal for this actor, or None.
+
+        Calls the `public.find_similar_signals` Postgres function (defined
+        in schema.sql) which performs the cosine-distance lookup against
+        the pgvector index. Returns `{id, title, evidence_quote,
+        source_url, system, similarity, inserted_at}` for the closest hit,
+        or None if there are no embedded signals for this actor in the
+        time window.
+
+        Defensive: any Supabase / network error returns None — the caller
+        treats None as "no near-duplicate found" and proceeds with insert
+        (a soft-fail that biases toward recall, matching the thesis's
+        recall-over-precision stance throughout the pipeline).
+        """
+        try:
+            resp = self._client.rpc(
+                "find_similar_signals",
+                {
+                    "p_actor_slug": actor_slug,
+                    "p_query_embedding": embedding,
+                    "p_days_back": int(days_back),
+                    "p_limit": 1,
+                },
+            ).execute()
+        except Exception:
+            return None
+        data = resp.data or []
+        if not data:
+            return None
+        return data[0]
+
     # ---------- token usage ----------
 
     def record_token_usage(self, run_id: str, entries: list[dict[str, Any]]) -> None:

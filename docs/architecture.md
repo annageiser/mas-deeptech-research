@@ -1,6 +1,8 @@
-# Architecture — both systems + reports + dashboard + reverse proxy
+# Architecture — both systems + reports + public website + reverse proxy
 
-> Five containers on one VPS, one Supabase, one OpenRouter key. The comparative design means signals from either system land in the same tables, distinguishable by `runs.system in ('masfactory','hermes')` and now also by the denormalised `signals.system` column.
+> Seven containers on one VPS, one Supabase, one OpenRouter key. The comparative design means signals from either system land in the same tables, distinguishable by `runs.system in ('masfactory','hermes')` and now also by the denormalised `signals.system` column.
+>
+> **Website cutover (2026-05-31):** the public face is now FastAPI (`api`) + Next.js 14 (`web`) at `https://mas-deeptech-research.cloud`. The original Streamlit dashboard (`dashboard`) remains in the compose file as a transitional fallback, reachable on internal `:8501` only.
 
 ## High-level shape
 
@@ -42,12 +44,20 @@ flowchart TB
                 RC["daily / weekly / weekly-thesis<br/>reads Supabase + git log<br/>writes data/reports/*.md"]
             end
 
-            subgraph D [Container D — dashboard]
-                DD["Streamlit on :8501<br/>Overview · Signals · Knowledge graph · Reports"]
+            subgraph F [Container F — api]
+                FA["FastAPI on :8000<br/>JSON over Supabase<br/>11 endpoints · canonical schema.yaml"]
+            end
+
+            subgraph G [Container G — web]
+                WG["Next.js 14 on :3000<br/>App Router · TypeScript · Recharts<br/>11 public pages"]
             end
 
             subgraph E [Container E — caddy]
-                CY["reverse proxy<br/>auto-HTTPS via Let's Encrypt<br/>:80, :443 → dashboard:8501"]
+                CY["reverse proxy<br/>auto-HTTPS via Let's Encrypt<br/>/api/* → api:8000<br/>/*     → web:3000"]
+            end
+
+            subgraph D [Container D — dashboard, transitional]
+                DD["Streamlit on :8501<br/>fallback only, not routed by caddy"]
             end
         end
 
@@ -61,8 +71,10 @@ flowchart TB
 
     %% External arrows
     USER -->|HTTPS| CY
-    CY --> DD
-    DD --> SB
+    CY --> WG
+    CY --> FA
+    WG --> FA
+    FA --> SB
 
     %% Cron arrows
     CR_A --> MA
@@ -88,6 +100,7 @@ flowchart TB
     RC --> SB
     RC --> REP
     RC --> NOTES
+    FA --> REP
 
     classDef user fill:#fff,stroke:#444,stroke-width:1px,color:#000
     classDef cron fill:#eef,stroke:#447,color:#000
@@ -102,18 +115,20 @@ flowchart TB
 
 | Container | Role | LLM cost / run | Driven by |
 |---|---|---|---|
-| **A — masfactory** | Orchestration-centric scrape (System A). 7 agents in a `RootGraph`. | ~10–20k tokens (40 actors) | cron 02:00 CET |
+| **A — masfactory** | Orchestration-centric scrape (System A). 7 conceptual agents in a `RootGraph`, plus 3 helper CustomNodes + a per-actor Loop wrapping Extractor / Classifier / Critic. | ~10–20k tokens (40 actors) | cron 02:00 CET |
 | **B — hermes** | Memory + skill-centric scrape (System B). Single AIAgent loop with 4 skills + SQLite memory. | ~30–80k tokens (40 actors) | cron 05:00 CET |
 | **C — reports** | Synthesis layer. Reads Supabase + git. Writes daily + weekly markdown. | ~3–10k tokens / report | cron after each scrape + Sun 08:00 |
-| **D — dashboard** | Streamlit web UI. Read-only Supabase queries. Knowledge graph via networkx + pyvis. | none | continuously running |
-| **E — caddy** | TLS terminator + reverse proxy for `mas-deeptech-research.cloud`. Auto-Let's-Encrypt. | none | continuously running |
+| **F — api** | FastAPI JSON service over Supabase. 11 endpoints; `/api/meta` reads the canonical [`classification/schema.yaml`](../systems/masfactory/masfactory_system/classification/schema.yaml) so the site cites exactly what the agents use. Build-time selfcheck. | none | continuously running |
+| **G — web** | Next.js 14 App Router (TypeScript) frontend. 11 public pages, Recharts, dependency-free SVG knowledge graph. | none | continuously running |
+| **E — caddy** | TLS terminator + reverse proxy for `mas-deeptech-research.cloud`. Auto-Let's-Encrypt. Routes `/api/*` → api, `/*` → web. | none | continuously running |
+| **D — dashboard** *(transitional)* | Original Streamlit UI on internal `:8501`. Not routed by Caddy; kept as a fallback during the cutover and slated for removal once the website is proven. | none | continuously running |
 
 ## Why this shape
 
-- **Comparative validity:** A and B never share Python code beyond the data contract (the Supabase schema). C and D *read* from both but never *write*, so the comparison stays clean.
+- **Comparative validity:** A and B never share Python code beyond the data contract (the Supabase schema). C, D, F, G *read* from both but never *write*, so the comparison stays clean.
 - **Cron in the host, not the container:** simpler than a cron daemon inside each image; a missed tick leaves no zombie process.
-- **Caddy not nginx:** Caddy handles ACME / Let's Encrypt automatically — no certbot cron job, no renew script. One `Caddyfile` line per service.
-- **Streamlit not React+Flask:** ~50 lines per page, Python all the way down, no separate frontend build. Right shape for a thesis dashboard.
+- **Caddy not nginx:** Caddy handles ACME / Let's Encrypt automatically — no certbot cron job, no renew script. Two `handle` blocks route the whole site.
+- **FastAPI + Next.js, not Streamlit:** the public site is the thesis's stakeholder-facing artefact. A JSON API plus a typed React frontend (a) lets the page renderings and the underlying numbers be cited separately, (b) keeps the signalling-theory schema in YAML as the single source of truth (loaded by both the agents and `/api/meta`), and (c) is the architecture the literature recommends for a research dashboard that needs to outlive the thesis defence.
 
 ## The nodes of System A
 

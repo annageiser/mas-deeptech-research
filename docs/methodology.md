@@ -2,7 +2,7 @@
 
 The thesis follows the **constructive research approach** (Kasanen, Lukka & Siitonen, 1993): build an artefact that addresses a real problem and evaluate how well it does so. This document records the design decisions that turn the disposition's plan into running code.
 
-> **For the substantive signal-theory grounding** — why we measure what we measure, how every score is computed, full per-dimension citations to Ehrenthal et al. (2026), Suchman (1995), Knight & Cavusgil (2004), Hilkamo & Granqvist (2022), Adner (2017), Rieger et al. (2025), Robinson & Veresiu (2025), Song et al. (2025), Tomesh et al. (2022), Mohr & Sarin (2009) — see the live **Methodology** page on the dashboard at `https://mas-deeptech-research.cloud` (or its source at [`systems/dashboard/dashboard_app/pages/9_Methodology.py`](../systems/dashboard/dashboard_app/pages/9_Methodology.py)). The per-dimension literature grounding is also embedded directly in [`systems/masfactory/masfactory_system/classification/schema.yaml`](../systems/masfactory/masfactory_system/classification/schema.yaml) as a `grounding:` field on every dimension.
+> **For the substantive signal-theory grounding** — why we measure what we measure, how every score is computed, full per-dimension citations to Ehrenthal et al. (2026), Suchman (1995), Knight & Cavusgil (2004), Hilkamo & Granqvist (2022), Adner (2017), Rieger et al. (2025), Robinson & Veresiu (2025), Song et al. (2025), Tomesh et al. (2022), Mohr & Sarin (2009) — see the live **Methodology** page at [`https://mas-deeptech-research.cloud/methodology`](https://mas-deeptech-research.cloud/methodology) (source: [`systems/web/src/app/methodology/page.tsx`](../systems/web/src/app/methodology/page.tsx)) and the **Signalling theory** page at [`/signalling`](https://mas-deeptech-research.cloud/signalling) (source: [`systems/web/src/app/signalling/page.tsx`](../systems/web/src/app/signalling/page.tsx)). The per-dimension literature grounding is also embedded directly in [`systems/masfactory/masfactory_system/classification/schema.yaml`](../systems/masfactory/masfactory_system/classification/schema.yaml) as a `grounding:` field on every dimension — the same YAML is served verbatim by `/api/meta` so the rendered page and the running agents cite identical sources.
 >
 > *This* document covers methodology in the narrower software-research sense (Kasanen et al.), not signal theory.
 
@@ -51,8 +51,11 @@ Triweekly supervisor reviews should bring at most two prompt/skill changes betwe
 
 ## Already shipped (in scope but worth flagging as substantial)
 
-- **Streamlit dashboard** (Container D, milestone M7) — live at `https://mas-deeptech-research.cloud`. 9 pages, scoring + labels modules, full Methodology page with literature grounding.
-- **Synthesis reports** (Container C) — daily per-system + weekly per-system + weekly thesis-progress markdown reports.
+- **Public website — FastAPI + Next.js 14 stack** (Containers F + G, milestone M7+) — live at [`https://mas-deeptech-research.cloud`](https://mas-deeptech-research.cloud). FastAPI JSON service with 11 endpoints over Supabase; Next.js App Router frontend with 11 typed pages: Overview, Signalling theory, Impact leaderboard, Ecosystem, Actors (index + per-actor spotlight), Compare two actors, Knowledge graph (dependency-free SVG), Signals, Reports, Methodology. The FastAPI layer serves the canonical `classification/schema.yaml` via `/api/meta`, so the rendered Methodology + Signalling pages cite *exactly* what the agents run.
+- **Signalling-theory classification schema v0.3.0** — three-axis taxonomy (channel × signal_cost × observability) with per-dimension `grounding:` citations to the literature. Operationalises Ehrenthal et al. (2026)'s research question via credibility-weighted impact (high-cost signals weighted 1.0, medium 0.7, low 0.4) and a `cheap_talk_ratio` metric.
+- **Per-actor Loop in the System A graph** (was a "deliberate omission" in v1; now shipped) — `PrepareCurrentActor` → Extractor → Classifier → Critic → `AccumulateActor` wrapped in a MASFactory Loop, so each actor's documents are processed in isolation. Persistence also drops hallucinated `(actor_slug, source_url)` pairs to `dropped_hallucinations.json`.
+- **Streamlit dashboard** (Container D) — original 9-page stakeholder UI. Demoted to transitional fallback on internal `:8501` after the FastAPI + Next.js cutover; kept until the new site is proven across a full review cycle.
+- **Synthesis reports** (Container C) — daily per-system + weekly per-system + weekly thesis-progress markdown reports, rendered on the website's `/reports` page.
 - **Per-system signal column** (`signals.system`) — denormalised + backfilled so cross-system queries don't have to join on `runs`.
 - **Hand-editable actors** — Supabase Table editor can edit `arxiv_query` and `notes` without next run overwriting them.
 
@@ -60,9 +63,9 @@ Triweekly supervisor reviews should bring at most two prompt/skill changes betwe
 
 The disposition's evaluation depends on the *gap* between the ideal architecture and what's built. These omissions are intentional in v1 so the gap analysis has honest material:
 
-- **Embeddings on `signals.embedding`** (pgvector column exists but is unused). Adding a SentenceTransformer-based embedder in either system is a one-file change.
+- **Embeddings on `signals.embedding`** (pgvector column exists but is unused). Adding a SentenceTransformer-based embedder in either system is a one-file change; would also unlock semantic deduplication in the Critic.
 - **Swissreg patent ingestion**. Schema reserves `source_kind='swissreg'`; both systems would need a new collector.
-- **Broader-web signal scraping** — Google News, arXiv-affiliation search, press-release aggregator. Academically supported by Kolbe & Burnett (1991) on content-analysis methodology; deferred to a focused follow-up session.
-- **Telegram gateway on System B** (`TelegramGatewayStub` exists with a no-op body). Flip-the-switch addition.
-- **Per-actor processing Loop in the System A graph** — Extractor currently sees all actors' documents in one prompt, which is the root cause of the residual attribution challenge. Per-actor Loop (the pattern MASFactory uses in its NowWhat reference app) would isolate each actor's documents.
+- **Press-release aggregator collector** — listed in the original disposition under broader-web scraping (Google News + arXiv affiliation + press aggregator). Google News and arXiv-affiliation paths are in place; the press-release aggregator is the one remaining backlog item from that group. Academically supported by Kolbe & Burnett (1991) on content-analysis methodology.
+- **Telegram gateway on System B** (`TelegramGatewayStub` exists with a no-op body). Flip-the-switch addition once cron-driven evaluation is complete.
 - **Loop-based "discuss until consensus" critic** on System A. Architecture diagram does not include such a loop; literature review may justify adding one.
+- **Authentication on the public site** — currently anyone can hit any route. Acceptable for a read-only research dashboard with public-domain data, but worth flagging.

@@ -47,6 +47,9 @@ from .agents import (
     PrepareCurrentActorNode,
     RetrieverNode,
     actor_loop_done,
+    consensus_chain_edges,
+    consensus_chain_nodes,
+    consensus_passes,
 )
 
 
@@ -77,6 +80,12 @@ WORKFLOW_ATTRIBUTES: dict[str, object] = {
     "candidates_json": "",
     "classified_json": "",
     "critique_json": "",
+    # Consensus-critic snapshots — populated only when consensus mode is on
+    # (MASF_CRITIC_CONSENSUS_PASSES=3). Single-pass mode leaves these empty.
+    "critique_pass_1_json": "",
+    "critique_pass_2_json": "",
+    "critique_pass_3_json": "",
+    "critic_consensus_audit": {},
     # ---- run-wide accumulators (written by AccumulateActor each iteration) ----
     "all_classified": [],
     "all_critique": [],
@@ -89,6 +98,32 @@ WORKFLOW_ATTRIBUTES: dict[str, object] = {
     "signals_inserted": 0,
     "retriever_errors": [],
 }
+
+
+def _build_critic_chain() -> tuple[list, list]:
+    """Return (loop_nodes_chunk, loop_edges_chunk) for the critic section of
+    the per-actor Loop. Switches between single-pass and 3-pass consensus
+    based on MASF_CRITIC_CONSENSUS_PASSES.
+
+    Self-consistency reference: Wang et al. (2023). Triples the Critic's
+    LLM cost when enabled; default off so the unaltered baseline run stays
+    cheap and the A/B comparison is meaningful."""
+    n = consensus_passes()
+    if n <= 1:
+        nodes = [("critic", CriticNode)]
+        edges = [
+            ("classifier", "critic", {"classified_json": "Classified signals"}),
+            ("critic", "accumulate-actor", {"critique_json": "Critique decisions"}),
+        ]
+        return nodes, edges
+    # 3-pass consensus mode
+    return (
+        list(consensus_chain_nodes()),
+        list(consensus_chain_edges(from_node="classifier", to_node="accumulate-actor")),
+    )
+
+
+_critic_nodes, _critic_edges = _build_critic_chain()
 
 
 ActorLoopNode = NodeTemplate(
@@ -123,20 +158,25 @@ ActorLoopNode = NodeTemplate(
         "candidates_json": "",
         "classified_json": "",
         "critique_json": "",
+        # Consensus-critic snapshots — present in both modes (cleared by
+        # PrepareCurrentActor each iteration) so the Loop's attribute set
+        # is consistent across single-pass and consensus runs.
+        "critique_pass_1_json": "",
+        "critique_pass_2_json": "",
+        "critique_pass_3_json": "",
     },
     nodes=[
         ("prepare-actor", PrepareCurrentActorNode),
         ("extractor", ExtractorNode),
         ("classifier", ClassifierNode),
-        ("critic", CriticNode),
+        *_critic_nodes,
         ("accumulate-actor", AccumulateActorNode),
     ],
     edges=[
         ("controller", "prepare-actor", {}),
         ("prepare-actor", "extractor", {"documents_json": "Current actor's documents"}),
         ("extractor", "classifier", {"candidates_json": "Signal candidates"}),
-        ("classifier", "critic", {"classified_json": "Classified signals"}),
-        ("critic", "accumulate-actor", {"critique_json": "Critique decisions"}),
+        *_critic_edges,
         # Loopback edge carries the keys we want exposed on the Loop's outer
         # output port — these flow through the controller into the implicit
         # terminate message that becomes the Loop node's output.

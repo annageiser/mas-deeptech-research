@@ -76,6 +76,11 @@ def _prepare_current_actor(_input: dict, attrs: dict) -> dict:
         "candidates_json": "",
         "classified_json": "",
         "critique_json": "",
+        # Consensus-critic snapshots (no-op when single-pass mode is in use,
+        # but harmless to clear regardless).
+        "critique_pass_1_json": "",
+        "critique_pass_2_json": "",
+        "critique_pass_3_json": "",
     }
 
 

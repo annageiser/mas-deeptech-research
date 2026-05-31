@@ -11,6 +11,7 @@ import json
 
 from masfactory import CustomNode, NodeTemplate
 
+from ..embedding import compose_signal_text, embed_text, is_enabled as embeddings_enabled
 from ..persistence import SignalRow
 
 
@@ -111,6 +112,8 @@ def _persist(_input: dict, attrs: dict) -> dict:
     surviving = validated
 
     inserted = 0
+    embed_on = embeddings_enabled()
+    embed_count = 0
     if store is not None and run_id is not None and surviving:
         rows: list[SignalRow] = []
         for s in surviving:
@@ -118,6 +121,14 @@ def _persist(_input: dict, attrs: dict) -> dict:
             content_hash = hashlib.sha256(
                 f"{s.get('actor_slug')}|{s.get('source_url')}|{evidence}".encode("utf-8")
             ).hexdigest()
+            # Compute embedding if MASF_EMBEDDINGS=1. embed_text returns None
+            # if disabled or if model load failed — row insert still works
+            # and the column stays NULL.
+            emb: list[float] | None = None
+            if embed_on:
+                emb = embed_text(compose_signal_text(s))
+                if emb is not None:
+                    embed_count += 1
             rows.append(
                 SignalRow(
                     run_id=run_id,
@@ -131,9 +142,18 @@ def _persist(_input: dict, attrs: dict) -> dict:
                     is_technical=bool(s["is_technical"]),
                     confidence=float(s.get("confidence", 0.0)),
                     content_hash=content_hash,
+                    embedding=emb,
                 )
             )
         inserted = store.insert_signals(rows)
+        if audit is not None and embed_on:
+            audit.write_json("embeddings_summary.json", {
+                "enabled": True,
+                "signals_total": len(surviving),
+                "signals_embedded": embed_count,
+                "model": "BAAI/bge-base-en-v1.5",
+                "dim": 768,
+            })
 
     return {
         "signals_kept": len(surviving),

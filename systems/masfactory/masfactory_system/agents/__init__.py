@@ -21,6 +21,18 @@ from .retriever import RetrieverNode
 from .extractor import ExtractorNode
 from .classifier import ClassifierNode
 from .critic import CriticNode
+from .critic_consensus import (
+    CriticPass1Node,
+    CriticPass2Node,
+    CriticPass3Node,
+    CriticSnapshot1Node,
+    CriticSnapshot2Node,
+    CriticSnapshot3Node,
+    CriticVoteNode,
+    consensus_chain_edges,
+    consensus_chain_nodes,
+    consensus_passes,
+)
 from .survivor import SurvivorNode
 from .analyst import AnalystNode
 from .persistence import PersistenceNode
@@ -36,6 +48,16 @@ __all__ = [
     "ExtractorNode",
     "ClassifierNode",
     "CriticNode",
+    "CriticPass1Node",
+    "CriticPass2Node",
+    "CriticPass3Node",
+    "CriticSnapshot1Node",
+    "CriticSnapshot2Node",
+    "CriticSnapshot3Node",
+    "CriticVoteNode",
+    "consensus_chain_edges",
+    "consensus_chain_nodes",
+    "consensus_passes",
     "SurvivorNode",
     "AnalystNode",
     "PersistenceNode",

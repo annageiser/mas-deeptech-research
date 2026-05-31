@@ -11,7 +11,12 @@ import json
 
 from masfactory import CustomNode, NodeTemplate
 
-from ..collection import collect_arxiv, collect_google_news, collect_website
+from ..collection import (
+    collect_arxiv,
+    collect_google_news,
+    collect_press_releases,
+    collect_website,
+)
 from ..schema import Actor
 
 
@@ -30,6 +35,7 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
     limit_arxiv = int(attrs.get("limit_arxiv_per_actor", 5) or 5)
     limit_web = int(attrs.get("limit_website_pages_per_actor", 2) or 2)
     limit_news = int(attrs.get("limit_news_per_actor", 5) or 5)
+    limit_press = int(attrs.get("limit_press_per_actor", 5) or 5)
     cache_dir = attrs.get("web_cache_dir", "/data/raw/web_cache") or "/data/raw/web_cache"
 
     documents: list[dict] = []
@@ -68,6 +74,19 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
                 )
             except Exception as exc:
                 errors.append({"slug": slug, "source": "news", "error": str(exc)})
+
+        # Press-release aggregator (Bing News with PR-flavoured query). Distinct
+        # ranker + aggregator coverage from Google News; together the two read
+        # the "press" signal channel more completely (Kolbe & Burnett 1991
+        # content-analysis triangulation). Always opt in for the same reason.
+        if "press" in sources or not sources or ("arxiv" in sources or "website" in sources or "news" in sources):
+            try:
+                documents.extend(
+                    d.model_dump(mode="json")
+                    for d in collect_press_releases(actor, max_results=limit_press)
+                )
+            except Exception as exc:
+                errors.append({"slug": slug, "source": "press", "error": str(exc)})
 
     # Group documents by actor_slug so the per-actor Loop downstream can
     # process one actor at a time (smaller Extractor prompts → cleaner

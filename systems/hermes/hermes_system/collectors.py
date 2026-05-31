@@ -22,7 +22,12 @@ from selectolax.parser import HTMLParser
 
 ARXIV_ENDPOINT = "https://export.arxiv.org/api/query"
 GNEWS_ENDPOINT = "https://news.google.com/rss/search"
+BING_NEWS_ENDPOINT = "https://www.bing.com/news/search"
 USER_AGENT = "hermes-thesis/0.1 (+https://github.com/anna-geiser/mas-deeptech-research)"
+# Verbs that bias Bing News' ranker toward press-release-style content. Kept
+# identical to systems/masfactory/collection/press.py so the comparative
+# invariant holds (same external behaviour, code-independent implementations).
+PR_KEYWORDS = ("announces", "launches", "partners", "funding", "breakthrough")
 WEB_CACHE_DIR = os.environ.get("HRM_WEB_CACHE_DIR", "/data/raw/hermes_web_cache")
 NEWSY_HINTS = (
     "news", "press", "blog", "publication", "media", "announcement",
@@ -314,6 +319,56 @@ def collect_google_news_for_actor(*, actor_name: str, max_results: int, actor_sl
     try:
         with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:
             resp = client.get(url)
+            resp.raise_for_status()
+    except Exception:
+        return []
+    feed = feedparser.parse(resp.text)
+    docs: list[dict] = []
+    now = datetime.now(timezone.utc).isoformat()
+    for entry in feed.entries[: max(1, min(20, int(max_results)))]:
+        link = (entry.get("link") or "").strip()
+        title = (entry.get("title") or "").strip()
+        summary = (entry.get("summary") or entry.get("description") or "").strip()
+        if not link or not title:
+            continue
+        body = f"{title}\n\n{summary}".strip()
+        docs.append(
+            {
+                "source_kind": "news",
+                "source_url": link,
+                "actor_slug": actor_slug,
+                "title": title,
+                "text": body[:8_000],
+                "fetched_at": now,
+                "content_hash": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+            }
+        )
+    return docs
+
+
+# ---------- Press-release aggregator (broader-web channel #3) ----------
+
+def collect_press_releases_for_actor(
+    *, actor_name: str, max_results: int, actor_slug: str
+) -> list[dict]:
+    """Bing News RSS with a press-release-biased query.
+
+    Distinct aggregator from Google News (different ranker, different
+    underlying source mix). The OR-group of PR verbs nudges Bing's ranker
+    toward PR-wire content. See `systems/masfactory/collection/press.py`
+    for the substantive citations (Kolbe & Burnett 1991 triangulation;
+    Spence 1973 / Ehrenthal 2026 on press releases as costly signals).
+    Code-independent from System A's implementation by design — same
+    external behaviour, no shared module.
+    """
+    if not actor_name.strip():
+        return []
+    or_group = " OR ".join(PR_KEYWORDS)
+    q = f'"{actor_name.strip()}" quantum ({or_group})'
+    url = f"{BING_NEWS_ENDPOINT}?{urlencode({'q': q, 'format': 'rss'})}"
+    try:
+        with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:
+            resp = client.get(url, follow_redirects=True)
             resp.raise_for_status()
     except Exception:
         return []

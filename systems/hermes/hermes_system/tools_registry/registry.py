@@ -62,7 +62,12 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
     `signal_buffer` is a shared list the `register_signal` tool appends to;
     the runner reads it after the loop finishes and ships rows to Supabase.
     """
-    from ..collectors import collect_arxiv_for_query, collect_google_news_for_actor, collect_website_for_url
+    from ..collectors import (
+        collect_arxiv_for_query,
+        collect_google_news_for_actor,
+        collect_press_releases_for_actor,
+        collect_website_for_url,
+    )
 
     def arxiv_search(query: str, max_results: int = 5) -> str:
         docs = collect_arxiv_for_query(query=query, max_results=max_results, actor_slug=actor_slug)
@@ -76,6 +81,15 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
         """Google News RSS biased to Switzerland. Pass the actor's display
         name (not slug) — Google News matches better on real names."""
         docs = collect_google_news_for_actor(
+            actor_name=actor_name, max_results=max_results, actor_slug=actor_slug
+        )
+        return json.dumps(docs)
+
+    def press_search(actor_name: str, max_results: int = 5) -> str:
+        """Press-release aggregator (Bing News with PR-flavoured query).
+        Distinct ranker + aggregator coverage from `news_search` — call
+        both for full content-analysis triangulation."""
+        docs = collect_press_releases_for_actor(
             actor_name=actor_name, max_results=max_results, actor_slug=actor_slug
         )
         return json.dumps(docs)
@@ -115,6 +129,10 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
     registry.add(ToolDef("news_search",
                          "Search Google News for third-party coverage of the actor (Switzerland-biased).",
                          news_search,
+                         {"actor_name": "string (the actor's display name)", "max_results": "int (default 5)"}))
+    registry.add(ToolDef("press_search",
+                         "Search a press-release aggregator (Bing News, PR-flavoured query) for the actor — distinct ranker + sources from news_search; call both for triangulated coverage.",
+                         press_search,
                          {"actor_name": "string (the actor's display name)", "max_results": "int (default 5)"}))
     registry.add(ToolDef("register_signal",
                          "Record one classified signal — call this once per evidence item.",

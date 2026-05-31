@@ -1,16 +1,15 @@
-"""Human-readable labels for everything the dashboard exposes.
+"""Human-readable labels + the signalling-theory cost/observability axes.
 
-Every place the dashboard would otherwise show a DB column name or an
-internal slug, look here first. Stakeholders (researchers, investors,
-business advisors) shouldn't have to learn `actor_slug` or `is_technical`.
+Vendored copy (the API container doesn't bundle the masfactory package).
+CANONICAL SOURCE for weights / costs / observability:
+systems/masfactory/masfactory_system/classification/schema.yaml — keep in sync.
 """
 
 from __future__ import annotations
 
 
 # ---------------------------------------------------------------------------
-# Signal-classification dimensions (taxonomy in
-# systems/masfactory/.../classification/schema.yaml)
+# Signal-classification dimensions
 # ---------------------------------------------------------------------------
 
 DIMENSION_LABEL = {
@@ -25,7 +24,6 @@ DIMENSION_LABEL = {
     "market_positioning":      "Market positioning",
 }
 
-# Short hint shown on hover
 DIMENSION_HINT = {
     "technical_capability":    "Qubits, gate fidelity, coherence, software releases.",
     "research_output":         "Peer-reviewed papers, pre-prints, datasets.",
@@ -38,9 +36,6 @@ DIMENSION_HINT = {
     "market_positioning":      "Roadmaps, keynotes, branding shifts.",
 }
 
-# Which dimensions count as "evidence of capability" vs "evidence of legitimacy".
-# Grounded in the disposition's signaling-theory framing (Suchman 1995,
-# Knight & Cavusgil 2004, Ehrenthal et al. 2026).
 CAPABILITY_DIMENSIONS = {
     "technical_capability",
     "research_output",
@@ -55,12 +50,6 @@ LEGITIMACY_DIMENSIONS = {
     "market_positioning",
 }
 
-# Weight per dimension when computing an Impact score.
-#
-# CANONICAL SOURCE: systems/masfactory/masfactory_system/classification/schema.yaml
-# Keep these values in sync with the `weight` field there. The dashboard reads
-# them from this file (not the YAML) because the dashboard container doesn't
-# bundle the masfactory package. If you edit one place, edit the other.
 DIMENSION_WEIGHT = {
     "technical_capability":    1.3,
     "research_output":         1.0,
@@ -73,9 +62,7 @@ DIMENSION_WEIGHT = {
     "market_positioning":      0.4,
 }
 
-# Signal-cost class per dimension — the heart of signalling theory: costly,
-# hard-to-fake signals (Rieger et al. 2025; Suchman 1995) carry more
-# information than cheap talk. Mirrors `signal_cost` in schema.yaml.
+# Signal-cost class per dimension — heart of signalling theory.
 DIMENSION_COST = {
     "technical_capability":    "medium",
     "research_output":         "high",
@@ -88,10 +75,8 @@ DIMENSION_COST = {
     "market_positioning":      "low",
 }
 
-# Credibility multiplier per cost class. Mirrors `cost_classes` in schema.yaml.
 COST_MULTIPLIER = {"high": 1.0, "medium": 0.7, "low": 0.4}
 
-# Public observability per dimension. Mirrors `observability` in schema.yaml.
 DIMENSION_OBSERVABILITY = {
     "technical_capability":    "medium",
     "research_output":         "high",
@@ -118,7 +103,7 @@ def cost_label(dimension_key: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Actor categories (from data/raw/actors.yaml)
+# Actor categories
 # ---------------------------------------------------------------------------
 
 CATEGORY_LABEL = {
@@ -137,25 +122,11 @@ CATEGORY_COLOR = {
     "government":                  "#8c564b",
 }
 
-
-# ---------------------------------------------------------------------------
-# Systems (the two MAS being compared)
-# ---------------------------------------------------------------------------
-
 SYSTEM_LABEL = {
     "masfactory": "System A · MASFactory",
     "hermes":     "System B · Hermes",
 }
-
-SYSTEM_SHORT = {
-    "masfactory": "System A",
-    "hermes":     "System B",
-}
-
-
-# ---------------------------------------------------------------------------
-# Source kinds (where a signal came from)
-# ---------------------------------------------------------------------------
+SYSTEM_SHORT = {"masfactory": "System A", "hermes": "System B"}
 
 SOURCE_KIND_LABEL = {
     "arxiv":    "arXiv paper",
@@ -165,10 +136,6 @@ SOURCE_KIND_LABEL = {
     "manual":   "Manual entry",
 }
 
-
-# ---------------------------------------------------------------------------
-# Convenience helpers
-# ---------------------------------------------------------------------------
 
 def dimension(key: str) -> str:
     return DIMENSION_LABEL.get(key, key.replace("_", " ").title())

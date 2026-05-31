@@ -94,12 +94,38 @@ class SupabaseStore:
 
     # ---------- signals ----------
 
-    @staticmethod
-    def derive_signal_rows(run_id: str, raw_signals: list[dict[str, Any]]) -> list[SignalRow]:
+    def derive_signal_rows(
+        self, run_id: str, raw_signals: list[dict[str, Any]]
+    ) -> list[SignalRow]:
+        """Compose SignalRows with optional embedding + optional semantic dedup.
+
+        Note: was a @staticmethod prior to the dedup landing; now an
+        instance method because the dedup needs `self._client` to query
+        the existing corpus. Callers in runner.py already invoke as a
+        method on the instance, so the API change is source-compatible.
+        """
         # Local imports — keep the embedding hooks lazy so this module is
         # cheap to import in environments without fastembed installed.
+        import os as _os
         from ..embedding import compose_signal_text, embed_text, is_enabled as embeddings_enabled
+
         embed_on = embeddings_enabled()
+
+        sem_on = _os.environ.get("HRM_SEMANTIC_DEDUP", "").strip().lower() in (
+            "1", "true", "yes", "on"
+        )
+        try:
+            sem_threshold = float(_os.environ.get("HRM_SEMANTIC_DEDUP_THRESHOLD", "0.92"))
+        except (TypeError, ValueError):
+            sem_threshold = 0.92
+        try:
+            sem_days = int(_os.environ.get("HRM_SEMANTIC_DEDUP_DAYS", "30"))
+        except (TypeError, ValueError):
+            sem_days = 30
+        sem_threshold = max(0.5, min(0.999, sem_threshold))
+        sem_days = max(1, min(365, sem_days))
+        sem_active = sem_on and embed_on
+
         rows: list[SignalRow] = []
         for s in raw_signals:
             evidence = s.get("evidence_quote") or ""
@@ -107,6 +133,23 @@ class SupabaseStore:
                 f"{s.get('actor_slug')}|{s.get('source_url')}|{evidence}".encode("utf-8")
             ).hexdigest()
             emb = embed_text(compose_signal_text(s)) if embed_on else None
+
+            if sem_active and emb is not None:
+                neighbour = self.find_similar_signal(
+                    actor_slug=s["actor_slug"],
+                    embedding=emb,
+                    days_back=sem_days,
+                )
+                if neighbour and float(neighbour.get("similarity", 0.0)) >= sem_threshold:
+                    # Drop this signal — its embedding is already in the
+                    # corpus. Hermes' single-loop runner doesn't have a
+                    # graph-level audit folder for per-row dedup logs;
+                    # the run-level audit ('actor_<slug>.json') already
+                    # records the transcript so the dedup decision is
+                    # traceable via Supabase (the matched signal's id is
+                    # what we'd point at).
+                    continue
+
             rows.append(
                 SignalRow(
                     run_id=run_id,
@@ -124,6 +167,34 @@ class SupabaseStore:
                 )
             )
         return rows
+
+    def find_similar_signal(
+        self,
+        *,
+        actor_slug: str,
+        embedding: list[float],
+        days_back: int = 30,
+    ) -> Optional[dict[str, Any]]:
+        """Nearest existing signal for this actor via pgvector cosine RPC.
+
+        Mirrors systems/masfactory/.../supabase_client.py — same RPC, same
+        return shape. Soft-fails to None on any error so the cron stays
+        running even if the function is missing or Supabase is flaky.
+        """
+        try:
+            resp = self._client.rpc(
+                "find_similar_signals",
+                {
+                    "p_actor_slug": actor_slug,
+                    "p_query_embedding": embedding,
+                    "p_days_back": int(days_back),
+                    "p_limit": 1,
+                },
+            ).execute()
+        except Exception:
+            return None
+        data = resp.data or []
+        return data[0] if data else None
 
     def insert_signals(self, signals: list[SignalRow]) -> int:
         if not signals:

@@ -2,17 +2,48 @@
 
 Pure-Python CustomNode. The Supabase store and per-run audit folder are
 injected via graph attributes by `runner.py`.
+
+Optional semantic-dedup step (env-gated):
+    MASF_SEMANTIC_DEDUP=1 turns it on (requires MASF_EMBEDDINGS=1 — without
+    a query embedding, there's nothing to compare against).
+
+    For each candidate signal we query the existing corpus (same actor,
+    last MASF_SEMANTIC_DEDUP_DAYS days) for the nearest pgvector neighbour
+    and drop the candidate if its cosine similarity exceeds
+    MASF_SEMANTIC_DEDUP_THRESHOLD. The dropped signal is logged to the
+    audit folder with the matched signal's id so the thesis can report
+    dedup rates per actor / per source / per dimension.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 
 from masfactory import CustomNode, NodeTemplate
 
 from ..embedding import compose_signal_text, embed_text, is_enabled as embeddings_enabled
 from ..persistence import SignalRow
+
+
+def _semantic_dedup_config() -> tuple[bool, float, int]:
+    """(enabled, similarity_threshold, days_back). Defaults: off, 0.92, 30."""
+    enabled = os.environ.get("MASF_SEMANTIC_DEDUP", "").strip().lower() in (
+        "1", "true", "yes", "on"
+    )
+    try:
+        threshold = float(os.environ.get("MASF_SEMANTIC_DEDUP_THRESHOLD", "0.92"))
+    except (TypeError, ValueError):
+        threshold = 0.92
+    try:
+        days_back = int(os.environ.get("MASF_SEMANTIC_DEDUP_DAYS", "30"))
+    except (TypeError, ValueError):
+        days_back = 30
+    # Clamp to sane ranges so a typo doesn't disable / DoS the system.
+    threshold = max(0.5, min(0.999, threshold))
+    days_back = max(1, min(365, days_back))
+    return enabled, threshold, days_back
 
 
 def _strip_fences_and_tag(raw: str, tag: str | None = None) -> str:
@@ -114,6 +145,13 @@ def _persist(_input: dict, attrs: dict) -> dict:
     inserted = 0
     embed_on = embeddings_enabled()
     embed_count = 0
+    sem_on, sem_threshold, sem_days = _semantic_dedup_config()
+    # Semantic dedup requires embeddings — without a query vector, there's
+    # nothing to compare. Soft-disable rather than raise so a stray env
+    # combo doesn't break the cron.
+    sem_active = sem_on and embed_on and store is not None
+    semantic_dedup_log: list[dict] = []
+
     if store is not None and run_id is not None and surviving:
         rows: list[SignalRow] = []
         for s in surviving:
@@ -129,6 +167,37 @@ def _persist(_input: dict, attrs: dict) -> dict:
                 emb = embed_text(compose_signal_text(s))
                 if emb is not None:
                     embed_count += 1
+
+            # Semantic dedup: drop if a near-neighbour already exists for
+            # this actor. We use a single nearest-neighbour query per
+            # signal (~5-15ms via the ivfflat index); for daily batches of
+            # ~50 surviving signals that's a sub-second total overhead.
+            if sem_active and emb is not None:
+                neighbour = store.find_similar_signal(
+                    actor_slug=s["actor_slug"],
+                    embedding=emb,
+                    days_back=sem_days,
+                )
+                if neighbour and float(neighbour.get("similarity", 0.0)) >= sem_threshold:
+                    semantic_dedup_log.append({
+                        "dropped_signal": {
+                            "actor_slug": s["actor_slug"],
+                            "title": s.get("title", "")[:200],
+                            "source_url": s.get("source_url"),
+                            "dimension": s.get("dimension"),
+                        },
+                        "matched_existing": {
+                            "id": neighbour.get("id"),
+                            "title": (neighbour.get("title") or "")[:200],
+                            "source_url": neighbour.get("source_url"),
+                            "system": neighbour.get("system"),
+                            "inserted_at": neighbour.get("inserted_at"),
+                        },
+                        "similarity": float(neighbour.get("similarity", 0.0)),
+                        "threshold": sem_threshold,
+                    })
+                    continue  # skip the insert
+
             rows.append(
                 SignalRow(
                     run_id=run_id,
@@ -153,6 +222,15 @@ def _persist(_input: dict, attrs: dict) -> dict:
                 "signals_embedded": embed_count,
                 "model": "BAAI/bge-base-en-v1.5",
                 "dim": 768,
+            })
+        if audit is not None and sem_active:
+            audit.write_json("semantic_dedup.json", {
+                "enabled": True,
+                "threshold": sem_threshold,
+                "days_back": sem_days,
+                "signals_considered": len(surviving),
+                "signals_dropped": len(semantic_dedup_log),
+                "drops": semantic_dedup_log,
             })
 
     return {

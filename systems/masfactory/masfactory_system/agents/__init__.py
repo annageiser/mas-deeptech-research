@@ -33,6 +33,17 @@ from .critic_consensus import (
     consensus_chain_nodes,
     consensus_passes,
 )
+from .critic_debate import (
+    DebatePass1Node,
+    DebatePass2Node,
+    DebatePass3Node,
+    DebateSnapshot1Node,
+    DebateSnapshot2Node,
+    DebateSnapshot3Node,
+    debate_chain_edges,
+    debate_chain_nodes,
+    debate_rounds,
+)
 from .survivor import SurvivorNode
 from .analyst import AnalystNode
 from .persistence import PersistenceNode
@@ -58,6 +69,15 @@ __all__ = [
     "consensus_chain_edges",
     "consensus_chain_nodes",
     "consensus_passes",
+    "DebatePass1Node",
+    "DebatePass2Node",
+    "DebatePass3Node",
+    "DebateSnapshot1Node",
+    "DebateSnapshot2Node",
+    "DebateSnapshot3Node",
+    "debate_chain_edges",
+    "debate_chain_nodes",
+    "debate_rounds",
     "SurvivorNode",
     "AnalystNode",
     "PersistenceNode",

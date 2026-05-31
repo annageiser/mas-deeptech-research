@@ -20,5 +20,5 @@ mas-deeptech-research.cloud {
 }
 
 www.mas-deeptech-research.cloud {
-    redirect https://mas-deeptech-research.cloud{uri} permanent
+    redir https://mas-deeptech-research.cloud{uri} permanent
 }

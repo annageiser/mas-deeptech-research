@@ -60,6 +60,65 @@ Expected output contains `'news'`.
 
 ---
 
+## 2026-05-31 — `find_similar_signals` RPC for semantic dedup
+
+Adds the Postgres function the persistence layer calls when semantic dedup
+is enabled (`MASF_SEMANTIC_DEDUP=1` / `HRM_SEMANTIC_DEDUP=1`). Required
+after pulling commit `f013cf5` or later; without it, enabling dedup will
+log warnings and degrade gracefully (no dedup, no crash) but the function
+won't exist.
+
+**Paste this into the Supabase SQL editor and Run:**
+
+```sql
+create or replace function public.find_similar_signals(
+    p_actor_slug text,
+    p_query_embedding vector(768),
+    p_days_back integer default 30,
+    p_limit integer default 1
+)
+returns table (
+    id uuid,
+    title text,
+    evidence_quote text,
+    source_url text,
+    system text,
+    similarity double precision,
+    inserted_at timestamptz
+)
+language sql
+stable
+as $$
+    select s.id,
+           s.title,
+           s.evidence_quote,
+           s.source_url,
+           s.system,
+           1 - (s.embedding <=> p_query_embedding)::double precision as similarity,
+           s.inserted_at
+    from public.signals s
+    where s.actor_slug = p_actor_slug
+      and s.embedding is not null
+      and s.inserted_at > now() - (p_days_back || ' days')::interval
+    order by s.embedding <=> p_query_embedding asc
+    limit greatest(1, least(20, p_limit));
+$$;
+
+grant execute on function public.find_similar_signals(text, vector, integer, integer) to service_role;
+alter default privileges in schema public grant execute on functions to service_role;
+```
+
+**Verify** (returns 1 row with the function's signature):
+
+```sql
+select proname, pg_get_function_identity_arguments(oid) as args
+  from pg_proc where proname = 'find_similar_signals';
+```
+
+The function is already in the canonical [`schema.sql`](../systems/masfactory/masfactory_system/persistence/schema.sql) (CREATE OR REPLACE), so re-applying the full file works too.
+
+---
+
 ## How to apply
 
 1. Open <https://supabase.com/dashboard> → your project → **SQL editor**

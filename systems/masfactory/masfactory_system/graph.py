@@ -50,6 +50,9 @@ from .agents import (
     consensus_chain_edges,
     consensus_chain_nodes,
     consensus_passes,
+    debate_chain_edges,
+    debate_chain_nodes,
+    debate_rounds,
 )
 
 
@@ -102,25 +105,81 @@ WORKFLOW_ATTRIBUTES: dict[str, object] = {
 
 def _build_critic_chain() -> tuple[list, list]:
     """Return (loop_nodes_chunk, loop_edges_chunk) for the critic section of
-    the per-actor Loop. Switches between single-pass and 3-pass consensus
-    based on MASF_CRITIC_CONSENSUS_PASSES.
+    the per-actor Loop. Three modes, gated by env:
 
-    Self-consistency reference: Wang et al. (2023). Triples the Critic's
-    LLM cost when enabled; default off so the unaltered baseline run stays
-    cheap and the A/B comparison is meaningful."""
-    n = consensus_passes()
-    if n <= 1:
+      Mode A (default): single-pass Critic.
+        env: MASF_CRITIC_CONSENSUS_PASSES unset/=1, MASF_CRITIC_DEBATE_ROUNDS unset/=0
+
+      Mode B: 3-pass consensus, no debate (Wang et al. 2023 self-consistency).
+        env: MASF_CRITIC_CONSENSUS_PASSES=3, MASF_CRITIC_DEBATE_ROUNDS unset/=0
+
+      Mode C: 3-pass consensus + 1 debate round (Du et al. 2023 multi-agent debate).
+        env: MASF_CRITIC_CONSENSUS_PASSES=3 AND MASF_CRITIC_DEBATE_ROUNDS>=1
+
+    Mode C requires Mode B as a prerequisite — debating requires prior
+    verdicts to debate over. If MASF_CRITIC_DEBATE_ROUNDS is set without
+    MASF_CRITIC_CONSENSUS_PASSES=3, the debate flag is silently ignored
+    (logged at runner.py via config_snapshot if you need to detect it).
+    """
+    n_passes = consensus_passes()
+    n_debate = debate_rounds() if n_passes > 1 else 0  # see prereq above
+
+    if n_passes <= 1:
+        # Mode A
         nodes = [("critic", CriticNode)]
         edges = [
             ("classifier", "critic", {"classified_json": "Classified signals"}),
             ("critic", "accumulate-actor", {"critique_json": "Critique decisions"}),
         ]
         return nodes, edges
-    # 3-pass consensus mode
-    return (
-        list(consensus_chain_nodes()),
-        list(consensus_chain_edges(from_node="classifier", to_node="accumulate-actor")),
-    )
+
+    # Mode B + maybe Mode C
+    nodes = list(consensus_chain_nodes())
+    edges = list(consensus_chain_edges(from_node="classifier", to_node="accumulate-actor"))
+
+    if n_debate >= 1:
+        # Mode C: insert the debate chain between the last consensus snapshot
+        # ('snapshot-3') and the vote ('critic-vote'). We:
+        #   1) drop the consensus chain's snapshot-3 → critic-vote edge
+        #   2) splice in the 6 debate nodes
+        #   3) add the debate-snap-3 → critic-vote edge
+        nodes = _splice_in_debate_nodes(nodes)
+        edges = _splice_in_debate_edges(edges)
+
+    return nodes, edges
+
+
+def _splice_in_debate_nodes(consensus_nodes: list) -> list:
+    """Insert the 6 debate nodes between 'snapshot-3' and 'critic-vote' in
+    the consensus chain. Order matters: critic-vote must come last so its
+    output flows to accumulate-actor."""
+    out: list = []
+    debate_nodes = list(debate_chain_nodes())
+    for name, tpl in consensus_nodes:
+        if name == "critic-vote":
+            out.extend(debate_nodes)
+        out.append((name, tpl))
+    return out
+
+
+def _splice_in_debate_edges(consensus_edges: list) -> list:
+    """Rewrite the consensus chain's snapshot-3 → critic-vote edge to go
+    through the debate chain instead. Add the debate-snap-3 → critic-vote
+    bridge that critic_debate.py intentionally omits."""
+    debate_edges = list(debate_chain_edges())
+    bridge = [
+        # Final hop from the last debate snapshot into the existing vote node.
+        ("debate-snap-3", "critic-vote", {}),
+    ]
+    out: list = []
+    for src, dst, payload in consensus_edges:
+        if src == "snapshot-3" and dst == "critic-vote":
+            # Replace with the debate chain + bridge.
+            out.extend(debate_edges)
+            out.extend(bridge)
+        else:
+            out.append((src, dst, payload))
+    return out
 
 
 _critic_nodes, _critic_edges = _build_critic_chain()

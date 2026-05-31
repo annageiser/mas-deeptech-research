@@ -128,18 +128,30 @@ export interface CompareResponse {
   agreement_counts: { both: number; only_a: number; only_b: number };
 }
 
+export interface KnowledgeGraphNode {
+  id: string;
+  kind: "actor" | "dimension";
+  label: string;
+  category?: string;
+  category_label?: string;
+  color: string;
+  size: number;
+  dimensions?: number;
+}
+
+export interface KnowledgeGraphEdge {
+  source: string;
+  target: string;
+  weight: number;
+  // String at the wire layer (FastAPI returns whatever build_graph_json emits);
+  // the renderer narrows it to the discriminated union it cares about.
+  kind: "actor-dim" | "actor-actor" | string;
+  shared?: string[];
+}
+
 export interface KnowledgeGraph {
-  nodes: {
-    id: string;
-    kind: "actor" | "dimension";
-    label: string;
-    category?: string;
-    category_label?: string;
-    color: string;
-    size: number;
-    dimensions?: number;
-  }[];
-  edges: { source: string; target: string; weight: number; kind: string; shared?: string[] }[];
+  nodes: KnowledgeGraphNode[];
+  edges: KnowledgeGraphEdge[];
 }
 
 export interface ReportListItem {

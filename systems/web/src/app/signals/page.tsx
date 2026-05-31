@@ -33,7 +33,7 @@ function SignalsInner() {
         <div className="filters" style={{ flexWrap: "wrap" }}>
           <select value={dimension} onChange={(e) => setDimension(e.target.value)}>
             <option value="">All signal types</option>
-            {["technical_capability","research_output","ip_filing","infrastructure_or_facility","partnership_or_alliance","funding_or_grant","hiring_or_talent","regulatory_or_policy","market_positioning"].map((d) => (
+            {["technological_advances","publications","patents","hpc_collaborations","industry_partnerships","funding_event","leadership_expertise","regulatory_recognition","roadmaps"].map((d) => (
               <option key={d} value={d}>{d.replace(/_/g, " ")}</option>
             ))}
           </select>

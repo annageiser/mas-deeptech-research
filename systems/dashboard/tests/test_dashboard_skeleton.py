@@ -21,12 +21,12 @@ def test_build_graph_empty():
 def test_build_graph_with_data():
     signals = pd.DataFrame(
         [
-            {"actor_slug": "a1", "dimension": "research_output"},
-            {"actor_slug": "a1", "dimension": "research_output"},
-            {"actor_slug": "a1", "dimension": "funding_or_grant"},
-            {"actor_slug": "a2", "dimension": "research_output"},
-            {"actor_slug": "a2", "dimension": "funding_or_grant"},
-            {"actor_slug": "a3", "dimension": "research_output"},
+            {"actor_slug": "a1", "dimension": "publications"},
+            {"actor_slug": "a1", "dimension": "publications"},
+            {"actor_slug": "a1", "dimension": "funding_event"},
+            {"actor_slug": "a2", "dimension": "publications"},
+            {"actor_slug": "a2", "dimension": "funding_event"},
+            {"actor_slug": "a3", "dimension": "publications"},
         ]
     )
     actors = pd.DataFrame(
@@ -56,7 +56,11 @@ def test_all_categories_have_label_and_colour():
         assert k in L.CATEGORY_COLOR, f"missing colour for {k}"
 
 def test_label_helpers():
-    assert L.dimension("research_output") == "Research output"
+    # v0.4.0 Ehrenthal subtype key
+    assert L.dimension("publications") == "Publications"
+    # Legacy v0.3.0 keys still resolve via the migration table (normalise_dimension)
+    assert L.dimension("research_output") == "Publications"
+    assert L.dimension("funding_or_grant") == "Funding event"
     assert L.dimension("totally_unknown_thing").endswith("Unknown Thing")
     assert L.category("private_company") == "Private company"
     assert L.system_label("masfactory") == "System A · MASFactory"
@@ -89,10 +93,10 @@ def test_actor_impact_empty():
 def test_actor_impact_basic():
     sigs = pd.DataFrame(
         [
-            _mk_signal("a1", "funding_or_grant", 0.9, 1),        # this week
-            _mk_signal("a1", "research_output", 0.8, 2),         # this week
-            _mk_signal("a1", "market_positioning", 0.6, 10),     # prev week
-            _mk_signal("a2", "research_output", 0.5, 1),
+            _mk_signal("a1", "funding_event", 0.9, 1),        # this week
+            _mk_signal("a1", "publications", 0.8, 2),         # this week
+            _mk_signal("a1", "roadmaps", 0.6, 10),     # prev week
+            _mk_signal("a2", "publications", 0.5, 1),
         ]
     )
     out = actor_impact_table(sigs, now=_now())
@@ -107,7 +111,7 @@ def test_actor_impact_basic():
     assert out.loc["a2", "diversity"] == 1
     # a1 momentum: 2 (this week) - 1 (prev week) = +1
     assert out.loc["a1", "momentum"] == 1
-    # a1 authority: capability = 1 (research_output), legitimacy = 2 (funding + positioning) → (1+1)/(1+2+2) = 2/5 = 0.4
+    # a1 authority: capability = 1 (publications), legitimacy = 2 (funding + positioning) → (1+1)/(1+2+2) = 2/5 = 0.4
     assert out.loc["a1", "authority"] == pytest.approx(0.4, abs=0.01)
 
 

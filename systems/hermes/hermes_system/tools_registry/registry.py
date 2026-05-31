@@ -114,6 +114,7 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
         is_technical: bool,
         confidence: float,
         source_kind: str = "arxiv",
+        signal_type: str = "",
     ) -> str:
         signal_buffer.append(
             {
@@ -124,6 +125,7 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
                 "summary": summary,
                 "evidence_quote": evidence_quote,
                 "dimension": dimension,
+                "signal_type": signal_type,  # optional; derive_signal_rows fills it
                 "is_technical": bool(is_technical),
                 "confidence": float(confidence),
             }
@@ -157,7 +159,16 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
                              "title": "string",
                              "summary": "string",
                              "evidence_quote": "string (verbatim from source)",
-                             "dimension": "one of: technical_capability, research_output, ip_filing, infrastructure_or_facility, partnership_or_alliance, funding_or_grant, hiring_or_talent, regulatory_or_policy, market_positioning",
+                             "dimension": (
+                                 "one of (Ehrenthal et al. 2026 four-signal scheme): "
+                                 "leadership_expertise, patents, publications, awards, testimonials, "
+                                 "educational_outreach, funding_event, regulatory_recognition, "
+                                 "collaborations_applications, pilots_pocs, customer_training, "
+                                 "cloud_platform_listings, hpc_collaborations, industry_partnerships, "
+                                 "academic_partnerships, roadmaps, milestones, technological_advances, "
+                                 "long_horizon_claims"
+                             ),
+                             "signal_type": "one of: legitimacy, customer_cocreation, community_ecosystem, future_trajectory",
                              "is_technical": "bool",
                              "confidence": "float in [0,1]",
                              "source_kind": "arxiv | website | swissreg | manual",

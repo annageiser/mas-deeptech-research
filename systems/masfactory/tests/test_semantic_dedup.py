@@ -169,7 +169,7 @@ def test_semantic_dedup_drops_when_similarity_above_threshold(monkeypatch):
         "title": "Near-duplicate news",
         "summary": "Same event from a different aggregator.",
         "evidence_quote": "SQI raises CHF 50M",
-        "dimension": "funding_or_grant",
+        "dimension": "funding_event",
         "is_technical": False,
         "confidence": 0.85,
     }]
@@ -208,7 +208,7 @@ def test_semantic_dedup_keeps_when_similarity_below_threshold(monkeypatch):
         "title": "Different angle",
         "summary": "Loosely related coverage.",
         "evidence_quote": "SQI also opened a new lab",
-        "dimension": "infrastructure_or_facility",
+        "dimension": "hpc_collaborations",
         "is_technical": False,
         "confidence": 0.85,
     }]
@@ -233,7 +233,7 @@ def test_semantic_dedup_inactive_without_embeddings(monkeypatch):
         "title": "Signal",
         "summary": "...",
         "evidence_quote": "...",
-        "dimension": "funding_or_grant",
+        "dimension": "funding_event",
         "is_technical": False,
         "confidence": 0.85,
     }]
@@ -260,7 +260,7 @@ def test_semantic_dedup_no_neighbour_means_keep(monkeypatch):
         "title": "First signal for this actor",
         "summary": "...",
         "evidence_quote": "...",
-        "dimension": "funding_or_grant",
+        "dimension": "funding_event",
         "is_technical": False,
         "confidence": 0.85,
     }]

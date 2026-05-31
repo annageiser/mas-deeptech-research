@@ -43,6 +43,11 @@ class SignalRow:
     # pgvector column. Downstream similarity queries can `where embedding is
     # not null` to skip un-embedded rows.
     embedding: Optional[list[float]] = None
+    # Ehrenthal et al. (2026) top-level signal type. The Persistence node
+    # fills this from dimension via classification.signal_type_for_dimension()
+    # if the Classifier didn't emit it directly — so older code paths still
+    # produce well-typed rows.
+    signal_type: Optional[str] = None
 
 
 class SupabaseStore:
@@ -138,11 +143,10 @@ class SupabaseStore:
             "content_hash": s.content_hash,
             "observed_at": s.observed_at.isoformat() if s.observed_at else None,
         }
-        # Only set `embedding` if we actually computed one. Sending None
-        # explicitly works too, but the conditional keeps the JSON payload
-        # smaller when embeddings are disabled (the common case at first).
         if s.embedding is not None:
             row["embedding"] = s.embedding
+        if s.signal_type is not None:
+            row["signal_type"] = s.signal_type
         return row
 
     # ---------- semantic dedup (pgvector cosine via RPC) ----------

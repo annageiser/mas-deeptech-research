@@ -1,53 +1,44 @@
 # Signal classification taxonomy — Swiss quantum-computing ecosystem.
 #
-# This taxonomy operationalises the thesis's core framing:
-# Ehrenthal, Gonzalez-Padron & Gruen (2026) "Global Strategic Marketing When
-# Performance Is Noncommensurable: How Quantum-Computing Vendors Articulate
-# Global Positions Through Nontechnical Signals" — the central proposition
-# that, in markets where comparable performance metrics do not exist, actors
-# articulate position through OBSERVABLE SIGNALS.
+# v0.4.0 (2026-06-01) aligns the dimension keys directly with the coded markers
+# in **Ehrenthal, Gonzalez-Padron & Gruen (2026)** — "Global Strategic Marketing
+# When Performance Is Noncommensurable: How Quantum-Computing Vendors Articulate
+# Global Positions Through Nontechnical Signals". The paper's four-signal scheme
+# is the spine of this schema; sub-category keys (e.g. `patents`, `publications`,
+# `roadmaps`, `hpc_collaborations`) match the paper's coding scheme verbatim so
+# the empirical work in this thesis can be compared 1:1 with theirs.
 #
-# The schema models a signal along THREE literature-grounded axes:
+# Two cost/observability axes are layered on each sub-category, both anchored in
+# wider signalling theory:
 #
-#  1. CHANNEL — capability vs legitimacy evidence.
-#     - Capability: what the actor can technically *do* (Knight & Cavusgil
-#       2004; Tomesh et al. 2022 — absent a unified quantum benchmark,
-#       papers / patents / infrastructure are the proxies that remain).
-#     - Legitimacy: social acceptance and category-membership (Suchman 1995
-#       strategic/pragmatic/cognitive legitimacy; Hilkamo & Granqvist 2022 on
-#       sense-making in de novo quantum markets; Robinson & Veresiu 2025 on
-#       legitimacy timing; Song, Zhao & Wei 2025 on coattail legitimacy).
+#   - SIGNAL COST (high/medium/low) — the Spence (1973) credibility axis: a
+#     signal is informative to the extent it is costly or hard to fake. Used by
+#     scoring.py to credibility-discount low-cost signals.
+#   - OBSERVABILITY (high/medium/low) — the Connelly et al. (2011) receiver
+#     condition: a signal must be publicly verifiable to function.
 #
-#  2. SIGNAL COST — high / medium / low. The core of signalling theory: a
-#     signal is informative to the extent it is COSTLY or hard to fake.
-#     Rieger, Dreller & Engelen (2025) show costly signals (trademark
-#     applications) predict venture-capital funding; Suchman (1995) frames
-#     pragmatic legitimacy as resting on costly, verifiable commitments.
-#     A high-cost signal (a granted patent, a funding round, a peer-reviewed
-#     paper) carries more weight than a low-cost one (a roadmap slide).
+# The schema also retains a **channel** dimension (capability vs legitimacy)
+# from v0.3.0; this maps cleanly onto Ehrenthal's four signal types but is kept
+# as a separate field for backwards-compatibility with the v0.3.0 dashboards.
 #
-#  3. OBSERVABILITY — high / medium / low. How publicly verifiable the signal
-#     is by an external receiver. Ehrenthal et al. (2026) study precisely the
-#     observable nontechnical signals; a signal must be observable to function
-#     (Connelly-style receiver condition, anchored here to Suchman's
-#     "audiences" and Kolbe & Burnett 1991 on content-analysable evidence).
+# Legacy backfill: every legacy v0.3.0 dimension key (technical_capability,
+# research_output, ip_filing, infrastructure_or_facility, partnership_or_alliance,
+# funding_or_grant, hiring_or_talent, regulatory_or_policy, market_positioning)
+# is mapped to a v0.4.0 sub-category via `legacy_dimensions:` on the new entry,
+# AND the SQL migration in `persistence/schema.sql` rewrites `signals.dimension`
+# in place. The original value is preserved in `signals.dimension_legacy` so
+# pre-migration analyses can still be reproduced from Supabase.
 #
-# The analytical pay-off (and a genuine thesis research question): in a
-# noncommensurable market, do actors lean on CHEAP, highly-observable signals
-# (market positioning) as substitutes for COSTLY capability evidence — and
-# does cheap-signal volume actually track costly-signal volume? The dashboard
-# exposes both so the comparison can be made.
-#
-# This file is HUMAN-EDITABLE. Anna and her supervisor revise weights / costs
-# / dimensions as the literature review evolves — the dashboard and the
-# Classifier/Critic agents read this YAML at runtime.
+# This file is HUMAN-EDITABLE. Anna and her supervisor revise weights / costs /
+# subtypes as the literature review evolves — the dashboard and the Classifier /
+# Critic agents read this YAML at runtime.
 
-version: 0.3.0
-last_revised: "2026-05-26"
+version: 0.4.0
+last_revised: "2026-06-01"
 
 # ----------------------------------------------------------------------------
-# Signalling-theory reference (documentation block; read by the Methodology
-# page so the live site cites the same sources as the code).
+# Signalling-theory reference (read by the Methodology page so the live site
+# cites the same sources as the code).
 # ----------------------------------------------------------------------------
 signalling_theory:
   premise: >-
@@ -61,16 +52,24 @@ signalling_theory:
     1995). Low-cost signals (positioning statements) are informative only
     when corroborated by costly ones.
   references:
-    - "Ehrenthal, Gonzalez-Padron & Gruen (2026) — noncommensurable performance, nontechnical signals"
+    - "Ehrenthal, Gonzalez-Padron & Gruen (2026) — four-signal scheme: legitimacy / customer co-creation / community-ecosystem / future-trajectory"
     - "Suchman (1995) — legitimacy as the receiver-side evaluation of signals"
+    - "Connelly et al. (2011) — signalling theory review (receiver condition)"
+    - "Spence (1973) — signal cost as the credibility mechanism"
     - "Rieger, Dreller & Engelen (2025) — costly trademark signals predict VC funding"
     - "Knight & Cavusgil (2004) — capability-based competitive advantage"
     - "Hilkamo & Granqvist (2022) — de novo quantum market sense-making"
     - "Tomesh et al. (2022) — no unified quantum benchmark, hence signals as proxies"
+    - "Adner (2017) — ecosystem as structure"
+    - "Mohr & Sarin (2009) — high-technology marketing strategy"
     - "Kolbe & Burnett (1991) — content analysis of observable evidence"
+    - "Blomqvist et al. (2008) — collaborative networks as legitimacy signal"
+    - "Song, Zhao & Wei (2025) — coattail legitimacy"
 
 # ----------------------------------------------------------------------------
 # Channels (Suchman 1995 + Ehrenthal et al. 2026)
+# Kept as a separate axis for v0.3.0 dashboard compatibility — maps onto
+# the four signal_types below but at coarser granularity.
 # ----------------------------------------------------------------------------
 channels:
   - key: capability
@@ -82,11 +81,11 @@ channels:
     label: Legitimacy evidence
     description: >-
       Social acceptance and category-membership (Suchman 1995). Critical in
-      de novo markets where capability is hard to externally verify (Hilkamo
-      & Granqvist 2022; Mohr & Sarin 2009).
+      de novo markets where capability is hard to externally verify
+      (Hilkamo & Granqvist 2022; Mohr & Sarin 2009).
 
 # ----------------------------------------------------------------------------
-# Cost classes (used for the credibility weighting; see scoring.py).
+# Signal cost classes — Spence (1973), credibility weighting in scoring.py.
 # ----------------------------------------------------------------------------
 cost_classes:
   high:   {multiplier: 1.0, label: "High-cost (hard to fake)"}
@@ -94,81 +93,174 @@ cost_classes:
   low:    {multiplier: 0.4, label: "Low-cost (cheap talk)"}
 
 # ----------------------------------------------------------------------------
+# Ehrenthal's four signal types — the top-level taxonomy.
+# Every dimension below belongs to exactly one signal_type.
+# ----------------------------------------------------------------------------
+signal_types:
+  - key: legitimacy
+    label: Legitimacy signals
+    short_label: Legitimacy
+    description: >-
+      Organisational and scientific credibility: leadership / board expertise,
+      patents, publications, awards, testimonials, educational outreach.
+      The base layer of credibility in a noncommensurable market.
+    grounding: >-
+      Ehrenthal et al. 2026 (legitimacy signals — 14% leadership, 12% patents,
+      7% publications, 19% awards, 18% testimonials, 16% educational outreach
+      in their dataset); Suchman 1995 organisational legitimacy.
+
+  - key: customer_cocreation
+    label: Customer co-creation signals
+    short_label: Customer co-creation
+    description: >-
+      National and international collaborations for applications,
+      simulations / pilots / proofs of concept, customer support and training.
+      Demonstrate global relevance and early-adopter engagement rather than
+      market penetration.
+    grounding: >-
+      Ehrenthal et al. 2026 (customer co-creation signals — 85% collaborations
+      for applications, 14% pilots / POCs, 3% customer support / training);
+      Blomqvist et al. 2008 on collaborative networks.
+
+  - key: community_ecosystem
+    label: Community-ecosystem signals
+    short_label: Community / ecosystem
+    description: >-
+      Cloud-platform listings, HPC collaborations, industry partnerships,
+      academic partnerships. The primary channels through which vendors
+      depict global reach.
+    grounding: >-
+      Ehrenthal et al. 2026 (community-ecosystem signals — 43% cloud-platform
+      listings, 32% HPC, 14% industry, 10% academic); Adner 2017 ecosystem-as-
+      structure; Song et al. 2025 coattail legitimacy.
+
+  - key: future_trajectory
+    label: Future-trajectory signals
+    short_label: Future trajectory
+    description: >-
+      Roadmaps, milestone sequences, technological-advance announcements,
+      long-horizon claims. Stabilise expectations in an early-commercialisation
+      setting; anchor long-horizon claims.
+    grounding: >-
+      Ehrenthal et al. 2026 (future-trajectory signals — 76% roadmaps, 20%
+      milestone sequences, 11% technological advances, 4% long-horizon claims).
+
+# ----------------------------------------------------------------------------
 # Dimensions: each signal is classified into exactly one.
+# Each dimension belongs to exactly one signal_type.
+#
+# Fields:
+#   signal_type   — one of {legitimacy, customer_cocreation, community_ecosystem, future_trajectory}
+#   channel       — capability or legitimacy (legacy axis, kept for v0.3.0 compat)
+#   is_technical  — capability-channel signals
 #   weight        — base impact weight (volume of position-relevant info)
 #   signal_cost   — high/medium/low (credibility / hard-to-fake-ness)
 #   observability — high/medium/low (public verifiability by a receiver)
+#   description   — operator-readable description (shown on the website)
+#   grounding     — citation(s) for *this specific* dimension
+#   legacy_dimensions — the v0.3.0 dimension(s) that map into this dimension
+#                       (used by the SQL migration in schema.sql)
+#   extension     — true when the dimension extends Ehrenthal's coding scheme;
+#                   we mark these explicitly so the thesis's empirical chapter
+#                   can A/B with the paper's exact taxonomy if needed.
 # ----------------------------------------------------------------------------
 dimensions:
-  - key: technical_capability
-    channel: capability
-    is_technical: true
-    weight: 1.3
-    signal_cost: medium
-    observability: medium
-    description: >-
-      Hardware/software capability claims — qubit counts, gate fidelity,
-      coherence times, new architectures, software toolchain releases.
-    grounding: >-
-      Tomesh et al. 2022 (SupermarQ) shows no unified quantum benchmark
-      exists; capability *claims* are therefore only medium-cost (partially
-      unverifiable cheap talk) until corroborated by research or IP.
 
-  - key: research_output
-    channel: capability
-    is_technical: true
-    weight: 1.0
-    signal_cost: high
-    observability: high
-    description: >-
-      Peer-reviewed or pre-print publications, datasets, benchmarks released
-      by the actor or with the actor as a major affiliation.
-    grounding: >-
-      Knight & Cavusgil 2004 — research output as costly, hard-to-fake
-      evidence of innovation capability; publicly observable via arXiv / DOIs.
+  # ---- Legitimacy signals (Ehrenthal §Findings, first bullet) ----
 
-  - key: ip_filing
-    channel: capability
-    is_technical: true
-    weight: 1.4
-    signal_cost: high
-    observability: high
-    description: >-
-      Patent applications, granted patents, design rights, trademark filings
-      (including Swissreg / WIPO filings).
-    grounding: >-
-      Rieger, Dreller & Engelen 2025 — costly trademark/patent signals
-      specifically shown to predict venture-capital seed funding; publicly
-      observable in patent registries.
-
-  - key: infrastructure_or_facility
-    channel: capability
-    is_technical: true
-    weight: 1.2
-    signal_cost: high
-    observability: medium
-    description: >-
-      New lab, cleanroom, fabrication line, on-prem quantum processor, HPC
-      integration, or cloud-access endpoint.
-    grounding: >-
-      Blomqvist et al. 2008 — physical infrastructure as a costly trust
-      signal in technology-intensive firms; capital-intensive hence high-cost.
-
-  - key: partnership_or_alliance
+  - key: leadership_expertise
+    signal_type: legitimacy
     channel: legitimacy
     is_technical: false
     weight: 0.9
     signal_cost: medium
     observability: high
     description: >-
-      Announced collaborations, MoUs, joint labs, customer wins, distribution
-      agreements, ecosystem memberships.
+      Announcements of leadership and board expertise — named senior hires,
+      scientific advisors, board appointments.
     grounding: >-
-      Adner 2017 (Ecosystem as Structure) — partnership topology is the
-      observable shape of an ecosystem; Song, Zhao & Wei 2025 on coattail
-      legitimacy. Medium-cost: MoUs are cheap, joint labs costly.
+      Ehrenthal et al. 2026 (14% of legitimacy signals in their dataset);
+      Hilkamo & Granqvist 2022 on named-personality sense-making in quantum.
+    legacy_dimensions: [hiring_or_talent]
 
-  - key: funding_or_grant
+  - key: patents
+    signal_type: legitimacy
+    channel: capability
+    is_technical: true
+    weight: 1.4
+    signal_cost: high
+    observability: high
+    description: >-
+      Patent filings (applications + grants), design rights, trademark
+      filings — Swissreg, WIPO, EPO publications.
+    grounding: >-
+      Ehrenthal et al. 2026 (12% of legitimacy signals — "scientific
+      credibility through patents"); Rieger, Dreller & Engelen 2025
+      (costly trademark/patent filings predict VC funding).
+    legacy_dimensions: [ip_filing]
+
+  - key: publications
+    signal_type: legitimacy
+    channel: capability
+    is_technical: true
+    weight: 1.0
+    signal_cost: high
+    observability: high
+    description: >-
+      Peer-reviewed papers, pre-prints, datasets, benchmarks released by
+      the actor or with the actor as a major affiliation.
+    grounding: >-
+      Ehrenthal et al. 2026 (7% — "publications" under legitimacy);
+      Knight & Cavusgil 2004 on research output as costly capability evidence.
+    legacy_dimensions: [research_output]
+
+  - key: awards
+    signal_type: legitimacy
+    channel: legitimacy
+    is_technical: false
+    weight: 0.8
+    signal_cost: medium
+    observability: high
+    description: >-
+      Awards, prizes, formal recognitions (industry awards, government
+      commendations, ranking inclusions).
+    grounding: >-
+      Ehrenthal et al. 2026 (19% — "awards"; the largest single legitimacy
+      sub-marker in their dataset).
+    legacy_dimensions: []  # new in v0.4.0 — no v0.3.0 equivalent
+
+  - key: testimonials
+    signal_type: legitimacy
+    channel: legitimacy
+    is_technical: false
+    weight: 0.5
+    signal_cost: low
+    observability: high
+    description: >-
+      Customer / partner testimonials, third-party endorsements, named
+      reference quotes.
+    grounding: >-
+      Ehrenthal et al. 2026 (18% — "testimonials"). Low-cost in our scheme
+      because actors mediate which testimonials surface in their channels.
+    legacy_dimensions: []
+
+  - key: educational_outreach
+    signal_type: legitimacy
+    channel: legitimacy
+    is_technical: false
+    weight: 0.6
+    signal_cost: medium
+    observability: high
+    description: >-
+      Educational programmes, workshops, student outreach, MOOCs, hackathons,
+      academic-curriculum contributions.
+    grounding: >-
+      Ehrenthal et al. 2026 (16% — "the quantum computing industry earns
+      legitimacy by sharing knowledge through educational outreach").
+    legacy_dimensions: []
+
+  - key: funding_event
+    signal_type: legitimacy
     channel: legitimacy
     is_technical: false
     weight: 1.5
@@ -178,49 +270,202 @@ dimensions:
       Funding rounds (seed → growth), SNF / Innosuisse / Horizon Europe
       grants, public RFPs awarded, government contracts.
     grounding: >-
-      Highest-cost legitimacy signal — a third party commits real capital
-      (Suchman 1995 pragmatic legitimacy; Rieger et al. 2025 link early
-      signals to funding outcomes). Publicly announced hence high-observability.
+      Extension to Ehrenthal et al. 2026 — funding sits in their
+      "Communication Categories" (Investor / Funding) rather than the
+      four-signal scheme directly, but it is unambiguously a legitimacy
+      signal in the wider Suchman 1995 (pragmatic legitimacy) and
+      Rieger et al. 2025 frame, where capital commitment by a third party
+      is the canonical costly signal.
+    legacy_dimensions: [funding_or_grant]
+    extension: true
 
-  - key: hiring_or_talent
-    channel: legitimacy
-    is_technical: false
-    weight: 0.8
-    signal_cost: medium
-    observability: high
-    description: >-
-      Named leadership hires, named scientific advisors, large hiring drives,
-      visiting professorships, student-recruitment programmes.
-    grounding: >-
-      Hilkamo & Granqvist 2022 on quantum sense-making through named
-      personalities; Mohr & Sarin 2009 on talent as the limiting input.
-      Medium-cost: a named senior hire is costly, a hiring drive is cheap.
-
-  - key: regulatory_or_policy
+  - key: regulatory_recognition
+    signal_type: legitimacy
     channel: legitimacy
     is_technical: false
     weight: 0.7
     signal_cost: medium
     observability: high
     description: >-
-      National strategy publications, export-control changes, standards
+      National strategy publications, export-control inclusion, standards
       work, participation in policy consultations, certification milestones.
     grounding: >-
-      Suchman 1995 cognitive legitimacy — being part of the policy
-      conversation signals categorical recognition by the state.
+      Extension to Ehrenthal et al. 2026 — not in their corporate-press
+      dataset (they study vendor communications, not state recognition),
+      but is a Suchman 1995 cognitive-legitimacy signal critical to the
+      Swiss ecosystem (SNF / Innosuisse / federal quantum strategy).
+    legacy_dimensions: [regulatory_or_policy]
+    extension: true
 
-  - key: market_positioning
+  # ---- Customer co-creation signals (Ehrenthal §Findings, second bullet) ----
+
+  - key: collaborations_applications
+    signal_type: customer_cocreation
     channel: legitimacy
     is_technical: false
-    weight: 0.4
+    weight: 1.1
+    signal_cost: medium
+    observability: high
+    description: >-
+      National and international collaborations for specific applications
+      (chemistry, finance, optimisation, materials).
+    grounding: >-
+      Ehrenthal et al. 2026 (85% — by far the dominant customer co-creation
+      sub-marker in their 2025 dataset).
+    legacy_dimensions: []
+
+  - key: pilots_pocs
+    signal_type: customer_cocreation
+    channel: capability
+    is_technical: true
+    weight: 1.0
+    signal_cost: medium
+    observability: high
+    description: >-
+      Simulations, pilots, proofs of concept conducted with named customers.
+    grounding: >-
+      Ehrenthal et al. 2026 (14% — "simulations, pilots and proofs of concept,
+      framed to demonstrate global relevance and early adopter engagement
+      rather than market penetration").
+    legacy_dimensions: []
+
+  - key: customer_training
+    signal_type: customer_cocreation
+    channel: legitimacy
+    is_technical: false
+    weight: 0.7
     signal_cost: low
     observability: high
     description: >-
-      Roadmaps, positioning statements, market narratives, conference
-      keynotes, branding shifts — explicit attempts to claim a category
-      position.
+      Customer support programmes, training, enablement, dedicated
+      developer-relations content.
     grounding: >-
-      Ehrenthal, Gonzalez-Padron & Gruen 2026 — *the* nontechnical signal
-      their paper observes. Low-cost ("cheap talk") but highly observable;
-      the analytical question is whether it tracks costly signals or
-      substitutes for them.
+      Ehrenthal et al. 2026 (3% — "low, but is expected to increase as
+      customer collaborations grow").
+    legacy_dimensions: []
+
+  # ---- Community-ecosystem signals (Ehrenthal §Findings, third bullet) ----
+
+  - key: cloud_platform_listings
+    signal_type: community_ecosystem
+    channel: legitimacy
+    is_technical: false
+    weight: 0.9
+    signal_cost: medium
+    observability: high
+    description: >-
+      Availability via cloud-quantum platforms — AWS Braket, Azure Quantum,
+      IBM Quantum, Google Quantum AI Cloud, OQC Cloud.
+    grounding: >-
+      Ehrenthal et al. 2026 (43% — "cloud-platform listings — the primary
+      channel through which vendors depict global reach").
+    legacy_dimensions: []
+
+  - key: hpc_collaborations
+    signal_type: community_ecosystem
+    channel: capability
+    is_technical: true
+    weight: 1.0
+    signal_cost: high
+    observability: medium
+    description: >-
+      HPC-centre integrations, supercomputer collaborations, quantum-HPC
+      hybrid demonstrations.
+    grounding: >-
+      Ehrenthal et al. 2026 (32% — "HPC collaborations" as a community-
+      ecosystem sub-marker); Adner 2017 ecosystem partner topology.
+    legacy_dimensions: [infrastructure_or_facility]
+
+  - key: industry_partnerships
+    signal_type: community_ecosystem
+    channel: legitimacy
+    is_technical: false
+    weight: 0.9
+    signal_cost: medium
+    observability: high
+    description: >-
+      Industry partnerships, MoUs with companies, distribution agreements,
+      ecosystem-programme memberships.
+    grounding: >-
+      Ehrenthal et al. 2026 (14% — "industry partnerships"); Song et al. 2025
+      coattail legitimacy.
+    legacy_dimensions: [partnership_or_alliance]
+
+  - key: academic_partnerships
+    signal_type: community_ecosystem
+    channel: legitimacy
+    is_technical: false
+    weight: 0.9
+    signal_cost: medium
+    observability: high
+    description: >-
+      Academic partnerships, university joint labs, named visiting
+      professorships, multi-institution research consortia.
+    grounding: >-
+      Ehrenthal et al. 2026 (10% — "academic partnerships").
+    legacy_dimensions: []
+
+  # ---- Future-trajectory signals (Ehrenthal §Findings, fourth bullet) ----
+
+  - key: roadmaps
+    signal_type: future_trajectory
+    channel: legitimacy
+    is_technical: false
+    weight: 0.5
+    signal_cost: low
+    observability: high
+    description: >-
+      Public product / technology roadmaps with named milestones and dates.
+    grounding: >-
+      Ehrenthal et al. 2026 (76% — "roadmaps … anchor long-horizon claims");
+      this is the canonical "cheap talk" signal Ehrenthal et al. study:
+      highly observable, low cost, informative only when corroborated.
+    legacy_dimensions: [market_positioning]
+
+  - key: milestones
+    signal_type: future_trajectory
+    channel: capability
+    is_technical: true
+    weight: 0.7
+    signal_cost: medium
+    observability: high
+    description: >-
+      Specific milestone announcements — "X-qubit machine by year Y",
+      named delivery dates, beta-availability windows.
+    grounding: >-
+      Ehrenthal et al. 2026 (20% — "milestone sequences"). Medium-cost
+      because missed milestones are visibly tracked by analysts.
+    legacy_dimensions: []
+
+  - key: technological_advances
+    signal_type: future_trajectory
+    channel: capability
+    is_technical: true
+    weight: 1.0
+    signal_cost: medium
+    observability: medium
+    description: >-
+      Technical-capability claims — qubit counts, gate fidelity, coherence
+      times, error-correction demonstrations, new architectures, toolchain
+      releases.
+    grounding: >-
+      Ehrenthal et al. 2026 (11% — "technological advances"); Tomesh et al.
+      2022 (no unified benchmark, so capability *claims* are medium-cost
+      until corroborated by research or IP).
+    legacy_dimensions: [technical_capability]
+
+  - key: long_horizon_claims
+    signal_type: future_trajectory
+    channel: legitimacy
+    is_technical: false
+    weight: 0.3
+    signal_cost: low
+    observability: high
+    description: >-
+      Long-horizon visions — fault-tolerant projections beyond ~5 years,
+      industry-transformation narratives, broad future-state claims.
+    grounding: >-
+      Ehrenthal et al. 2026 (4% — "long-horizon claims"). Lowest-cost
+      future-trajectory marker; informative only as part of a coherent
+      pattern across cheaper and costlier signals.
+    legacy_dimensions: []

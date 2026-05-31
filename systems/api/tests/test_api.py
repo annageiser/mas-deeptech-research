@@ -29,16 +29,16 @@ def fake_data(monkeypatch):
         # a1: one high-cost (funding) + one low-cost (positioning)
         {"id": "s1", "run_id": "r1", "actor_slug": "a1", "system": "masfactory", "source_kind": "news",
          "source_url": "https://x/1", "title": "Funding round", "summary": "raised CHF 10m",
-         "evidence_quote": "raised CHF 10 million", "dimension": "funding_or_grant",
+         "evidence_quote": "raised CHF 10 million", "dimension": "funding_event",
          "is_technical": False, "confidence": 0.9, "inserted_at": _now_iso(1)},
         {"id": "s2", "run_id": "r1", "actor_slug": "a1", "system": "masfactory", "source_kind": "website",
          "source_url": "https://x/2", "title": "Roadmap", "summary": "leading provider",
-         "evidence_quote": "the leading provider", "dimension": "market_positioning",
+         "evidence_quote": "the leading provider", "dimension": "roadmaps",
          "is_technical": False, "confidence": 0.6, "inserted_at": _now_iso(1)},
         # a2: one high-cost research output
         {"id": "s3", "run_id": "r2", "actor_slug": "a2", "system": "hermes", "source_kind": "arxiv",
          "source_url": "https://x/3", "title": "New paper", "summary": "qubit result",
-         "evidence_quote": "we demonstrate", "dimension": "research_output",
+         "evidence_quote": "we demonstrate", "dimension": "publications",
          "is_technical": True, "confidence": 0.8, "inserted_at": _now_iso(2)},
     ])
     runs = pd.DataFrame([
@@ -73,10 +73,10 @@ def test_meta_has_three_axes():
     dims = r.json()["dimensions"]
     assert len(dims) == 9
     d = {x["key"]: x for x in dims}
-    assert d["funding_or_grant"]["signal_cost"] == "high"
-    assert d["market_positioning"]["signal_cost"] == "low"
-    assert "observability" in d["research_output"]
-    assert d["market_positioning"]["cost_multiplier"] == 0.4
+    assert d["funding_event"]["signal_cost"] == "high"
+    assert d["roadmaps"]["signal_cost"] == "low"
+    assert "observability" in d["publications"]
+    assert d["roadmaps"]["cost_multiplier"] == 0.4
 
 
 def test_scores_credibility_discounts_cheap_talk():

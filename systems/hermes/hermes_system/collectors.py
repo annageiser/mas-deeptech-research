@@ -320,10 +320,10 @@ def collect_google_news_for_actor(*, actor_name: str, max_results: int, actor_sl
     """
     if not actor_name.strip():
         return []
-    # Loosened from `"<name>" quantum (Switzerland OR Swiss OR Suisse OR
-    # Schweiz)` — the country filter was too restrictive. gl=CH on the
-    # endpoint already biases toward Switzerland.
-    q = f'"{actor_name.strip()}" quantum'
+    # Widened in v0.4.0: keyword OR-group covers quantum subfields
+    # (computing / sensing / QKD). The Critic filters hard for actor +
+    # quantum relevance so a wider funnel doesn't degrade the final corpus.
+    q = f'"{actor_name.strip()}" (quantum OR qubit OR QKD)'
     url = f"{GNEWS_ENDPOINT}?{urlencode({'q': q, 'hl': 'en', 'gl': 'CH', 'ceid': 'CH:en'})}"
     try:
         with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:
@@ -557,7 +557,8 @@ def collect_press_releases_for_actor(
     if not actor_name.strip():
         return []
     or_group = " OR ".join(PR_KEYWORDS)
-    q = f'"{actor_name.strip()}" quantum ({or_group})'
+    # Widened in v0.4.0 — see masfactory/collection/press.py docstring.
+    q = f'"{actor_name.strip()}" (quantum OR qubit) ({or_group})'
     url = f"{BING_NEWS_ENDPOINT}?{urlencode({'q': q, 'format': 'rss'})}"
     try:
         with httpx.Client(timeout=20, headers={"User-Agent": USER_AGENT}) as client:

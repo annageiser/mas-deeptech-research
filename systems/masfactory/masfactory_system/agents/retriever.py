@@ -33,11 +33,15 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
         plan = raw_plan or {}
 
     actors_by_slug: dict[str, dict] = {a["slug"]: a for a in attrs.get("actor_pool", [])}
-    limit_arxiv = int(attrs.get("limit_arxiv_per_actor", 5) or 5)
-    limit_web = int(attrs.get("limit_website_pages_per_actor", 2) or 2)
-    limit_news = int(attrs.get("limit_news_per_actor", 5) or 5)
-    limit_press = int(attrs.get("limit_press_per_actor", 5) or 5)
-    limit_patents = int(attrs.get("limit_patents_per_actor", 5) or 5)
+    # v0.4.0 — wider collection funnel. Raised across the board so the Critic
+    # (now substantially stricter) has more candidates to filter and the
+    # final corpus reflects a richer evidence base. Cron knobs in .env.example
+    # let operators tune per-collector limits independently.
+    limit_arxiv = int(attrs.get("limit_arxiv_per_actor", 10) or 10)
+    limit_web = int(attrs.get("limit_website_pages_per_actor", 5) or 5)
+    limit_news = int(attrs.get("limit_news_per_actor", 10) or 10)
+    limit_press = int(attrs.get("limit_press_per_actor", 10) or 10)
+    limit_patents = int(attrs.get("limit_patents_per_actor", 10) or 10)
     cache_dir = attrs.get("web_cache_dir", "/data/raw/web_cache") or "/data/raw/web_cache"
 
     documents: list[dict] = []

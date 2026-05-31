@@ -10,14 +10,54 @@ CRITIC_INSTRUCTIONS = """You are the Critic in a Swiss-quantum ecosystem-mapping
 You receive a JSON array of classified signals. Your job is to decide, for
 each one, whether it should be kept or dropped, and why.
 
-Rules:
-- Drop any signal with confidence < 0.4.
-- Drop any signal whose evidence_quote is generic boilerplate
-  ("leading provider", "we are committed to ...", etc.).
-- Mark exact-meaning duplicates within the input batch: keep the first, set
-  `keep=false` and `duplicate_of=<earlier_index>` on the later ones.
-- Be conservative: if in doubt, keep the signal — the Analyst can still
-  ignore it. The thesis values recall here.
+CONTEXT (important): v0.4.0 of this pipeline deliberately WIDENS the
+collection funnel (10 arxiv + 10 news + 10 press + 10 patents per actor,
+up from 5). Your job is to filter HARDER on the way out so the final
+corpus stays clean. Bias toward dropping.
+
+DROP RULES (apply in order — drop on the FIRST hit):
+
+1. ACTOR-RELEVANCE. The evidence_quote must unambiguously concern the
+   actor named by actor_slug. Drop if the actor is only mentioned in
+   passing, in a long industry list, in a footnote citation, or only as
+   part of an unrelated entity's name. Example: a paper that mentions
+   "ETH Zurich" only in an author's affiliation is a publication
+   signal for ETH Zurich; a paper that mentions "ETH Zurich" only as
+   the host of a conference is NOT.
+
+2. QUANTUM-RELEVANCE. The evidence_quote must concern quantum
+   technology (quantum computing, qubits, QKD, quantum sensing,
+   quantum metrology, quantum communication, quantum software /
+   compilers, quantum-safe cryptography, etc.) — NOT just any technology
+   the actor happens to do. Drop if the article is about the actor's
+   non-quantum work (e.g. classical HPC, conventional cryptography).
+
+3. DIMENSION-EVIDENCE MATCH. The assigned dimension must be supported
+   by the evidence_quote:
+     - patents              → must mention a patent number / filing / grant
+     - publications         → must mention paper title / preprint / venue / DOI
+     - funding_event        → must mention an amount or named investor / programme
+     - hpc_collaborations   → must mention a named HPC centre or supercomputer
+     - cloud_platform_listings → must mention a named cloud-quantum platform
+     - awards               → must mention an actual prize / award
+     - roadmaps             → must reference a public roadmap or timeline
+   Drop if the dimension and the evidence_quote disagree on the basic
+   substance.
+
+4. CONFIDENCE THRESHOLD. Drop any signal with confidence < 0.45.
+
+5. BOILERPLATE. Drop generic-marketing snippets ("leading provider",
+   "we are committed to", "transforming X with Y", positioning statements
+   that name no specific evidence).
+
+6. DUPLICATES. Mark exact-meaning duplicates within the input batch:
+   keep the first, set keep=false and duplicate_of=<earlier_index> on
+   the later ones. Two signals about the same event (e.g. one news, one
+   press release) sharing the same actor + dimension + ~same evidence
+   ARE duplicates even if the source_url differs.
+
+If in doubt about (1) or (2) — drop. The thesis explicitly values
+precision over recall at this Critic stage now that the funnel is wider.
 
 Return ONLY JSON.
 """

@@ -38,6 +38,11 @@ class SignalRow:
     confidence: float
     content_hash: str
     observed_at: Optional[datetime] = None
+    # 768-dim BGE embedding (see masfactory_system/embedding.py). Optional —
+    # left None when MASF_EMBEDDINGS is off, which writes a SQL NULL into the
+    # pgvector column. Downstream similarity queries can `where embedding is
+    # not null` to skip un-embedded rows.
+    embedding: Optional[list[float]] = None
 
 
 class SupabaseStore:
@@ -118,7 +123,7 @@ class SupabaseStore:
 
     @staticmethod
     def _signal_to_row(s: SignalRow) -> dict[str, Any]:
-        return {
+        row: dict[str, Any] = {
             "run_id": s.run_id,
             "actor_slug": s.actor_slug,
             "system": "masfactory",
@@ -133,6 +138,12 @@ class SupabaseStore:
             "content_hash": s.content_hash,
             "observed_at": s.observed_at.isoformat() if s.observed_at else None,
         }
+        # Only set `embedding` if we actually computed one. Sending None
+        # explicitly works too, but the conditional keeps the JSON payload
+        # smaller when embeddings are disabled (the common case at first).
+        if s.embedding is not None:
+            row["embedding"] = s.embedding
+        return row
 
     # ---------- token usage ----------
 

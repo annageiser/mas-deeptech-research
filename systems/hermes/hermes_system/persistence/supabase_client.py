@@ -31,6 +31,9 @@ class SignalRow:
     confidence: float
     content_hash: str
     observed_at: Optional[datetime] = None
+    # 768d BGE embedding — see hermes_system/embedding.py. Optional, gated by
+    # HRM_EMBEDDINGS=1. None → NULL in the pgvector column.
+    embedding: Optional[list[float]] = None
 
 
 class SupabaseStore:
@@ -93,12 +96,17 @@ class SupabaseStore:
 
     @staticmethod
     def derive_signal_rows(run_id: str, raw_signals: list[dict[str, Any]]) -> list[SignalRow]:
+        # Local imports — keep the embedding hooks lazy so this module is
+        # cheap to import in environments without fastembed installed.
+        from ..embedding import compose_signal_text, embed_text, is_enabled as embeddings_enabled
+        embed_on = embeddings_enabled()
         rows: list[SignalRow] = []
         for s in raw_signals:
             evidence = s.get("evidence_quote") or ""
             content_hash = hashlib.sha256(
                 f"{s.get('actor_slug')}|{s.get('source_url')}|{evidence}".encode("utf-8")
             ).hexdigest()
+            emb = embed_text(compose_signal_text(s)) if embed_on else None
             rows.append(
                 SignalRow(
                     run_id=run_id,
@@ -112,6 +120,7 @@ class SupabaseStore:
                     is_technical=bool(s["is_technical"]),
                     confidence=float(s.get("confidence", 0.0)),
                     content_hash=content_hash,
+                    embedding=emb,
                 )
             )
         return rows
@@ -119,8 +128,9 @@ class SupabaseStore:
     def insert_signals(self, signals: list[SignalRow]) -> int:
         if not signals:
             return 0
-        payload = [
-            {
+        payload = []
+        for s in signals:
+            row = {
                 "run_id": s.run_id,
                 "actor_slug": s.actor_slug,
                 "system": "hermes",
@@ -135,8 +145,9 @@ class SupabaseStore:
                 "content_hash": s.content_hash,
                 "observed_at": s.observed_at.isoformat() if s.observed_at else None,
             }
-            for s in signals
-        ]
+            if s.embedding is not None:
+                row["embedding"] = s.embedding
+            payload.append(row)
         resp = (
             self._client.table("signals")
             .upsert(payload, on_conflict="actor_slug,source_url,content_hash", ignore_duplicates=True)

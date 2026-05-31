@@ -70,8 +70,25 @@ create index if not exists signals_actor_idx on public.signals (actor_slug);
 create index if not exists signals_dimension_idx on public.signals (dimension);
 create index if not exists signals_run_idx on public.signals (run_id);
 create index if not exists signals_system_idx on public.signals (system);
--- vector index left optional — populate first, then create via the Supabase UI
--- create index on public.signals using ivfflat (embedding vector_cosine_ops) with (lists = 100);
+
+-- ---------- pgvector index (created once embeddings start populating) ----------
+-- Idempotent — only created when there are non-null embeddings to build over.
+-- Skipped silently otherwise so the schema script stays runnable on a fresh
+-- Supabase project where MASF_EMBEDDINGS / HRM_EMBEDDINGS are still off.
+do $$
+declare
+    n_embedded integer;
+begin
+    select count(*) into n_embedded from public.signals where embedding is not null;
+    if n_embedded > 0 and not exists (
+        select 1 from pg_indexes
+        where schemaname = 'public' and indexname = 'signals_embedding_ivfflat_idx'
+    ) then
+        execute 'create index signals_embedding_ivfflat_idx '
+             || 'on public.signals using ivfflat (embedding vector_cosine_ops) '
+             || 'with (lists = 100)';
+    end if;
+end $$;
 
 -- ---------- per-node token usage ----------
 create table if not exists public.token_usage (

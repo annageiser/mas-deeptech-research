@@ -15,6 +15,8 @@ dependencies = [
     "python-dateutil>=2.9.0",
     "feedparser>=6.0.11",
     "urllib3>=2.2.0",
+    # Optional embeddings (gated by HRM_EMBEDDINGS=1). See hermes_system/embedding.py.
+    "fastembed>=0.4.0",
 ]
 
 [project.scripts]

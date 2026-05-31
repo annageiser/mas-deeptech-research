@@ -1,15 +1,15 @@
 # Docker Compose stack for the BSc-thesis comparative MAS (Anna Geiser, FHNW).
 #
-# Five containers, one VPS, one Supabase:
-#   A — masfactory : System A scrape (cron-driven)
-#   B — hermes     : System B scrape (cron-driven)
+# Seven containers, one VPS, one Supabase:
+#   A — masfactory : System A scrape (cron-driven, exits after each run)
+#   B — hermes     : System B scrape (cron-driven, exits after each run)
 #   C — reports    : daily + weekly markdown synthesis (cron-driven)
-#   D — dashboard  : Streamlit web UI on :8501 (continuously running)
-#   E — caddy      : TLS reverse proxy on :80 / :443 (continuously running)
-#
-# Internal Docker network: A, B, C exit after their run (cron-driven). D and
-# E stay up so the public dashboard is always reachable at
-# mas-deeptech-research.cloud.
+#   F — api        : FastAPI JSON service over Supabase (always up)
+#   G — web        : Next.js frontend (always up)
+#   E — caddy      : TLS reverse proxy on :80/:443 → web, /api/* → api
+#   D — dashboard  : legacy Streamlit UI on :8501 (kept during transition;
+#                    no longer reachable via the domain — remove once `web`
+#                    is proven)
 
 services:
   masfactory:
@@ -19,8 +19,7 @@ services:
     image: mas-deeptech-research/masfactory:0.1.0
     container_name: masfactory-system-a
     restart: "no"
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
       MASF_AUDIT_DIR: /data/raw/runs
       TZ: Europe/Zurich
@@ -35,8 +34,7 @@ services:
     image: mas-deeptech-research/hermes:0.1.0
     container_name: hermes-system-b
     restart: "no"
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
       HRM_AUDIT_DIR: /data/raw/runs
       HRM_SKILLS_DIR: /app/skills
@@ -54,8 +52,7 @@ services:
     image: mas-deeptech-research/reports:0.1.0
     container_name: reports-container-c
     restart: "no"
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
       RPT_REPORTS_DIR: /data/reports
       RPT_REPO_DIR: /repo
@@ -66,25 +63,38 @@ services:
       - .:/repo:ro
     command: ["build-check"]
 
-  dashboard:
+  api:
     build:
-      context: ./systems/dashboard
-      dockerfile: Dockerfile
-    image: mas-deeptech-research/dashboard:0.1.0
-    container_name: dashboard-container-d
+      context: .
+      dockerfile: systems/api/Dockerfile
+    image: mas-deeptech-research/api:0.1.0
+    container_name: api-container-f
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: [.env]
     environment:
-      DASH_REPORTS_DIR: /data/reports
+      API_REPORTS_DIR: /data/reports
+      API_SCHEMA_PATH: /app/schema.yaml
+      API_CORS_ORIGINS: "*"
       TZ: Europe/Zurich
     volumes:
-      - ./data:/data:ro       # reports + actors.yaml, read-only
+      - ./data:/data:ro
     expose:
-      - "8501"
-    ports:
-      - "8501:8501"           # direct HTTP access at http://<vps-ip>:8501
-                              # (Caddy still proxies HTTPS via the domain once DNS resolves)
+      - "8000"
+
+  web:
+    build:
+      context: ./systems/web
+      dockerfile: Dockerfile
+    image: mas-deeptech-research/web:0.1.0
+    container_name: web-container-g
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://api-container-f:8000
+      TZ: Europe/Zurich
+    depends_on:
+      - api
+    expose:
+      - "3000"
 
   caddy:
     image: caddy:2.10-alpine
@@ -93,14 +103,35 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp"        # HTTP/3 (QUIC)
+      - "443:443/udp"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     environment:
       TZ: Europe/Zurich
+    depends_on:
+      - web
+      - api
+
+  # Legacy Streamlit dashboard — kept reachable on :8501 during the cutover,
+  # no longer wired to the domain. Remove this service once `web` is proven.
+  dashboard:
+    build:
+      context: ./systems/dashboard
+      dockerfile: Dockerfile
+    image: mas-deeptech-research/dashboard:0.1.0
+    container_name: dashboard-container-d
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DASH_REPORTS_DIR: /data/reports
+      TZ: Europe/Zurich
+    volumes:
+      - ./data:/data:ro
+    ports:
+      - "8501:8501"
 
 volumes:
-  caddy_data:    # persists Let's Encrypt certs across container restarts
+  caddy_data:
   caddy_config:

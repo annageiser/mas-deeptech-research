@@ -22,7 +22,7 @@ export default async function Graph({ searchParams }: SP) {
     <>
       <PageHeader
         title="Knowledge graph"
-        lead="Inner ring: signal types. Outer ring: actors (coloured by category, sized by how many distinct signal types they cover). Lines connect actors to the signal types they emit, and actors to peers that share signal types."
+        lead="Inner ring: signal types. Outer ring: actors, grouped by category (colour) and sized by how many distinct signal types they cover. Lines connect actors to the signal types they emit. Hover any node to isolate its connections; tick the peer-edges box to overlay actor↔actor co-occurrence."
       />
       <Card>
         <div className="small muted" style={{ marginBottom: "0.5rem" }}>

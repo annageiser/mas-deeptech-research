@@ -23,11 +23,20 @@ from selectolax.parser import HTMLParser
 ARXIV_ENDPOINT = "https://export.arxiv.org/api/query"
 GNEWS_ENDPOINT = "https://news.google.com/rss/search"
 BING_NEWS_ENDPOINT = "https://www.bing.com/news/search"
+EPO_OPS_BASE = "https://ops.epo.org/3.2"
+EPO_OPS_TOKEN_URL = f"{EPO_OPS_BASE}/auth/accesstoken"
+EPO_OPS_SEARCH_URL = f"{EPO_OPS_BASE}/rest-services/published-data/search/biblio"
 USER_AGENT = "hermes-thesis/0.1 (+https://github.com/anna-geiser/mas-deeptech-research)"
 # Verbs that bias Bing News' ranker toward press-release-style content. Kept
 # identical to systems/masfactory/collection/press.py so the comparative
 # invariant holds (same external behaviour, code-independent implementations).
 PR_KEYWORDS = ("announces", "launches", "partners", "funding", "breakthrough")
+# Same quantum-relevant IPC classes as systems/masfactory/collection/patents.py.
+QUANTUM_IPC = ("G06N10", "H04L9/0852")
+
+# Module-level OAuth2 token cache for EPO OPS — independent of System A's
+# cache (the two systems must not share state).
+_epo_token_cache: dict[str, object] = {"access_token": None, "expires_at": 0.0}
 WEB_CACHE_DIR = os.environ.get("HRM_WEB_CACHE_DIR", "/data/raw/hermes_web_cache")
 NEWSY_HINTS = (
     "news", "press", "blog", "publication", "media", "announcement",
@@ -344,6 +353,190 @@ def collect_google_news_for_actor(*, actor_name: str, max_results: int, actor_sl
             }
         )
     return docs
+
+
+# ---------- EPO OPS patents (source_kind='swissreg') ----------
+
+def _epo_token(client: httpx.Client) -> str | None:
+    """OAuth2 client-credentials → access_token. Cached at module level for
+    18 of the 20-minute token lifetime. Returns None if creds missing or
+    the auth call fails — caller treats None as 'collector disabled'."""
+    import time as _t
+    from base64 import b64encode
+
+    now = _t.time()
+    cached_token = _epo_token_cache.get("access_token")
+    cached_exp = _epo_token_cache.get("expires_at", 0.0)
+    if cached_token and isinstance(cached_exp, (int, float)) and cached_exp > now + 30:
+        return str(cached_token)
+
+    key = os.environ.get("EPO_OPS_CONSUMER_KEY", "").strip()
+    secret = os.environ.get("EPO_OPS_CONSUMER_SECRET", "").strip()
+    if not key or not secret:
+        return None
+
+    basic = b64encode(f"{key}:{secret}".encode("utf-8")).decode("ascii")
+    try:
+        resp = client.post(
+            EPO_OPS_TOKEN_URL,
+            headers={
+                "Authorization": f"Basic {basic}",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept": "application/json",
+                "User-Agent": USER_AGENT,
+            },
+            content="grant_type=client_credentials",
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+    except Exception:
+        return None
+
+    token = payload.get("access_token")
+    expires_in = int(payload.get("expires_in", 0) or 0)
+    if not token:
+        return None
+    _epo_token_cache["access_token"] = token
+    _epo_token_cache["expires_at"] = now + max(60, expires_in - 120)
+    return token
+
+
+def _epo_extract(payload: dict, *, actor_slug: str, now_iso: str, max_results: int) -> list[dict]:
+    """Mirror of patents._extract_documents — defensive walk of the OPS JSON."""
+
+    def _as_list(x):
+        if x is None:
+            return []
+        return x if isinstance(x, list) else [x]
+
+    docs: list[dict] = []
+    biblio_root = (
+        payload.get("ops:world-patent-data", {})
+        .get("ops:biblio-search", {})
+        .get("ops:search-result", {})
+        .get("exchange-documents", {})
+    )
+    for ex_doc_wrap in _as_list(biblio_root.get("exchange-document")):
+        for ex_doc in _as_list(ex_doc_wrap):
+            if not isinstance(ex_doc, dict):
+                continue
+            country = ex_doc.get("@country", "")
+            doc_num = ex_doc.get("@doc-number", "")
+            kind = ex_doc.get("@kind", "")
+            if not country or not doc_num:
+                continue
+            publication_number = f"{country}{doc_num}{kind}"
+
+            title = ""
+            biblio = ex_doc.get("bibliographic-data", {})
+            for t in _as_list(biblio.get("invention-title")):
+                if not isinstance(t, dict):
+                    continue
+                lang = t.get("@lang", "")
+                text = (t.get("$") or "").strip()
+                if not text:
+                    continue
+                if lang == "en":
+                    title = text
+                    break
+                if not title:
+                    title = text
+            if not title:
+                title = f"Patent {publication_number}"
+
+            abstract = ""
+            for ab in _as_list(ex_doc.get("abstract")):
+                if not isinstance(ab, dict):
+                    continue
+                lang = ab.get("@lang", "")
+                text_blob = ab.get("p")
+                if isinstance(text_blob, dict):
+                    text = (text_blob.get("$") or "").strip()
+                elif isinstance(text_blob, list):
+                    text = " ".join(
+                        (p.get("$") or "").strip() if isinstance(p, dict) else str(p)
+                        for p in text_blob
+                    ).strip()
+                elif isinstance(text_blob, str):
+                    text = text_blob.strip()
+                else:
+                    continue
+                if not text:
+                    continue
+                if lang == "en":
+                    abstract = text
+                    break
+                if not abstract:
+                    abstract = text
+
+            source_url = (
+                "https://worldwide.espacenet.com/patent/search/publication/"
+                f"{country}/{doc_num}"
+            )
+            body = (title + "\n\n" + abstract).strip()
+            docs.append(
+                {
+                    "source_kind": "swissreg",
+                    "source_url": source_url,
+                    "actor_slug": actor_slug,
+                    "title": title[:500],
+                    "text": body[:8_000],
+                    "fetched_at": now_iso,
+                    "content_hash": hashlib.sha256(
+                        f"{publication_number}|{title}".encode("utf-8")
+                    ).hexdigest(),
+                }
+            )
+            if len(docs) >= max_results:
+                return docs
+    return docs
+
+
+def collect_patents_for_actor(
+    *, actor_name: str, max_results: int, actor_slug: str
+) -> list[dict]:
+    """EPO Open Patent Services patent search. Returns [] without raising on
+    missing credentials / OAuth failure / search failure. See System A's
+    patents.py for the substantive justification (Spence 1973 costly signal,
+    Ehrenthal 2026 schema weights). Code-independent from System A's
+    implementation — same external behaviour, comparative-validity invariant."""
+    if not actor_name.strip():
+        return []
+    if not (
+        os.environ.get("EPO_OPS_CONSUMER_KEY", "").strip()
+        and os.environ.get("EPO_OPS_CONSUMER_SECRET", "").strip()
+    ):
+        return []
+    name = actor_name.replace('"', "").strip()
+    ipc = " OR ".join(f'ic="{cls}"' for cls in QUANTUM_IPC)
+    cql = f'pa="{name}" AND ({ipc} OR ti=quantum OR ab=quantum)'
+
+    try:
+        with httpx.Client(
+            timeout=25.0,
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        ) as client:
+            token = _epo_token(client)
+            if not token:
+                return []
+            resp = client.get(
+                EPO_OPS_SEARCH_URL,
+                headers={"Authorization": f"Bearer {token}"},
+                params={"q": cql, "Range": f"1-{max(1, min(20, int(max_results)))}"},
+            )
+            if resp.status_code == 404:
+                return []
+            resp.raise_for_status()
+            payload = resp.json()
+    except Exception:
+        return []
+
+    return _epo_extract(
+        payload,
+        actor_slug=actor_slug,
+        now_iso=datetime.now(timezone.utc).isoformat(),
+        max_results=max_results,
+    )
 
 
 # ---------- Press-release aggregator (broader-web channel #3) ----------

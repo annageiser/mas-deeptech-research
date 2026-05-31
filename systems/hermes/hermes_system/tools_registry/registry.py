@@ -65,6 +65,7 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
     from ..collectors import (
         collect_arxiv_for_query,
         collect_google_news_for_actor,
+        collect_patents_for_actor,
         collect_press_releases_for_actor,
         collect_website_for_url,
     )
@@ -90,6 +91,16 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
         Distinct ranker + aggregator coverage from `news_search` — call
         both for full content-analysis triangulation."""
         docs = collect_press_releases_for_actor(
+            actor_name=actor_name, max_results=max_results, actor_slug=actor_slug
+        )
+        return json.dumps(docs)
+
+    def patent_search(actor_name: str, max_results: int = 5) -> str:
+        """EPO Open Patent Services search for quantum-relevant patents
+        naming the actor as applicant. Returns [] if EPO_OPS_CONSUMER_KEY/
+        SECRET are not configured. Patents are the strongest costly-signal
+        channel (Spence 1973 / Ehrenthal 2026)."""
+        docs = collect_patents_for_actor(
             actor_name=actor_name, max_results=max_results, actor_slug=actor_slug
         )
         return json.dumps(docs)
@@ -133,6 +144,10 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
     registry.add(ToolDef("press_search",
                          "Search a press-release aggregator (Bing News, PR-flavoured query) for the actor — distinct ranker + sources from news_search; call both for triangulated coverage.",
                          press_search,
+                         {"actor_name": "string (the actor's display name)", "max_results": "int (default 5)"}))
+    registry.add(ToolDef("patent_search",
+                         "EPO Open Patent Services search for quantum-relevant patents naming the actor. Returns [] if EPO_OPS_CONSUMER_KEY/SECRET not configured.",
+                         patent_search,
                          {"actor_name": "string (the actor's display name)", "max_results": "int (default 5)"}))
     registry.add(ToolDef("register_signal",
                          "Record one classified signal — call this once per evidence item.",

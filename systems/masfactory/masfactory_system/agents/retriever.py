@@ -14,6 +14,7 @@ from masfactory import CustomNode, NodeTemplate
 from ..collection import (
     collect_arxiv,
     collect_google_news,
+    collect_patents,
     collect_press_releases,
     collect_website,
 )
@@ -36,6 +37,7 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
     limit_web = int(attrs.get("limit_website_pages_per_actor", 2) or 2)
     limit_news = int(attrs.get("limit_news_per_actor", 5) or 5)
     limit_press = int(attrs.get("limit_press_per_actor", 5) or 5)
+    limit_patents = int(attrs.get("limit_patents_per_actor", 5) or 5)
     cache_dir = attrs.get("web_cache_dir", "/data/raw/web_cache") or "/data/raw/web_cache"
 
     documents: list[dict] = []
@@ -87,6 +89,22 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
                 )
             except Exception as exc:
                 errors.append({"slug": slug, "source": "press", "error": str(exc)})
+
+        # EPO OPS patent search → fills source_kind='swissreg'. Returns []
+        # silently if EPO_OPS_CONSUMER_KEY/SECRET aren't configured, so this
+        # is harmless to enable by default. Patent filings are the strongest
+        # costly-signal channel (Spence 1973 / Ehrenthal 2026) — high schema
+        # weight when present.
+        if "patents" in sources or "swissreg" in sources or not sources or (
+            "arxiv" in sources or "website" in sources or "news" in sources
+        ):
+            try:
+                documents.extend(
+                    d.model_dump(mode="json")
+                    for d in collect_patents(actor, max_results=limit_patents)
+                )
+            except Exception as exc:
+                errors.append({"slug": slug, "source": "patents", "error": str(exc)})
 
     # Group documents by actor_slug so the per-actor Loop downstream can
     # process one actor at a time (smaller Extractor prompts → cleaner

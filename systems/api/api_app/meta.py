@@ -58,9 +58,12 @@ def meta_payload() -> dict[str, Any]:
     dims = []
     for d in sc.get("dimensions", []):
         key = d.get("key")
+        st = d.get("signal_type") or L.signal_type_for(key) or "legitimacy"
         dims.append({
             "key": key,
             "label": L.dimension(key),
+            "signal_type": st,
+            "signal_type_label": L.signal_type_label(st),
             "channel": d.get("channel"),
             "channel_label": "Capability" if d.get("channel") == "capability" else "Legitimacy",
             "is_technical": d.get("is_technical"),
@@ -71,16 +74,36 @@ def meta_payload() -> dict[str, Any]:
             "observability": d.get("observability"),
             "description": d.get("description", "").strip(),
             "grounding": (d.get("grounding") or "").strip(),
+            "extension": bool(d.get("extension")),
         })
+
+    # Ehrenthal four-signal scheme — taxonomy spine.
+    signal_types = []
+    for st in sc.get("signal_types", []):
+        st_key = st.get("key", "")
+        signal_types.append({
+            "key": st_key,
+            "label": st.get("label") or L.signal_type_label(st_key),
+            "short_label": st.get("short_label") or L.SIGNAL_TYPE_SHORT.get(st_key, st_key),
+            "description": (st.get("description") or "").strip(),
+            "grounding": (st.get("grounding") or "").strip(),
+            "color": L.SIGNAL_TYPE_COLOR.get(st_key, "#888"),
+            "dimensions": [d["key"] for d in dims if d["signal_type"] == st_key],
+        })
+
     return {
         "version": sc.get("version"),
         "last_revised": sc.get("last_revised"),
         "channels": sc.get("channels", []),
         "cost_classes": sc.get("cost_classes", {}),
         "signalling_theory": sc.get("signalling_theory", {}),
+        "signal_types": signal_types,
         "dimensions": dims,
         "category_labels": L.CATEGORY_LABEL,
         "category_colors": L.CATEGORY_COLOR,
         "system_labels": L.SYSTEM_LABEL,
         "source_kind_labels": L.SOURCE_KIND_LABEL,
+        # v0.3.0 → v0.4.0 migration table so the frontend can normalise without
+        # re-implementing the mapping.
+        "legacy_dimension_map": L.LEGACY_DIMENSION_MAP,
     }

@@ -56,8 +56,8 @@ Leave the model IDs at their defaults unless you have a reason to switch.
 
 1. At <https://supabase.com/dashboard> create a new project (free tier is fine for the thesis timeline).
 2. Project Settings → API → copy the **Project URL** into `SUPABASE_URL` and the **service_role** key into `SUPABASE_SERVICE_KEY`. Do **not** use the anon key — both runners need write access.
-3. Open the SQL editor and paste the contents of [`systems/masfactory/masfactory_system/persistence/schema.sql`](../systems/masfactory/masfactory_system/persistence/schema.sql). Run it once. It creates the `actors`, `signals`, `runs`, `token_usage`, and `audit_log` tables and enables the `vector` and `pgcrypto` extensions.
-4. (Optional) After a few runs have populated the `embedding` column, create the IVF flat index commented at the bottom of the SQL file.
+3. Open the SQL editor and paste the contents of [`systems/masfactory/masfactory_system/persistence/schema.sql`](../systems/masfactory/masfactory_system/persistence/schema.sql). Run it once. It creates the `actors`, `signals`, `runs`, `token_usage`, and `audit_log` tables, enables the `vector` and `pgcrypto` extensions, AND installs the v0.4.0 migration block (adds `signal_type`, `dimension_legacy` columns; rewrites legacy v0.3.0 dimension keys to v0.4.0; auto-creates `signals_embedding_ivfflat_idx` once embeddings are populated; installs the `find_similar_signals` RPC for semantic dedup). The whole file is idempotent — safe to re-run on existing projects.
+4. **On existing deployments** that pre-date v0.4.0, see [`docs/migrations.md`](migrations.md) for the SQL block to paste — applying the full schema.sql works too (idempotent), but `migrations.md` carries the focused block + a verification query.
 
 ---
 
@@ -132,6 +132,56 @@ docker compose build masfactory hermes
 # Next cron tick picks up the new images automatically. To force one now:
 docker compose run --rm masfactory run-once
 docker compose run --rm hermes run-once
+```
+
+If the pull includes a schema change, check [`docs/migrations.md`](migrations.md) for the SQL block to paste into the Supabase SQL editor. Every migration is idempotent — re-running is a no-op.
+
+---
+
+## Optional capability layers — env reference
+
+All five are off by default. Turn on in `/opt/mas-deeptech-research/.env`, then `docker compose up -d` for the affected service (no rebuild needed unless the dependency changed). Full descriptions in [`docs/architecture.md`](architecture.md) §Optional capability layers.
+
+```bash
+# --- pgvector embeddings (~210 MB model download on first call, ~50 ms/signal) ---
+MASF_EMBEDDINGS=1
+HRM_EMBEDDINGS=1
+
+# --- semantic dedup via cosine NN (requires embeddings on) ---
+MASF_SEMANTIC_DEDUP=1
+MASF_SEMANTIC_DEDUP_THRESHOLD=0.92   # 0.5..0.999 (clamped)
+MASF_SEMANTIC_DEDUP_DAYS=30          # 1..365   (clamped)
+HRM_SEMANTIC_DEDUP=1
+HRM_SEMANTIC_DEDUP_THRESHOLD=0.92
+HRM_SEMANTIC_DEDUP_DAYS=30
+
+# --- consensus Critic (System A only) — Wang et al. 2023, 3× Critic cost ---
+MASF_CRITIC_CONSENSUS_PASSES=3
+
+# --- debate Critic (System A only) — Du et al. 2023, requires consensus on, 6× Critic cost ---
+MASF_CRITIC_DEBATE_ROUNDS=1
+
+# --- EPO Open Patent Services — free 4 GB/week tier ---
+# Register at https://developers.epo.org → create an app → copy keys.
+EPO_OPS_CONSUMER_KEY=
+EPO_OPS_CONSUMER_SECRET=
+```
+
+Each combination is recorded on every run in `data/raw/runs/<ts>__<sys>/config.json` AND in the Supabase `runs.config_snapshot` JSONB column, so the audit trail captures which capability layers were active for any historical run.
+
+## Widening the collection funnel (v0.4.0 defaults)
+
+Per-actor limits raised across the board in v0.4.0; the Critic is correspondingly stricter to keep the persisted corpus clean. Tune via `.env`:
+
+```bash
+MASF_LIMIT_ACTORS=40   # full ecosystem
+MASF_LIMIT_ARXIV=10    # was 5 in v0.3.0
+MASF_LIMIT_WEBSITE=5   # was 2
+MASF_LIMIT_NEWS=10     # was 5
+MASF_LIMIT_PRESS=10    # was 5 (new in v0.4.0)
+MASF_LIMIT_PATENTS=10  # was 5 (only active if EPO_OPS keys set)
+HRM_LIMIT_ACTORS=40
+HRM_MAX_ITERATIONS=6
 ```
 
 ## Troubleshooting

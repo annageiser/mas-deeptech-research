@@ -70,13 +70,41 @@ def test_health():
 def test_meta_has_three_axes():
     r = client.get("/api/meta")
     assert r.status_code == 200
-    dims = r.json()["dimensions"]
-    assert len(dims) == 9
+    body = r.json()
+    dims = body["dimensions"]
+    # v0.4.0: 19 dimensions across 4 Ehrenthal signal types
+    assert len(dims) == 19
     d = {x["key"]: x for x in dims}
     assert d["funding_event"]["signal_cost"] == "high"
     assert d["roadmaps"]["signal_cost"] == "low"
     assert "observability" in d["publications"]
     assert d["roadmaps"]["cost_multiplier"] == 0.4
+    # Each dim carries its signal_type for the website's signal-type-primary axis
+    assert d["funding_event"]["signal_type"] == "legitimacy"
+    assert d["roadmaps"]["signal_type"] == "future_trajectory"
+    assert d["hpc_collaborations"]["signal_type"] == "community_ecosystem"
+    # Two extension dimensions are flagged explicitly
+    assert d["funding_event"]["extension"] is True
+    assert d["regulatory_recognition"]["extension"] is True
+    assert d["patents"]["extension"] is False
+
+
+def test_meta_exposes_signal_types():
+    """v0.4.0: /api/meta returns the 4 Ehrenthal signal types as the
+    primary classification axis spine (consumed by web frontend)."""
+    r = client.get("/api/meta")
+    sts = r.json().get("signal_types") or []
+    assert len(sts) == 4
+    keys = {s["key"] for s in sts}
+    assert keys == {"legitimacy", "customer_cocreation", "community_ecosystem", "future_trajectory"}
+    # Each signal_type lists its dimension keys (sub-categories)
+    leg = next(s for s in sts if s["key"] == "legitimacy")
+    assert "funding_event" in leg["dimensions"]
+    assert "patents" in leg["dimensions"]
+    # Legacy-key migration map is exposed for client-side normalisation
+    legacy = r.json().get("legacy_dimension_map") or {}
+    assert legacy["technical_capability"] == "technological_advances"
+    assert legacy["funding_or_grant"] == "funding_event"
 
 
 def test_scores_credibility_discounts_cheap_talk():
@@ -141,3 +169,59 @@ def test_ecosystem():
     body = r.json()
     assert body["actors_total"] == 2
     assert body["summary"]["n_actors_with_signals"] == 2
+
+
+def test_ecosystem_returns_signal_type_mix_as_primary_axis():
+    """v0.4.0: the 4-bucket Ehrenthal signal type axis is the website's
+    PRIMARY chart. /api/ecosystem must populate it."""
+    r = client.get("/api/ecosystem")
+    body = r.json()
+    st_mix = body.get("signal_type_mix") or []
+    assert len(st_mix) >= 1  # at least one bucket has signals in the fixture
+    by_key = {row["signal_type"]: row for row in st_mix}
+    # Fixture has 1 funding + 1 roadmap from System A; 1 publication from System B
+    # → legitimacy=2 (funding+publications), future_trajectory=1 (roadmaps)
+    assert by_key["legitimacy"]["count"] == 2
+    assert by_key["future_trajectory"]["count"] == 1
+    # Each row carries a colour for the chart legend
+    for row in st_mix:
+        assert "color" in row and row["color"].startswith("#")
+    # Dimension mix entries carry signal_type for colour-keying the
+    # secondary drill-down chart
+    dm = body["dimension_mix"]
+    assert all("signal_type" in d for d in dm)
+
+
+def test_signals_filter_by_signal_type():
+    """v0.4.0: signal_type is the primary filter on the /signals page."""
+    r = client.get("/api/signals?signal_type=future_trajectory")
+    assert r.status_code == 200
+    sigs = r.json()["signals"]
+    # Fixture's roadmap is the only future_trajectory signal
+    assert len(sigs) == 1
+    assert sigs[0]["dimension"] == "roadmaps"
+    # Each returned signal carries signal_type + signal_type_label
+    assert sigs[0]["signal_type"] == "future_trajectory"
+    assert "signal_type_label" in sigs[0]
+
+
+def test_signals_filter_normalises_legacy_dimension_key():
+    """A legacy v0.3.0 key passed in the URL should auto-resolve to its
+    v0.4.0 equivalent so old URLs don't 404 quietly with empty results."""
+    r = client.get("/api/signals?dimension=funding_or_grant")  # legacy key
+    sigs = r.json()["signals"]
+    assert len(sigs) == 1
+    # API normalised funding_or_grant → funding_event
+    assert sigs[0]["dimension"] == "funding_event"
+
+
+def test_signal_flags_post_payload_validation():
+    """POST /api/signal-flags validates payload (Pydantic). Missing reason → 422."""
+    r = client.post("/api/signal-flags", json={"signal_id": "no-reason-supplied"})
+    assert r.status_code == 422  # Pydantic validation failure
+
+
+def test_signal_flags_post_unknown_reason_rejected():
+    """Reason must be one of the 6 enum values; anything else → 422."""
+    r = client.post("/api/signal-flags", json={"signal_id": "s1", "reason": "purple"})
+    assert r.status_code == 422

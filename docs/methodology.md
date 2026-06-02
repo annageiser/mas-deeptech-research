@@ -87,12 +87,29 @@ The disposition's evaluation depends on the *gap* between the ideal architecture
 
 The thesis-feeding documentation, in order of typical relevance:
 
+### Thesis-feeding docs (cite directly)
+
+| Doc | Used for |
+|---|---|
+| [`signal-taxonomy.md`](signal-taxonomy.md) | Chapter 2.1.2 + 2.2.4 — Ehrenthal's four-signal scheme + our 19 sub-categories + extensions + literature |
+| [`pre-registration.md`](pre-registration.md) | Chapter 2.2.4 (Evaluation Framework) — what we measure, how, falsification thresholds — locked in before looking at data |
+| [`threats-to-validity.md`](threats-to-validity.md) | Chapter 4.1.4 (Methodological and Technical Limitations) — 17 threats organised by Cook & Campbell validity types |
+| [`lessons-learned.md`](lessons-learned.md) | Chapter 4.1.4 + Chapter 5.3 — 15 lessons (architectural / production-engineering / methodological) ready to drop in |
+| [`open-questions.md`](open-questions.md) | Working notes for triweekly supervisor reviews |
+| [`wrong-signals-strategy.md`](wrong-signals-strategy.md) | Chapter 3.5 quality leg — how flagged wrong-signals are surfaced + the wrong-signal-rate metric definition |
+
+### Operational docs
+
 | Doc | What it covers |
 |---|---|
 | [`architecture.md`](architecture.md) | Container topology, mermaid diagram, per-system node table, five-collector funnel, optional capability layers, audit-trail file listing |
-| [`signal-taxonomy.md`](signal-taxonomy.md) | Thesis-citable reference for Ehrenthal's four-signal scheme + our 19 sub-categories + extensions + literature |
 | [`reproducibility.md`](reproducibility.md) | Hostinger VPS runbook + env-var reference for all optional capability layers |
 | [`migrations.md`](migrations.md) | Paste-ready SQL blocks for each Supabase schema change since initial deploy (all idempotent) |
 | [`session_log.md`](session_log.md) | Chronological assistant-side build journal with token costs per session |
 | [`dns-and-dashboard.md`](dns-and-dashboard.md) | DNS + Caddy setup for the public domain |
 | [`ssh-go-live.md`](ssh-go-live.md) | Original SSH-assisted go-live walkthrough |
+| [`status-report-2026-06-02.md`](status-report-2026-06-02.md) | One-pager prepared for the 2026-06-02 supervisor meeting |
+
+### Empirical-evaluation package
+
+`systems/evaluation/` is the standalone Python package that produces the numbers Chapter 3.5 cites. Run `python -m eval_app.runner all` to produce `data/eval/<UTC-iso>/results.json` + `results.md`. See its [README](../systems/evaluation/README.md).

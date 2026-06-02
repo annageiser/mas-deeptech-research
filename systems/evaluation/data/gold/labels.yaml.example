@@ -1,0 +1,47 @@
+# Gold-set format for the classification_quality metric.
+#
+# To create a usable gold set:
+#   1. Open the live website /signals page, pick ≥ 50 signals to label,
+#      stratified across the 4 actor categories × 4 signal types
+#      (≥ 3 per cell where the corpus permits).
+#   2. For each signal, copy its `signal_id` (the UUID from the Supabase
+#      `signals.id` column — visible via the website's "?" inspector
+#      or via the Supabase table editor).
+#   3. Add a row here with your hand-labelled gold values.
+#   4. Save as `data/gold/labels.yaml` (drop the `.example` suffix).
+#   5. Run `python -m eval_app.runner cls` to score the system against
+#      your gold.
+#
+# Inter-rater reliability tip: have your supervisor label a 10-15 row
+# sub-sample independently, then compute Cohen's κ between the two
+# label streams — that's the standard inter-rater reliability statistic
+# for categorical labels.
+
+- signal_id: "00000000-0000-0000-0000-000000000001"
+  # The four-signal scheme (Ehrenthal et al. 2026). One of:
+  #   legitimacy | customer_cocreation | community_ecosystem | future_trajectory
+  gold_signal_type: legitimacy
+  # One of the 19 v0.4.0 sub-categories (see docs/signal-taxonomy.md).
+  gold_dimension: funding_event
+  # Should this signal have been kept at all?
+  gold_keep: true
+  # Is the actor attribution correct?
+  gold_actor_correct: true
+  # Optional traceability fields.
+  labelled_by: anna
+  labelled_at: 2026-06-09
+  notes: |
+    SNF MAPS grant announcement. Clear funding event, correctly
+    attributed to ETH Zurich.
+
+- signal_id: "00000000-0000-0000-0000-000000000002"
+  gold_signal_type: future_trajectory
+  gold_dimension: roadmaps
+  gold_keep: false      # rejected: pure marketing roadmap, no concrete milestone
+  gold_actor_correct: true
+  labelled_by: anna
+  labelled_at: 2026-06-09
+  notes: |
+    Vendor marketing piece ("we will revolutionise quantum by 2030").
+    No specific milestones, no dates — Critic should have flagged this
+    as long_horizon_claims but kept it as roadmaps.

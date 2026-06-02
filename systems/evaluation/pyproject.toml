@@ -1,0 +1,27 @@
+[project]
+name = "eval_app"
+version = "0.1.0"
+description = "Empirical-evaluation harness for the BSc thesis (Anna Geiser, FHNW). Reads the shared Supabase, computes the four headline metrics, writes results.json + a thesis-ready markdown summary."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "supabase>=2.7.0",
+    "pandas>=2.2.0",
+    "pyyaml>=6.0.2",
+    "scikit-learn>=1.4.0",   # precision/recall/F1/Cohen κ
+    "python-dateutil>=2.9.0",
+]
+
+[project.scripts]
+eval-run = "eval_app.runner:main"
+
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["eval_app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

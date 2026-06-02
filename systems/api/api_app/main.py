@@ -8,11 +8,12 @@ diversity). See /api/meta for the full methodology.
 from __future__ import annotations
 
 import math
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from . import data_access as da
 from . import labels as L
@@ -386,3 +387,134 @@ def get_reports(kind: Optional[str] = None, period: Optional[str] = None, file: 
             raise HTTPException(status_code=404, detail="report not found")
         return {"kind": kind, "period": period, "file": file, "markdown": body}
     return {"reports": R.list_reports(kind)}
+
+
+# ---------------------------------------------------------------------------
+# signal_flags — Workflow B from docs/wrong-signals-strategy.md
+# Users (Anna; supervisor; reviewers) flag wrong signals; the cron's
+# Persistence step refuses to re-insert any flagged (actor, url, hash)
+# tuple. The aggregate per-source / per-system / per-actor-category
+# wrong-signal rate is a thesis-citable quality metric (Chapter 3.5).
+# ---------------------------------------------------------------------------
+
+FlagReason = Literal[
+    "wrong_actor",       # the actor_slug attribution is incorrect
+    "off_topic",         # signal not actually about quantum
+    "wrong_dimension",   # dimension/signal_type mis-classified
+    "low_quality",       # generic / boilerplate, no substance
+    "duplicate",         # same event already in the corpus
+    "other",
+]
+
+
+class FlagPayload(BaseModel):
+    signal_id: str = Field(min_length=8, description="UUID of the signal being flagged.")
+    reason: FlagReason
+    note: Optional[str] = Field(default=None, max_length=2000)
+
+
+@app.post("/api/signal-flags")
+def post_signal_flag(payload: FlagPayload) -> dict:
+    """Record a wrong-signal flag. Idempotent on (signal_id, reason)."""
+    try:
+        client = da.client()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Supabase unavailable")
+
+    # Confirm the signal exists — return 404 instead of silently creating
+    # an orphan flag (which the FK cascade would later reject anyway).
+    sig = client.table("signals").select("id").eq("id", payload.signal_id).limit(1).execute()
+    if not sig.data:
+        raise HTTPException(status_code=404, detail="signal_id not found")
+
+    row = {
+        "signal_id": payload.signal_id,
+        "reason": payload.reason,
+        "note": payload.note,
+    }
+    try:
+        resp = client.table("signal_flags").insert(row).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"flag insert failed: {exc}")
+    return {"flag": (resp.data or [{}])[0], "ok": True}
+
+
+@app.get("/api/signal-flags")
+def get_signal_flags(
+    signal_id: Optional[str] = None,
+    summary: bool = False,
+    days: int = Query(90, ge=1, le=365),
+) -> dict:
+    """List flags for a specific signal, OR aggregate stats across the window.
+
+    Without ?signal_id and without ?summary=true: returns recent flags.
+    With ?signal_id=...: returns flags for that signal.
+    With ?summary=true: returns aggregate { by_reason, by_system, by_actor_category, total }.
+    """
+    try:
+        client = da.client()
+    except Exception:
+        return {"flags": [], "error": "Supabase unavailable"}
+
+    if signal_id:
+        try:
+            resp = client.table("signal_flags").select("*").eq("signal_id", signal_id).execute()
+        except Exception:
+            return {"flags": []}
+        return {"flags": resp.data or []}
+
+    if summary:
+        from datetime import datetime, timedelta, timezone
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        try:
+            flags = client.table("signal_flags").select(
+                "id,signal_id,reason,flagged_at"
+            ).gte("flagged_at", since).execute().data or []
+        except Exception:
+            flags = []
+        if not flags:
+            return {"total": 0, "by_reason": {}, "by_system": {}, "by_actor_category": {}, "days": days}
+
+        # Join to signals → actors for per-system + per-category aggregates.
+        sig_ids = list({f["signal_id"] for f in flags})
+        sigs: list[dict] = []
+        for i in range(0, len(sig_ids), 100):
+            chunk = sig_ids[i:i + 100]
+            r = client.table("signals").select("id,system,actor_slug").in_("id", chunk).execute()
+            sigs.extend(r.data or [])
+        sig_by_id = {s["id"]: s for s in sigs}
+
+        actors = da.actors()
+        cat_by_slug = {}
+        if not actors.empty:
+            cat_by_slug = dict(zip(actors["slug"], actors["category"]))
+
+        by_reason: dict[str, int] = {}
+        by_system: dict[str, int] = {}
+        by_cat: dict[str, int] = {}
+        for f in flags:
+            by_reason[f["reason"]] = by_reason.get(f["reason"], 0) + 1
+            s = sig_by_id.get(f["signal_id"], {})
+            sys_ = s.get("system") or "unknown"
+            by_system[sys_] = by_system.get(sys_, 0) + 1
+            cat = cat_by_slug.get(s.get("actor_slug"), "unknown")
+            by_cat[cat] = by_cat.get(cat, 0) + 1
+
+        return {
+            "total": len(flags),
+            "days": days,
+            "by_reason": by_reason,
+            "by_system": by_system,
+            "by_actor_category": by_cat,
+        }
+
+    # Default: most recent 50 flags.
+    try:
+        resp = (client.table("signal_flags")
+                .select("id,signal_id,reason,note,flagged_at")
+                .order("flagged_at", desc=True)
+                .limit(50)
+                .execute())
+    except Exception:
+        return {"flags": []}
+    return {"flags": resp.data or []}

@@ -101,6 +101,7 @@ def get_signals(
     system: Optional[str] = None,
     days: int = Query(90, ge=1, le=365),
     actor: Optional[str] = None,
+    signal_type: Optional[str] = None,   # v0.4.0 primary filter axis
     dimension: Optional[str] = None,
     source_kind: Optional[str] = None,
     min_confidence: float = Query(0.0, ge=0.0, le=1.0),
@@ -110,10 +111,17 @@ def get_signals(
     df = da.signals(system=sys, days=days)
     if df.empty:
         return {"signals": [], "count": 0}
+    # Normalise legacy dimensions before filtering so a v0.3.0 key in the
+    # query string still resolves to its v0.4.0 equivalent.
+    df = df.copy()
+    df["dimension"] = df["dimension"].map(L.normalise_dimension)
+    df["signal_type_derived"] = df["dimension"].map(L.signal_type_for)
     if actor:
         df = df[df["actor_slug"] == actor]
+    if signal_type:
+        df = df[df["signal_type_derived"] == signal_type]
     if dimension:
-        df = df[df["dimension"] == dimension]
+        df = df[df["dimension"] == L.normalise_dimension(dimension)]
     if source_kind:
         df = df[df["source_kind"] == source_kind]
     if min_confidence > 0:
@@ -125,9 +133,12 @@ def get_signals(
         df = df.assign(
             actor_name=df["actor_slug"].map(lambda s: actor_name.get(s, s)),
             dimension_label=df["dimension"].map(L.dimension),
+            signal_type=df["signal_type_derived"],
+            signal_type_label=df["signal_type_derived"].map(L.signal_type_label),
             source_kind_label=df["source_kind"].map(L.source_kind),
             cost_class=df["dimension"].map(L.cost_class),
         )
+        df = df.drop(columns=["signal_type_derived"], errors="ignore")
     return {"signals": _records(df), "count": int(len(df))}
 
 
@@ -144,17 +155,56 @@ def get_ecosystem(system: Optional[str] = None, days: int = Query(90, ge=1, le=3
     sig = da.signals(system=sys, days=days)
     actors_df = da.actors()
 
-    # dimension mix
+    # Normalise dimensions so legacy rows show under the right v0.4.0 keys.
+    if not sig.empty and "dimension" in sig.columns:
+        sig = sig.copy()
+        sig["dimension"] = sig["dimension"].apply(L.normalise_dimension)
+
+    # ---- Ehrenthal four-signal scheme: primary aggregation axis (v0.4.0). ----
+    # We derive signal_type from the (normalised) dimension rather than the
+    # Supabase column so rows that haven't been backfilled yet still bucket
+    # correctly.
+    signal_type_mix: list[dict] = []
+    if not sig.empty:
+        sig = sig.copy()
+        sig["signal_type_derived"] = sig["dimension"].apply(L.signal_type_for)
+        st = sig.groupby("signal_type_derived").size().reset_index(name="count")
+        # Fixed display order so the chart is stable across runs.
+        ORDER = ["legitimacy", "customer_cocreation", "community_ecosystem", "future_trajectory"]
+        st["__order"] = st["signal_type_derived"].apply(
+            lambda k: ORDER.index(k) if k in ORDER else len(ORDER)
+        )
+        st = st.sort_values(["__order", "signal_type_derived"])
+        signal_type_mix = [
+            {
+                "signal_type": r["signal_type_derived"],
+                "label": L.signal_type_label(r["signal_type_derived"]),
+                "short_label": L.SIGNAL_TYPE_SHORT.get(r["signal_type_derived"], r["signal_type_derived"]),
+                "color": L.SIGNAL_TYPE_COLOR.get(r["signal_type_derived"], "#888"),
+                "count": int(r["count"]),
+            }
+            for _, r in st.iterrows()
+            if r["signal_type_derived"]  # drop empty bucket if some row had no mapping
+        ]
+
+    # Dimension mix retained as the SECONDARY axis (drill-down). The web
+    # frontend now groups dimensions by signal_type beneath the 4-bucket chart.
     dim_mix: list[dict] = []
     if not sig.empty:
         dm = sig.groupby("dimension").size().reset_index(name="count")
         dim_mix = [
-            {"dimension": r["dimension"], "label": L.dimension(r["dimension"]),
-             "count": int(r["count"]), "cost_class": L.cost_class(r["dimension"])}
+            {
+                "dimension": r["dimension"],
+                "label": L.dimension(r["dimension"]),
+                "signal_type": L.signal_type_for(r["dimension"]),
+                "signal_type_label": L.signal_type_label(L.signal_type_for(r["dimension"])),
+                "count": int(r["count"]),
+                "cost_class": L.cost_class(r["dimension"]),
+            }
             for _, r in dm.iterrows()
         ]
 
-    # category mix
+    # category mix (unchanged — orthogonal axis)
     cat_mix: list[dict] = []
     if not sig.empty and not actors_df.empty:
         merged = sig.merge(actors_df[["slug", "category"]].rename(columns={"slug": "actor_slug"}),
@@ -175,7 +225,11 @@ def get_ecosystem(system: Optional[str] = None, days: int = Query(90, ge=1, le=3
     return {
         "summary": summary,
         "actors_total": int(len(actors_df)),
+        # Primary axis (v0.4.0 — Ehrenthal four-signal scheme).
+        "signal_type_mix": signal_type_mix,
+        # Secondary axis (sub-categories under each signal_type).
         "dimension_mix": sorted(dim_mix, key=lambda d: -d["count"]),
+        # Orthogonal axis (actor category — unchanged).
         "category_mix": sorted(cat_mix, key=lambda d: -d["count"]),
         "top_actors": _records(scores.head(10)),
     }

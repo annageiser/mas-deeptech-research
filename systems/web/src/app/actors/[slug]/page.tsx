@@ -8,7 +8,7 @@ type SP = { params: { slug: string }; searchParams: { system?: string; days?: st
 
 export default async function ActorDetail({ params, searchParams }: SP) {
   const system = searchParams.system || "both";
-  const days = Number(searchParams.days || "30");
+  const days = Number(searchParams.days || "90");
 
   let data;
   try {

@@ -99,7 +99,7 @@ def get_actors() -> dict:
 @app.get("/api/signals")
 def get_signals(
     system: Optional[str] = None,
-    days: int = Query(30, ge=1, le=365),
+    days: int = Query(90, ge=1, le=365),
     actor: Optional[str] = None,
     dimension: Optional[str] = None,
     source_kind: Optional[str] = None,
@@ -132,13 +132,13 @@ def get_signals(
 
 
 @app.get("/api/scores")
-def get_scores(system: Optional[str] = None, days: int = Query(30, ge=1, le=365)) -> dict:
+def get_scores(system: Optional[str] = None, days: int = Query(90, ge=1, le=365)) -> dict:
     sys = _norm_system(system)
     return {"scores": _records(_scored(sys, days))}
 
 
 @app.get("/api/ecosystem")
-def get_ecosystem(system: Optional[str] = None, days: int = Query(30, ge=1, le=365)) -> dict:
+def get_ecosystem(system: Optional[str] = None, days: int = Query(90, ge=1, le=365)) -> dict:
     sys = _norm_system(system)
     scores = _scored(sys, days)
     sig = da.signals(system=sys, days=days)
@@ -182,7 +182,7 @@ def get_ecosystem(system: Optional[str] = None, days: int = Query(30, ge=1, le=3
 
 
 @app.get("/api/signalling")
-def get_signalling(system: Optional[str] = None, days: int = Query(30, ge=1, le=365)) -> dict:
+def get_signalling(system: Optional[str] = None, days: int = Query(90, ge=1, le=365)) -> dict:
     """Ehrenthal's research question made measurable: cheap talk vs costly signal."""
     sys = _norm_system(system)
     sig = da.signals(system=sys, days=days)
@@ -211,7 +211,7 @@ def get_signalling(system: Optional[str] = None, days: int = Query(30, ge=1, le=
 
 
 @app.get("/api/actor/{slug}")
-def get_actor(slug: str, system: Optional[str] = None, days: int = Query(30, ge=1, le=365)) -> dict:
+def get_actor(slug: str, system: Optional[str] = None, days: int = Query(90, ge=1, le=365)) -> dict:
     sys = _norm_system(system)
     actors_df = da.actors()
     match = actors_df[actors_df["slug"] == slug] if not actors_df.empty else pd.DataFrame()
@@ -262,7 +262,7 @@ def get_actor(slug: str, system: Optional[str] = None, days: int = Query(30, ge=
 
 
 @app.get("/api/compare")
-def get_compare(days: int = Query(30, ge=1, le=365)) -> dict:
+def get_compare(days: int = Query(90, ge=1, le=365)) -> dict:
     """System A vs System B head-to-head."""
     out: dict[str, Any] = {}
     runs_all = da.runs(system=None, days=days)
@@ -318,7 +318,7 @@ def get_compare(days: int = Query(30, ge=1, le=365)) -> dict:
 
 
 @app.get("/api/knowledge-graph")
-def get_kg(system: Optional[str] = None, days: int = Query(30, ge=1, le=365),
+def get_kg(system: Optional[str] = None, days: int = Query(90, ge=1, le=365),
            threshold: int = Query(2, ge=1, le=9)) -> dict:
     sys = _norm_system(system)
     return build_graph_json(da.signals(system=sys, days=days), da.actors(), shared_dim_threshold=threshold)

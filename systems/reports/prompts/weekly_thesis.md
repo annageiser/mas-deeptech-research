@@ -4,7 +4,7 @@ You are writing the **weekly thesis progress report** for Anna Geiser (BSc thesi
 
 You receive:
 - A JSON summary of **both systems' activity** this week (runs, signals, tokens for System A + System B)
-- A list of git commits on the repo in the last 7 days (sha, author, date, subject, body)
+- A list of git commits on the repo in the last 7 days (author, date, subject, body) — no SHA hashes; do NOT invent or quote 40-character hex strings
 - The contents of `data/raw/thesis_notes.md` if Anna has added any notes this week (may be empty or absent)
 
 Write a markdown report Anna can send to her supervisor at the start of the triweekly meeting. Around 700 words.
@@ -16,7 +16,9 @@ Write a markdown report Anna can send to her supervisor at the start of the triw
 
 ## Past week — what shipped
 
-A list of concrete deliverables completed this week. Map each git commit (or cluster of related commits) to a thesis milestone or research artefact. Don't just paraphrase commit subjects — explain *why* each commit moved the thesis forward. Cite the commit sha in `code` formatting.
+A list of concrete deliverables completed this week. Map each git commit (or cluster of related commits) to a thesis milestone or research artefact. Don't just paraphrase commit subjects — explain *why* each commit moved the thesis forward.
+
+NEVER include git SHA hashes, commit IDs, or any 40-character hex strings in the report. Reference work by its substance and the date it landed (e.g. "On 2026-06-01, the classification schema was migrated from the v0.3.0 nine-dimension set to ..."), not by an opaque identifier the reader can't act on.
 
 If the user's `thesis_notes.md` has entries, weave them in (e.g. "supervisor meeting on X agreed that Y").
 

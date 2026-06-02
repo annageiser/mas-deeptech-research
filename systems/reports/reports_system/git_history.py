@@ -20,7 +20,12 @@ def git_log_since(*, repo_dir: str, days: int = 7) -> list[dict]:
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
     # Use a record separator that's unlikely to appear in commit messages.
     sep = "\x1f"
-    fmt = sep.join(["%H", "%an", "%ad", "%s"])
+    # Author / date / subject only — SHAs are noise in a thesis report. The
+    # report should describe what happened, not which 40-char hash did it.
+    # If we ever need the SHA again (e.g. for citation), add it back here and
+    # surface it via a dedicated `commit_refs` field rather than in the body
+    # the LLM renders.
+    fmt = sep.join(["%an", "%ad", "%s"])
 
     try:
         out = subprocess.check_output(
@@ -46,14 +51,13 @@ def git_log_since(*, repo_dir: str, days: int = 7) -> list[dict]:
             continue
         head, _, body = chunk.partition("--BODY-START--")
         head_parts = head.strip().split(sep)
-        if len(head_parts) < 4:
+        if len(head_parts) < 3:
             continue
         commits.append(
             {
-                "sha": head_parts[0],
-                "author": head_parts[1],
-                "date": head_parts[2],
-                "subject": head_parts[3],
+                "author": head_parts[0],
+                "date": head_parts[1],
+                "subject": head_parts[2],
                 "body": body.strip(),
             }
         )

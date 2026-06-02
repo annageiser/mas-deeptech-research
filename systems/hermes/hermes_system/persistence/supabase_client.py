@@ -164,9 +164,9 @@ class SupabaseStore:
         except (TypeError, ValueError):
             sem_threshold = 0.92
         try:
-            sem_days = int(_os.environ.get("HRM_SEMANTIC_DEDUP_DAYS", "30"))
+            sem_days = int(_os.environ.get("HRM_SEMANTIC_DEDUP_DAYS", "90"))
         except (TypeError, ValueError):
-            sem_days = 30
+            sem_days = 90
         sem_threshold = max(0.5, min(0.999, sem_threshold))
         sem_days = max(1, min(365, sem_days))
         sem_active = sem_on and embed_on

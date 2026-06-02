@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 type SP = { searchParams: { days?: string } };
 
 export default async function Compare({ searchParams }: SP) {
-  const days = Number(searchParams.days || "30");
+  const days = Number(searchParams.days || "90");
   let c;
   try {
     c = await api.compare(days);

@@ -16,7 +16,7 @@ const SORTS: Record<string, { label: string; key: string }> = {
 
 export default async function Leaderboard({ searchParams }: SP) {
   const system = searchParams.system || "both";
-  const days = Number(searchParams.days || "30");
+  const days = Number(searchParams.days || "90");
   const sort = SORTS[searchParams.sort || "impact"] ? searchParams.sort || "impact" : "impact";
 
   let scores;

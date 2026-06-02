@@ -29,7 +29,8 @@ from ..persistence import SignalRow
 
 
 def _semantic_dedup_config() -> tuple[bool, float, int]:
-    """(enabled, similarity_threshold, days_back). Defaults: off, 0.92, 30."""
+    """(enabled, similarity_threshold, days_back). Defaults: off, 0.92, 90.
+    v0.4.0 raised days_back 30 → 90 to expand the scraping window."""
     enabled = os.environ.get("MASF_SEMANTIC_DEDUP", "").strip().lower() in (
         "1", "true", "yes", "on"
     )
@@ -38,9 +39,9 @@ def _semantic_dedup_config() -> tuple[bool, float, int]:
     except (TypeError, ValueError):
         threshold = 0.92
     try:
-        days_back = int(os.environ.get("MASF_SEMANTIC_DEDUP_DAYS", "30"))
+        days_back = int(os.environ.get("MASF_SEMANTIC_DEDUP_DAYS", "90"))
     except (TypeError, ValueError):
-        days_back = 30
+        days_back = 90
     # Clamp to sane ranges so a typo doesn't disable / DoS the system.
     threshold = max(0.5, min(0.999, threshold))
     days_back = max(1, min(365, days_back))

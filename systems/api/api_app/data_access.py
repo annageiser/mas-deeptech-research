@@ -61,7 +61,7 @@ def actors() -> pd.DataFrame:
     return _cached("actors", _p)
 
 
-def runs(system: Optional[str] = None, days: int = 30) -> pd.DataFrame:
+def runs(system: Optional[str] = None, days: int = 90) -> pd.DataFrame:
     def _p():
         q = (client().table("runs")
              .select("id,system,status,started_at,finished_at,actor_slugs,error_message")
@@ -73,7 +73,7 @@ def runs(system: Optional[str] = None, days: int = 30) -> pd.DataFrame:
     return _cached(f"runs:{system}:{days}", _p)
 
 
-def signals(system: Optional[str] = None, days: int = 30) -> pd.DataFrame:
+def signals(system: Optional[str] = None, days: int = 90) -> pd.DataFrame:
     def _p():
         q = (client().table("signals")
              .select("id,run_id,actor_slug,system,source_kind,source_url,title,summary,"
@@ -86,7 +86,7 @@ def signals(system: Optional[str] = None, days: int = 30) -> pd.DataFrame:
     return _cached(f"signals:{system}:{days}", _p)
 
 
-def token_usage(system: Optional[str] = None, days: int = 30) -> pd.DataFrame:
+def token_usage(system: Optional[str] = None, days: int = 90) -> pd.DataFrame:
     def _p():
         rows = (client().table("token_usage")
                 .select("run_id,node_name,model_name,input_tokens,output_tokens,calls,recorded_at")

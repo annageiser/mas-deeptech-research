@@ -8,7 +8,7 @@ type SP = { searchParams: { system?: string; days?: string; threshold?: string }
 
 export default async function Graph({ searchParams }: SP) {
   const system = searchParams.system || "both";
-  const days = Number(searchParams.days || "30");
+  const days = Number(searchParams.days || "90");
   const threshold = Number(searchParams.threshold || "2");
 
   let graph;

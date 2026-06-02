@@ -8,18 +8,68 @@ import type { Signal } from "@/lib/types";
 
 const fetcher = (u: string) => fetch(u).then((r) => r.json());
 
+// Ehrenthal four-signal scheme — top-level filter axis. The 19 dimensions
+// are grouped under these four when the user wants to drill down.
+const SIGNAL_TYPES = [
+  { key: "legitimacy",          label: "Legitimacy",          color: "#1f77b4" },
+  { key: "customer_cocreation", label: "Customer co-creation", color: "#2ca02c" },
+  { key: "community_ecosystem", label: "Community / ecosystem", color: "#9467bd" },
+  { key: "future_trajectory",   label: "Future trajectory",    color: "#ff7f0e" },
+];
+
+const DIMENSIONS_BY_SIGNAL_TYPE: Record<string, { key: string; label: string }[]> = {
+  legitimacy: [
+    { key: "leadership_expertise",   label: "Leadership / board expertise" },
+    { key: "patents",                label: "Patents" },
+    { key: "publications",           label: "Publications" },
+    { key: "awards",                 label: "Awards" },
+    { key: "testimonials",           label: "Testimonials" },
+    { key: "educational_outreach",   label: "Educational outreach" },
+    { key: "funding_event",          label: "Funding event" },
+    { key: "regulatory_recognition", label: "Regulatory recognition" },
+  ],
+  customer_cocreation: [
+    { key: "collaborations_applications", label: "Collaborations for applications" },
+    { key: "pilots_pocs",                 label: "Pilots & POCs" },
+    { key: "customer_training",           label: "Customer training" },
+  ],
+  community_ecosystem: [
+    { key: "cloud_platform_listings", label: "Cloud-platform listings" },
+    { key: "hpc_collaborations",      label: "HPC collaborations" },
+    { key: "industry_partnerships",   label: "Industry partnerships" },
+    { key: "academic_partnerships",   label: "Academic partnerships" },
+  ],
+  future_trajectory: [
+    { key: "roadmaps",               label: "Roadmaps" },
+    { key: "milestones",             label: "Milestones" },
+    { key: "technological_advances", label: "Technological advances" },
+    { key: "long_horizon_claims",    label: "Long-horizon claims" },
+  ],
+};
+
 function SignalsInner() {
   const sp = useSearchParams();
   const system = sp.get("system") || "both";
-  const days = sp.get("days") || "30";
-  const [dimension, setDimension] = useState("");
+  const days = sp.get("days") || "90";
+  const [signalType, setSignalType] = useState(sp.get("signal_type") || "");
+  const [dimension, setDimension] = useState(sp.get("dimension") || "");
   const [sourceKind, setSourceKind] = useState("");
   const [minConf, setMinConf] = useState(0);
+
+  // Sub-dimension options react to the selected signal_type. If you pick a
+  // signal_type and then a dimension that isn't under it, we silently clear
+  // the dimension on the next render to avoid an empty result-set.
+  const dimensionOptions = signalType
+    ? DIMENSIONS_BY_SIGNAL_TYPE[signalType] || []
+    : Object.values(DIMENSIONS_BY_SIGNAL_TYPE).flat();
+  const dimensionIsValid =
+    !dimension || dimensionOptions.some((o) => o.key === dimension);
 
   const q = new URLSearchParams();
   if (system !== "both") q.set("system", system);
   q.set("days", days);
-  if (dimension) q.set("dimension", dimension);
+  if (signalType) q.set("signal_type", signalType);
+  if (dimension && dimensionIsValid) q.set("dimension", dimension);
   if (sourceKind) q.set("source_kind", sourceKind);
   if (minConf > 0) q.set("min_confidence", String(minConf));
   q.set("limit", "1000");
@@ -31,17 +81,42 @@ function SignalsInner() {
     <>
       <Card style={{ marginBottom: "1rem" }}>
         <div className="filters" style={{ flexWrap: "wrap" }}>
-          <select value={dimension} onChange={(e) => setDimension(e.target.value)}>
-            <option value="">All signal types</option>
-            {["technological_advances","publications","patents","hpc_collaborations","industry_partnerships","funding_event","leadership_expertise","regulatory_recognition","roadmaps"].map((d) => (
-              <option key={d} value={d}>{d.replace(/_/g, " ")}</option>
-            ))}
-          </select>
+          {/* PRIMARY filter (v0.4.0): Ehrenthal four-signal scheme */}
+          <label className="small muted" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+            <strong>Signal type</strong>
+            <select
+              value={signalType}
+              onChange={(e) => {
+                setSignalType(e.target.value);
+                setDimension(""); // reset sub-dimension when the parent changes
+              }}
+            >
+              <option value="">All four</option>
+              {SIGNAL_TYPES.map((t) => (
+                <option key={t.key} value={t.key}>{t.label}</option>
+              ))}
+            </select>
+          </label>
+
+          {/* SECONDARY filter: sub-dimension (filtered to the chosen signal_type) */}
+          <label className="small muted" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+            Sub-dimension
+            <select value={dimensionIsValid ? dimension : ""} onChange={(e) => setDimension(e.target.value)}>
+              <option value="">
+                {signalType ? `All ${dimensionOptions.length} under ${SIGNAL_TYPES.find(t => t.key === signalType)?.label}` : "All 19 sub-dimensions"}
+              </option>
+              {dimensionOptions.map((d) => (
+                <option key={d.key} value={d.key}>{d.label}</option>
+              ))}
+            </select>
+          </label>
+
           <select value={sourceKind} onChange={(e) => setSourceKind(e.target.value)}>
             <option value="">All sources</option>
             <option value="arxiv">arXiv</option>
             <option value="website">Website</option>
             <option value="news">News</option>
+            <option value="swissreg">Patents</option>
           </select>
           <label className="small muted">
             Min confidence {minConf.toFixed(2)}{" "}
@@ -58,7 +133,7 @@ function SignalsInner() {
           <table>
             <thead>
               <tr>
-                <th>When</th><th>Actor</th><th>Type</th><th>Cost</th><th>Headline</th><th className="num">Conf.</th><th></th>
+                <th>When</th><th>Actor</th><th>Signal type</th><th>Sub-dimension</th><th>Cost</th><th>Headline</th><th className="num">Conf.</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -66,6 +141,20 @@ function SignalsInner() {
                 <tr key={s.id}>
                   <td className="small faint">{(s.inserted_at || "").slice(0, 10)}</td>
                   <td className="small">{s.actor_name || s.actor_slug}</td>
+                  <td className="small">
+                    {s.signal_type_label ? (
+                      <span style={{
+                        display: "inline-block",
+                        padding: "0.05rem 0.35rem",
+                        borderRadius: 3,
+                        fontSize: "0.7rem",
+                        background: SIGNAL_TYPES.find(t => t.key === s.signal_type)?.color || "#888",
+                        color: "#fff",
+                      }}>
+                        {SIGNAL_TYPES.find(t => t.key === s.signal_type)?.label || s.signal_type}
+                      </span>
+                    ) : "—"}
+                  </td>
                   <td className="small">{s.dimension_label}</td>
                   <td><CostBadge cost={s.cost_class || "medium"} /></td>
                   <td className="small">{s.title || s.summary?.slice(0, 80)}</td>

@@ -9,7 +9,7 @@ type SP = { searchParams: { system?: string; days?: string } };
 
 export default async function Overview({ searchParams }: SP) {
   const system = searchParams.system || "both";
-  const days = Number(searchParams.days || "30");
+  const days = Number(searchParams.days || "90");
 
   let eco, sig;
   try {
@@ -23,11 +23,29 @@ export default async function Overview({ searchParams }: SP) {
   }
 
   const s = eco.summary;
-  const dimData = eco.dimension_mix.slice(0, 9).map((d) => ({
+
+  // PRIMARY axis (v0.4.0): Ehrenthal four-signal scheme — what *kind* of
+  // signal the ecosystem is sending. Shown as the lead chart so the
+  // taxonomy users see first matches the paper's framing.
+  const signalTypeData = (eco.signal_type_mix || []).map((t) => ({
+    label: t.short_label,
+    count: t.count,
+    color: t.color,
+  }));
+
+  // SECONDARY axis: dimension drill-down, grouped under signal_type. Same
+  // colour as the parent signal_type so the relationship is visible.
+  const stColorByDim: Record<string, string> = {};
+  for (const t of eco.signal_type_mix || []) for (const _ of [t]) {}
+  const stColorByKey = Object.fromEntries(
+    (eco.signal_type_mix || []).map((t) => [t.signal_type, t.color])
+  );
+  const dimData = eco.dimension_mix.slice(0, 12).map((d) => ({
     label: d.label,
     count: d.count,
-    color: d.cost_class === "high" ? "#15803d" : d.cost_class === "low" ? "#dc2626" : "#ca8a04",
+    color: stColorByKey[d.signal_type || ""] || "#94a3b8",
   }));
+
   const costData = [
     { name: "High-cost", value: sig.cost_mix.high || 0, color: "#15803d" },
     { name: "Medium", value: sig.cost_mix.medium || 0, color: "#ca8a04" },
@@ -108,11 +126,24 @@ export default async function Overview({ searchParams }: SP) {
       <Card style={{ marginTop: "1rem" }}>
         <h3 style={{ marginTop: 0 }}>What is the ecosystem signalling about?</h3>
         <p className="small muted" style={{ marginTop: 0 }}>
-          Signal volume by type, coloured by cost: <CostBadge cost="high" /> hard-to-fake ·{" "}
-          <CostBadge cost="medium" /> · <CostBadge cost="low" /> cheap talk.
+          Ehrenthal et al. (2026)'s four signal types — the primary lens. See{" "}
+          <Link href="/methodology">methodology</Link> for what each covers.
+        </p>
+        {signalTypeData.length ? (
+          <HBarColored data={signalTypeData} dataKey="count" categoryKey="label" colorKey="color" height={200} />
+        ) : (
+          <div className="empty">No signals in this window yet.</div>
+        )}
+      </Card>
+
+      <Card style={{ marginTop: "1rem" }}>
+        <h3 style={{ marginTop: 0 }}>Sub-categories (drill-down)</h3>
+        <p className="small muted" style={{ marginTop: 0 }}>
+          The 19 sub-dimensions, colour-keyed to their parent signal type above. Cost weighting:{" "}
+          <CostBadge cost="high" /> hard-to-fake · <CostBadge cost="medium" /> · <CostBadge cost="low" /> cheap talk.
         </p>
         {dimData.length ? (
-          <HBarColored data={dimData} dataKey="count" categoryKey="label" colorKey="color" height={340} />
+          <HBarColored data={dimData} dataKey="count" categoryKey="label" colorKey="color" height={400} />
         ) : (
           <div className="empty">No signals in this window yet.</div>
         )}

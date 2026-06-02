@@ -7,7 +7,7 @@ type SP = { searchParams: { system?: string; days?: string } };
 
 export default async function Actors({ searchParams }: SP) {
   const system = searchParams.system || "both";
-  const days = Number(searchParams.days || "30");
+  const days = Number(searchParams.days || "90");
 
   let scores: any[] = [];
   let actors: any[] = [];

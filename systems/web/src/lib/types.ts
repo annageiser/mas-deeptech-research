@@ -65,7 +65,24 @@ export interface EcosystemResponse {
     top_actor_impact: number;
   };
   actors_total: number;
-  dimension_mix: { dimension: string; label: string; count: number; cost_class: string }[];
+  // Primary axis (v0.4.0 — Ehrenthal four-signal scheme).
+  signal_type_mix?: {
+    signal_type: string;
+    label: string;
+    short_label: string;
+    color: string;
+    count: number;
+  }[];
+  // Secondary axis (sub-categories under each signal_type).
+  dimension_mix: {
+    dimension: string;
+    label: string;
+    signal_type?: string;       // v0.4.0+
+    signal_type_label?: string;
+    count: number;
+    cost_class: string;
+  }[];
+  // Orthogonal axis (actor category — unchanged).
   category_mix: { category: string; label: string; count: number; color: string }[];
   top_actors: ActorScore[];
 }

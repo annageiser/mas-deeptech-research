@@ -2,6 +2,25 @@
 
 Agent: the work is "read this text, decide what counts as a signal, quote it"
 which is exactly the kind of judgement LLMs are reasonable at.
+
+## Prompt engineering applied (cite-able for the thesis)
+
+The instructions below combine three published prompt-engineering techniques:
+
+1. **Role priming** (Brown et al. 2020 §3.9; Wei et al. 2022) — opening
+   "You are the Extractor in ..." anchors the model on a single specialised
+   identity. Without this, prompts that contain BOTH a task description and
+   output schema tend to confuse model behaviour at the schema layer.
+2. **One-shot exemplar** (Brown et al. 2020 §3 GPT-3 paper; Reynolds &
+   McDonell 2021 prompt programming) — a single worked input/output example
+   inside the instructions. We use ONE-shot rather than few-shot because:
+   (a) Nemotron-3-Super-120B context budget is finite; (b) one well-chosen
+   example is empirically enough for structured-extraction tasks where the
+   schema does most of the work (Sahoo et al. 2024 survey, §3.2).
+3. **Negative constraints with rationale** (Anthropic constitutional AI
+   playbook; Sahoo et al. 2024 §4.1) — "NEVER do X" rules followed by *why*
+   ("violating these invalidates the research"). Rationale-anchored rules
+   reduce instruction-drift over long contexts vs bare negation.
 """
 
 from __future__ import annotations
@@ -42,6 +61,48 @@ Other rules:
 - It is FINE to return zero candidates for a document if nothing concrete
   appears. Do not pad.
 - Return ONLY JSON, no prose.
+
+## Worked example
+
+Input document:
+  {
+    "actor_slug": "id-quantique",
+    "source_kind": "news",
+    "source_url": "https://example.ch/idq-funding-2026",
+    "title": "ID Quantique closes CHF 40M Series C",
+    "text": "ID Quantique, the Geneva-based quantum-cryptography company,
+             today announced the close of a CHF 40 million Series C round
+             led by Forestay Capital, with participation from Swisscom
+             Ventures. The funds will accelerate the rollout of QKD
+             services to European banks. As industry analysts know, IDQ
+             remains one of the leading providers in this space."
+  }
+
+Good output (2 candidates — the funding event + the planned QKD rollout):
+  {
+    "candidates": [
+      {
+        "actor_slug": "id-quantique",
+        "source_kind": "news",
+        "source_url": "https://example.ch/idq-funding-2026",
+        "title": "ID Quantique closes CHF 40M Series C",
+        "summary": "Geneva quantum-cryptography company raises CHF 40M led by Forestay Capital + Swisscom Ventures.",
+        "evidence_quote": "ID Quantique ... today announced the close of a CHF 40 million Series C round led by Forestay Capital, with participation from Swisscom Ventures."
+      },
+      {
+        "actor_slug": "id-quantique",
+        "source_kind": "news",
+        "source_url": "https://example.ch/idq-funding-2026",
+        "title": "ID Quantique closes CHF 40M Series C",
+        "summary": "The new funding will accelerate QKD-service rollout to European banks.",
+        "evidence_quote": "The funds will accelerate the rollout of QKD services to European banks."
+      }
+    ]
+  }
+
+What was DROPPED and WHY:
+  - The "leading providers in this space" line — boilerplate, no specific
+    evidence. Skipped per the boilerplate rule.
 """
 
 EXTRACTOR_PROMPT = """<documents>{documents_json}</documents>

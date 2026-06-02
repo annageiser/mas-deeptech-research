@@ -61,7 +61,7 @@ def test_dedup_threshold_parses_and_clamps(
 def test_dedup_days_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MASF_SEMANTIC_DEDUP_DAYS", raising=False)
     _, _, days = _semantic_dedup_config()
-    assert days == 30
+    assert days == 90  # v0.4.0 raised default 30 → 90 (expanded scraping window)
 
 
 @pytest.mark.parametrize("raw,expected", [
@@ -71,7 +71,7 @@ def test_dedup_days_default(monkeypatch: pytest.MonkeyPatch) -> None:
     ("1", 1),       # lower bound
     ("0", 1),       # below lower → clamped
     ("999", 365),   # above upper → clamped
-    ("garbage", 30),
+    ("garbage", 90),  # parse fail → default
 ])
 def test_dedup_days_parses_and_clamps(
     monkeypatch: pytest.MonkeyPatch, raw: str, expected: int

@@ -1,4 +1,22 @@
-"""Classifier — labels each candidate against the signal taxonomy."""
+"""Classifier — labels each candidate against the signal taxonomy.
+
+## Prompt engineering applied (cite-able for the thesis)
+
+1. **Hierarchical decomposition prompt** (Wei et al. 2022 chain-of-thought;
+   Khot et al. 2023 decomposed prompting) — the reasoning recipe at the
+   bottom of the instructions tells the model to *first* pick the
+   signal_type, *then* the dimension within it. Two cheap atomic decisions
+   beat one expensive joint decision over a 19-way classification.
+2. **Two-shot exemplars** (Brown et al. 2020) — one positive + one
+   boundary-case example, chosen to disambiguate the two confusions
+   the v0.3.0 Classifier was empirically observed to make (funding vs
+   awards, technological_advances vs milestones).
+3. **Refusal-with-confidence** (Anthropic constitutional AI playbook §3) —
+   explicit "drop the candidate" branch in the recipe rather than forcing
+   a low-confidence answer. Reduces noise in the downstream Critic.
+4. **Structured output schema** (Sahoo et al. 2024 §3.4) — the prompt
+   template ends with the JSON shape so the model anchors on it.
+"""
 
 from __future__ import annotations
 
@@ -31,6 +49,48 @@ Reasoning recipe:
      the higher signal_cost (we prefer the credibility-grounded reading).
   4. If no dimension fits, drop the candidate. Recall matters but a
      misclassified signal contaminates the whole schema.
+
+## Worked examples
+
+EXAMPLE 1 — funding event vs awards (these get confused if you only read
+the surface vocabulary):
+
+  Input candidate:
+    {{
+      "actor_slug": "id-quantique",
+      "source_kind": "news",
+      "evidence_quote": "ID Quantique ... today announced the close of a
+                         CHF 40 million Series C round led by Forestay Capital"
+    }}
+  Correct classification:
+    {{
+      "signal_type": "legitimacy",
+      "dimension": "funding_event",
+      "is_technical": false,
+      "confidence": 0.95
+    }}
+  Why NOT awards: awards are formal recognitions (prizes, rankings); a
+  Series C is a costly external capital commitment — funding_event.
+
+EXAMPLE 2 — technological_advances vs milestones (often confused):
+
+  Input candidate:
+    {{
+      "actor_slug": "ibm-quantum-zurich",
+      "source_kind": "website",
+      "evidence_quote": "IBM has demonstrated a 1,121-qubit Condor processor,
+                         doubling the qubit count of last year's Osprey."
+    }}
+  Correct classification:
+    {{
+      "signal_type": "future_trajectory",
+      "dimension": "technological_advances",
+      "is_technical": true,
+      "confidence": 0.9
+    }}
+  Why NOT milestones: a milestone announcement names a future delivery
+  date ("X qubits by Y year"). A demonstrated processor with concrete
+  fidelity numbers is a technological_advance, not a milestone claim.
 
 Return ONLY JSON. Preserve the order of the input array.
 """

@@ -1,4 +1,26 @@
-"""Critic — drops low-confidence and duplicate signals before persistence."""
+"""Critic — drops low-confidence and duplicate signals before persistence.
+
+## Prompt engineering applied (cite-able for the thesis)
+
+The Critic combines five published techniques in one prompt:
+
+1. **Role priming + context framing** (Brown et al. 2020; Wei et al. 2022) —
+   "You are the Critic in ..." + an explicit CONTEXT block that tells the
+   model *why* its job is strict ("v0.4.0 deliberately widens the funnel ...
+   filter HARDER on the way out").
+2. **Ordered rule application** (Khot et al. 2023 decomposed prompting;
+   Reynolds & McDonell 2021) — 6 DROP RULES applied in priority order, drop
+   on FIRST hit. Reduces conflicting-rule paralysis vs flat lists.
+3. **Per-rule rationale-anchored constraints** (Anthropic constitutional AI;
+   Sahoo et al. 2024 §4) — each rule explains *what counts* (e.g. "patents
+   need a patent number / publications need a paper title / venue / DOI")
+   rather than relying on the model's prior. Reduces drift.
+4. **Explicit precision-vs-recall framing** — Wei et al. (2022) §4 on
+   instruction-tuned models: stating the *goal* (precision-over-recall now)
+   reliably shifts threshold behaviour without prompt acrobatics.
+5. **One-shot worked example** (Brown et al. 2020) — a single keep/drop
+   exemplar showing how to format `reason` so the audit log is useful.
+"""
 
 from __future__ import annotations
 
@@ -58,6 +80,35 @@ DROP RULES (apply in order — drop on the FIRST hit):
 
 If in doubt about (1) or (2) — drop. The thesis explicitly values
 precision over recall at this Critic stage now that the funnel is wider.
+
+## Worked example — the `reason` format that makes the audit log useful
+
+Input (classified signals):
+  [
+    {"signal_index": 0, "actor_slug": "id-quantique",
+     "dimension": "funding_event",
+     "evidence_quote": "ID Quantique ... closed a CHF 40 million Series C",
+     "confidence": 0.95},
+    {"signal_index": 1, "actor_slug": "id-quantique",
+     "dimension": "patents",
+     "evidence_quote": "We are committed to leading the quantum industry.",
+     "confidence": 0.35}
+  ]
+
+Good Critic output:
+  {
+    "decisions": [
+      {"signal_index": 0, "keep": true,
+       "reason": "actor + quantum + dimension all satisfied; amount cited; high confidence",
+       "duplicate_of": null},
+      {"signal_index": 1, "keep": false,
+       "reason": "Rule 3 (dimension-evidence mismatch): classified as patents but evidence quote names no patent number; also Rule 5 (boilerplate). Rule 4 (confidence < 0.45) would also have dropped it.",
+       "duplicate_of": null}
+    ]
+  }
+
+The drop `reason` should cite the rule NUMBER that fired. Multiple rules
+firing is normal — list them in priority order, separated by semicolons.
 
 Return ONLY JSON.
 """

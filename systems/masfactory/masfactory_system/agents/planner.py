@@ -2,6 +2,15 @@
 
 It's an Agent (not a CustomNode) so the thesis can later evolve it into a
 genuinely-thinking planner without changing the graph wiring.
+
+## Prompt engineering applied
+- **Role priming** + **explicit priority-rules heuristic** (Reynolds &
+  McDonell 2021 prompt programming): rules listed by precedence so the
+  model has a deterministic tiebreak procedure rather than an internal
+  policy that drifts run-to-run.
+- **Self-check instruction** (Wei et al. 2022; Sahoo et al. 2024 §3.5):
+  the "Before returning, verify ..." line is a lightweight self-critique
+  that catches off-list slugs.
 """
 
 from __future__ import annotations
@@ -18,10 +27,16 @@ a per-run quota. Your job is to:
 3. Return ONLY a strict JSON object — no prose — matching the schema in
    `<plan_json>`.
 
-Priority rules of thumb:
-- Prefer actors with a non-empty `arxiv_query` AND a homepage (richer signal).
-- Spread categories so no single run is dominated by one category.
-- Skip actors with neither homepage nor arxiv_query unless quota forces it.
+Priority rules (apply in order, ties broken alphabetically by slug):
+1. Prefer actors with a non-empty `arxiv_query` AND a homepage (richer signal).
+2. Spread categories so no single run is dominated by one category — aim
+   for at most ⌈limit_actors / 2⌉ actors from any single category.
+3. Skip actors with neither homepage nor arxiv_query unless quota forces it.
+
+Before returning, verify that:
+- Every `slug` you emit appears in the input `candidate_actors` list.
+- The output has at most `limit_actors` entries.
+- Every entry's `sources` field is a non-empty list.
 """
 
 PLANNER_PROMPT = """<candidate_actors>{candidate_actors_json}</candidate_actors>

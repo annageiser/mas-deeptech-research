@@ -214,7 +214,7 @@ export default function GraphCanvas({ graph }: { graph: KnowledgeGraph }) {
           flexWrap: "wrap",
           marginBottom: "0.75rem",
           fontSize: "0.8rem",
-          color: "#5b6678",
+          color: "var(--text-muted)",
         }}
       >
         <CategoryLegend nodes={actorNodes} />
@@ -226,7 +226,7 @@ export default function GraphCanvas({ graph }: { graph: KnowledgeGraph }) {
           />
           <span>Show actor↔actor links ({edges.filter((e) => e.kind === "actor-actor").length})</span>
         </label>
-        <span style={{ marginLeft: "auto", color: "#8892a6" }}>
+        <span style={{ marginLeft: "auto", color: "var(--text-faint)" }}>
           Hover any node or edge to inspect
         </span>
       </div>
@@ -234,11 +234,11 @@ export default function GraphCanvas({ graph }: { graph: KnowledgeGraph }) {
       <div style={{ position: "relative", width: "100%", overflowX: "auto" }}>
         <svg
           viewBox={`0 0 ${W} ${H}`}
-          style={{ width: "100%", minWidth: 700, background: "#fbfcfd", borderRadius: 8 }}
+          style={{ width: "100%", minWidth: 700, background: "var(--chart-bg)", borderRadius: 8 }}
           onMouseLeave={() => setInspect(null)}
         >
-          <circle cx={CX} cy={CY} r={RING_DIM} fill="none" stroke="#eef0f4" strokeDasharray="2 4" />
-          <circle cx={CX} cy={CY} r={RING_ACTOR} fill="none" stroke="#eef0f4" strokeDasharray="2 4" />
+          <circle cx={CX} cy={CY} r={RING_DIM} fill="none" stroke="var(--ring-guide)" strokeDasharray="2 4" />
+          <circle cx={CX} cy={CY} r={RING_ACTOR} fill="none" stroke="var(--ring-guide)" strokeDasharray="2 4" />
 
           {showPeerEdges &&
             edges
@@ -294,7 +294,7 @@ export default function GraphCanvas({ graph }: { graph: KnowledgeGraph }) {
                   y={ly}
                   text={d.label}
                   fontSize={11}
-                  fill="#0f1729"
+                  fill="var(--text)"
                   anchor="middle"
                   weight={600}
                 />
@@ -335,11 +335,11 @@ export default function GraphCanvas({ graph }: { graph: KnowledgeGraph }) {
                   x={lx}
                   y={ly}
                   fontSize={12}
-                  fill="#0f1729"
+                  fill="var(--text)"
                   textAnchor={anchor}
                   dominantBaseline="middle"
                   transform={`rotate(${rotation} ${lx} ${ly})`}
-                  style={{ paintOrder: "stroke", stroke: "#fbfcfd", strokeWidth: 3, strokeLinejoin: "round" }}
+                  style={{ paintOrder: "stroke", stroke: "var(--chart-bg)", strokeWidth: 3, strokeLinejoin: "round" }}
                 >
                   {label}
                 </text>
@@ -389,20 +389,20 @@ function InspectorPanel({
     width: 320,
     maxHeight: 460,
     overflowY: "auto",
-    background: "#ffffff",
-    border: "1px solid #e2e6ee",
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
     borderRadius: 8,
     padding: "0.85rem 1rem",
     fontSize: "0.85rem",
-    color: "#0f1729",
+    color: "var(--text)",
     boxShadow: "0 4px 16px rgba(15, 23, 41, 0.08)",
     pointerEvents: "none", // don't steal hover from the SVG underneath
   };
 
   if (!inspect) {
     return (
-      <div style={{ ...baseStyle, color: "#8892a6" }}>
-        <strong style={{ color: "#0f1729" }}>Inspector</strong>
+      <div style={{ ...baseStyle, color: "var(--text-faint)" }}>
+        <strong style={{ color: "var(--text)" }}>Inspector</strong>
         <div style={{ marginTop: "0.5rem" }}>
           Hover an actor, a signal type, or an edge to see what it represents.
         </div>
@@ -435,7 +435,7 @@ function InspectorPanel({
 function Header({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.5rem" }}>
-      <strong style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "#5b6678" }}>
+      <strong style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-muted)" }}>
         {children}
       </strong>
       <button
@@ -444,7 +444,7 @@ function Header({ children, onClose }: { children: React.ReactNode; onClose: () 
           pointerEvents: "auto",
           background: "transparent",
           border: "none",
-          color: "#8892a6",
+          color: "var(--text-faint)",
           cursor: "pointer",
           fontSize: "0.85rem",
         }}
@@ -484,19 +484,19 @@ function NodeBody({
     return (
       <>
         <div style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem" }}>{node.label}</div>
-        <div style={{ color: "#5b6678", marginBottom: "0.75rem" }}>
+        <div style={{ color: "var(--text-muted)", marginBottom: "0.75rem" }}>
           {node.category_label}
           {node.dimensions ? ` · covers ${node.dimensions} signal types` : ""}
         </div>
         {Array.from(byType.entries()).map(([stKey, group]) => (
           <div key={stKey} style={{ marginBottom: "0.6rem" }}>
-            <div style={{ fontSize: "0.75rem", color: "#5b6678", marginBottom: "0.2rem" }}>{group.label}</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.2rem" }}>{group.label}</div>
             {group.entries
               .sort((a, b) => b.count - a.count)
               .map((entry) => (
                 <div key={entry.label} style={{ display: "flex", justifyContent: "space-between" }}>
                   <span>{entry.label}</span>
-                  <span style={{ color: "#5b6678" }}>{entry.count}</span>
+                  <span style={{ color: "var(--text-muted)" }}>{entry.count}</span>
                 </div>
               ))}
           </div>
@@ -512,11 +512,11 @@ function NodeBody({
   return (
     <>
       <div style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem" }}>{node.label}</div>
-      <div style={{ color: "#5b6678", marginBottom: "0.75rem" }}>
+      <div style={{ color: "var(--text-muted)", marginBottom: "0.75rem" }}>
         {node.signal_type_label || ""}
         {node.cost_class ? ` · ${capitalise(node.cost_class)}-cost` : ""}
       </div>
-      <div style={{ fontSize: "0.75rem", color: "#5b6678", marginBottom: "0.3rem" }}>
+      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.3rem" }}>
         {myEdges.length} actor{myEdges.length === 1 ? "" : "s"} emit this signal type
       </div>
       {myEdges
@@ -530,7 +530,7 @@ function NodeBody({
         .map((entry) => (
           <div key={entry.label} style={{ display: "flex", justifyContent: "space-between" }}>
             <span>{entry.label}</span>
-            <span style={{ color: "#5b6678" }}>{entry.count}</span>
+            <span style={{ color: "var(--text-muted)" }}>{entry.count}</span>
           </div>
         ))}
     </>
@@ -544,12 +544,12 @@ function EdgeBody({ edge }: { edge: EdgePositioned }) {
         <div style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem" }}>
           {edge.actor_a_label ?? edge.source} ↔ {edge.actor_b_label ?? edge.target}
         </div>
-        <div style={{ color: "#5b6678", marginBottom: "0.6rem" }}>
+        <div style={{ color: "var(--text-muted)", marginBottom: "0.6rem" }}>
           Sharing {edge.weight} signal type{edge.weight === 1 ? "" : "s"} in the same window.
         </div>
         {edge.shared_signal_types && edge.shared_signal_types.length > 0 && (
           <>
-            <div style={{ fontSize: "0.75rem", color: "#5b6678", marginBottom: "0.2rem" }}>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.2rem" }}>
               Shared Ehrenthal categories
             </div>
             <div style={{ marginBottom: "0.6rem" }}>{edge.shared_signal_types.join(" · ")}</div>
@@ -557,7 +557,7 @@ function EdgeBody({ edge }: { edge: EdgePositioned }) {
         )}
         {edge.shared && edge.shared.length > 0 && (
           <>
-            <div style={{ fontSize: "0.75rem", color: "#5b6678", marginBottom: "0.2rem" }}>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.2rem" }}>
               Shared dimensions
             </div>
             <ul style={{ paddingLeft: "1.1rem", margin: 0 }}>
@@ -576,7 +576,7 @@ function EdgeBody({ edge }: { edge: EdgePositioned }) {
       <div style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem" }}>
         {edge.actor_label ?? edge.source} → {edge.dimension_label ?? edge.target}
       </div>
-      <div style={{ color: "#5b6678", marginBottom: "0.6rem" }}>
+      <div style={{ color: "var(--text-muted)", marginBottom: "0.6rem" }}>
         {edge.signal_type_label || "—"}
         {edge.cost_class ? ` · ${capitalise(edge.cost_class)}-cost signal` : ""}
         {" · "}
@@ -584,7 +584,7 @@ function EdgeBody({ edge }: { edge: EdgePositioned }) {
       </div>
       {edge.sample_titles && edge.sample_titles.length > 0 && (
         <>
-          <div style={{ fontSize: "0.75rem", color: "#5b6678", marginBottom: "0.2rem" }}>
+          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.2rem" }}>
             Most recent
           </div>
           <ul style={{ paddingLeft: "1.1rem", margin: 0 }}>
@@ -649,7 +649,7 @@ function LabelPill({
   y,
   text,
   fontSize = 11,
-  fill = "#0f1729",
+  fill = "var(--text)",
   anchor = "middle",
   weight = 400,
 }: {
@@ -670,7 +670,7 @@ function LabelPill({
       fontWeight={weight}
       textAnchor={anchor}
       dominantBaseline="middle"
-      style={{ paintOrder: "stroke", stroke: "#fbfcfd", strokeWidth: 3, strokeLinejoin: "round" }}
+      style={{ paintOrder: "stroke", stroke: "var(--chart-bg)", strokeWidth: 3, strokeLinejoin: "round" }}
     >
       {text}
     </text>

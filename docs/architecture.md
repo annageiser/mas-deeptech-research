@@ -14,6 +14,9 @@ flowchart TB
         SB[("Supabase<br/>Postgres + pgvector<br/>actors • runs • signals • token_usage • audit_log")]
         ARX[("arXiv<br/><i>export.arxiv.org/api/query</i>")]
         WEB[("Actor websites<br/>40 homepages")]
+        GN[("Google News RSS<br/>third-party coverage")]
+        BN[("Bing News RSS<br/>press-release-flavoured query")]
+        EPO[("EPO OPS<br/>patents (env-gated)")]
     end
 
     %% User access
@@ -83,11 +86,17 @@ flowchart TB
     CR_B --> RC
     CR_W --> RC
 
-    %% Data flow
+    %% Data flow — five collectors per actor
     MA --> ARX
     MA --> WEB
+    MA --> GN
+    MA --> BN
+    MA --> EPO
     HB --> ARX
     HB --> WEB
+    HB --> GN
+    HB --> BN
+    HB --> EPO
     MA --> OR
     HB --> OR
     RC --> OR
@@ -175,9 +184,17 @@ Both systems write to the same Supabase tables. The schema in [`systems/masfacto
 |---|---|---|
 | `actors` | yes — initial seed from YAML; subsequent runs preserve `arxiv_query` / `notes` so Anna can edit them in the Supabase Table editor | primary key `slug` |
 | `runs` | yes | `system in ('masfactory','hermes')`; one row per `run-once` |
-| `signals` | yes (idempotent on `actor_slug, source_url, content_hash`) | denormalised `system` column for cheap per-system queries |
+| `signals` | yes (idempotent on `actor_slug, source_url, content_hash`) | denormalised `system` column for cheap per-system queries; v0.4.0 adds `signal_type` (Ehrenthal four-signal scheme), `dimension_legacy` (preserves v0.3.0 key for traceability), and `embedding vector(768)` (optional, BGE-base-en-v1.5) |
 | `token_usage` | yes | per-node (A) or per-model (B), plus `calls` count |
 | `audit_log` | yes | free-form JSON appended per node/event |
+
+### Signal classification (v0.4.0 — Ehrenthal four-signal scheme)
+
+Each `signals` row carries a top-level **`signal_type`** (one of four) plus a fine-grained **`dimension`** (one of 19) — see [`signal-taxonomy.md`](signal-taxonomy.md) for the full reference, including the 1:1 mapping between v0.3.0 keys and the v0.4.0 keys.
+
+Signal types: `legitimacy` · `customer_cocreation` · `community_ecosystem` · `future_trajectory`.
+
+The canonical taxonomy lives in [`classification/schema.yaml`](../systems/masfactory/masfactory_system/classification/schema.yaml) and is loaded at runtime by both systems' Classifier nodes AND by `/api/meta` on the public site, so the dashboard and the live agents always cite the same source.
 
 ## Timezone
 
@@ -196,4 +213,56 @@ Supabase `timestamptz` columns store UTC internally but the Table editor renders
 | 02:00 daily | masfactory → reports | Scrape all 40 actors, then write daily report |
 | 05:00 daily | hermes → reports     | Scrape all 40 actors, then write daily report |
 | Sun 08:00   | reports              | 3 weekly reports (System A, System B, thesis) |
-| continuous  | dashboard, caddy     | always up; survives container restarts |
+| continuous  | dashboard, caddy, api, web | always up; survive container restarts |
+
+## Five-collector funnel (v0.4.0)
+
+Both systems' Retriever stage pulls from the same five sources per actor (defaults raised in v0.4.0 — Critic is correspondingly stricter to keep the corpus clean):
+
+| Collector | Endpoint | Default limit / actor | Code |
+|---|---|---|---|
+| arXiv | `export.arxiv.org/api/query` | 10 | [`collection/arxiv.py`](../systems/masfactory/masfactory_system/collection/arxiv.py) |
+| Actor website | RSS-discovery + depth-2 scrape with robots respect, cached | 5 pages | [`collection/website.py`](../systems/masfactory/masfactory_system/collection/website.py) |
+| Google News | RSS, `gl=CH` biased: `"<actor>" (quantum OR qubit OR QKD)` | 10 | [`collection/news.py`](../systems/masfactory/masfactory_system/collection/news.py) |
+| Press releases | Bing News RSS, PR-verb-biased: `"<actor>" (quantum OR qubit) (announces OR launches OR partners OR funding OR breakthrough)` | 10 | [`collection/press.py`](../systems/masfactory/masfactory_system/collection/press.py) |
+| Patents (Swissreg) | EPO Open Patent Services (OAuth2, env-gated) — quantum IPC + title/abstract keyword | 10 | [`collection/patents.py`](../systems/masfactory/masfactory_system/collection/patents.py) |
+
+System B mirrors each of these as a tool in the Tools Registry — same external behaviour, code-independent implementation, per the comparative-validity invariant.
+
+## Optional capability layers (all env-gated, default off)
+
+Five capability layers can be turned on without code changes — each isolated behind an env var so a baseline cron run stays unchanged and the evaluation can A/B with-vs-without.
+
+| Layer | Env var(s) | Effect | Cost |
+|---|---|---|---|
+| **pgvector embeddings** | `MASF_EMBEDDINGS=1` · `HRM_EMBEDDINGS=1` | Computes a 768-dim `BAAI/bge-base-en-v1.5` embedding (fastembed, ONNX, no torch) per signal on insert; populates `signals.embedding`. Auto-creates `signals_embedding_ivfflat_idx` once non-null embeddings appear. | ~50 ms / signal warm, +210 MB model download on first call |
+| **Semantic dedup** | `MASF_SEMANTIC_DEDUP=1` · `HRM_SEMANTIC_DEDUP=1` (requires embeddings on) | Before insert, queries the corpus (same actor, last `*_SEMANTIC_DEDUP_DAYS=30`) via the `find_similar_signals(actor, embedding, days, limit)` Postgres function; drops candidates whose nearest cosine similarity ≥ `*_SEMANTIC_DEDUP_THRESHOLD=0.92`. Logged to `semantic_dedup.json` in the run audit. | ~5-15 ms per signal (ivfflat-indexed) |
+| **Consensus Critic** | `MASF_CRITIC_CONSENSUS_PASSES=3` | Swaps the single Critic node for 3 independent Critic Agents + a majority-vote CustomNode (Wang et al. 2023 self-consistency). Audit blob `critic_consensus_audit` records inter-pass disagreement. | 3× Critic LLM cost (~20-30% of total run) |
+| **Debate Critic** | `MASF_CRITIC_DEBATE_ROUNDS=1` (requires consensus on) | After the 3 consensus passes, 3 debate Agents see ALL prior verdicts and revise (Du et al. 2023 multi-agent debate). Vote runs over post-debate verdicts. Per-agent prompts label each agent "Critic #N" pointing at its own prior verdict — preserves identity across rounds. | Doubles consensus cost (6× baseline) |
+| **EPO OPS patents** | `EPO_OPS_CONSUMER_KEY` + `EPO_OPS_CONSUMER_SECRET` | Activates the patent collector (free 4 GB/week tier; register at developers.epo.org). OAuth2 with 18-min cached token; returns `source_kind='swissreg'` documents. Without keys → silent no-op. | network only; no LLM cost |
+
+Full schema + defaults documented in [`.env.example`](../.env.example).
+
+## Audit trail
+
+Every run materialises one folder per system:
+
+```
+data/raw/runs/<CET-iso>__<system>/
+├── config.json                # env-derived settings snapshot
+├── actor_pool.json            # which actors this run processed
+├── plan.json                  # Planner output
+├── raw_docs/                  # per-collector raw payloads
+├── classifications.json       # Classifier output (all candidates)
+├── critique.json              # Critic output (per-signal keep/drop + reason)
+├── signals.json               # what was actually persisted
+├── brief.md                   # Analyst markdown brief
+├── tokens.json                # per-node token tally
+├── dropped_hallucinations.json   # (if any) Persistence anti-hallucination drops
+├── dropped_cross_actor.json      # (if any) Loop iteration cross-actor drops
+├── embeddings_summary.json       # (if embeddings on) count + model + dim
+├── semantic_dedup.json           # (if dedup on) per-drop matched-existing record
+└── critic_consensus_audit.json   # (if consensus on) per-pass disagreement
+```
+
+The host-side `data/` is bind-mounted so audit folders survive container rebuilds. System B's transcript lives under `actor_<slug>.json` instead of the per-stage JSON files (its loop is opaque to the per-stage breakdown).

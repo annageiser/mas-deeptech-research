@@ -78,10 +78,64 @@ def _throttle_arxiv() -> None:
         _arxiv_last_call_at = time.monotonic()
 
 
-def collect_arxiv_for_query(*, query: str, max_results: int, actor_slug: str) -> list[dict]:
+def _arxiv_author_affiliations(entry) -> list[str]:
+    """Pull <arxiv:affiliation> strings from a feedparser-parsed arXiv entry."""
+    affs: list[str] = []
+    for author in entry.get("authors") or []:
+        aff = None
+        if isinstance(author, dict):
+            aff = author.get("arxiv_affiliation") or author.get("affiliation")
+        else:
+            aff = getattr(author, "arxiv_affiliation", None) or getattr(author, "affiliation", None)
+        if aff:
+            affs.append(str(aff))
+    return affs
+
+
+def _arxiv_belongs_to_actor(entry, *, actor_name: str, aliases: list[str]) -> bool:
+    """Mirror of systems/masfactory/.../arxiv.py _belongs_to_actor.
+
+    Same precision-over-recall posture: prefer affiliation tags; fall back
+    to title/abstract mention only when no affiliation tags exist at all.
+    """
+    needles = [n.lower().strip() for n in [actor_name, *aliases] if n and n.strip()]
+    if not needles:
+        return True  # we have no way to check; let it through
+    affs = _arxiv_author_affiliations(entry)
+    if affs:
+        haystack = " || ".join(affs).lower()
+        return any(n in haystack for n in needles)
+    # Fallback when the entry carries no affiliation tags at all.
+    blob = ((entry.get("title") or "") + "\n" + (entry.get("summary") or "")).lower()
+    return any(n in blob for n in needles)
+
+
+def collect_arxiv_for_query(
+    *,
+    query: str,
+    max_results: int,
+    actor_slug: str,
+    actor_name: str = "",
+    aliases: list[str] | None = None,
+    enforce_authorship: bool = True,
+) -> list[dict]:
+    """arXiv search, mirroring systems/masfactory/collection/arxiv.py.
+
+    `enforce_authorship=True` (default) applies the author-affiliation
+    check: each entry is kept only if some author's `<arxiv:affiliation>`
+    matches `actor_name` or one of `aliases`. Same precision-over-recall
+    framing as System A — papers that merely mention the actor in their
+    body but not in any author affiliation are dropped.
+
+    Backward-compat: `actor_name=""` (the default for old callers that
+    haven't been updated) skips the check.
+    """
     normalised = _normalise_arxiv_query(query)
     if not normalised:
         return []
+    # Over-fetch when filtering to keep the post-filter yield close to
+    # the requested max_results. 3x is empirically about right.
+    requested = max(1, min(30, max_results * 3 if (enforce_authorship and actor_name) else max_results))
     url = (
         f"{ARXIV_ENDPOINT}?"
         + urlencode(
@@ -89,7 +143,7 @@ def collect_arxiv_for_query(*, query: str, max_results: int, actor_slug: str) ->
                 "search_query": normalised,
                 "sortBy": "submittedDate",
                 "sortOrder": "descending",
-                "max_results": str(max(1, min(20, int(max_results)))),
+                "max_results": str(requested),
             }
         )
     )
@@ -100,12 +154,16 @@ def collect_arxiv_for_query(*, query: str, max_results: int, actor_slug: str) ->
     feed = feedparser.parse(resp.text)
     docs: list[dict] = []
     now = datetime.now(timezone.utc).isoformat()
+    aliases = aliases or []
     for entry in feed.entries:
         title = (entry.get("title") or "").strip()
         summary = (entry.get("summary") or "").strip()
         link = entry.get("link") or ""
         if not (title and summary):
             continue
+        if enforce_authorship and actor_name:
+            if not _arxiv_belongs_to_actor(entry, actor_name=actor_name, aliases=aliases):
+                continue
         body = f"{title}\n\n{summary}"
         docs.append(
             {
@@ -118,6 +176,8 @@ def collect_arxiv_for_query(*, query: str, max_results: int, actor_slug: str) ->
                 "content_hash": hashlib.sha256(body.encode("utf-8")).hexdigest(),
             }
         )
+        if len(docs) >= max_results:
+            break
     return docs
 
 

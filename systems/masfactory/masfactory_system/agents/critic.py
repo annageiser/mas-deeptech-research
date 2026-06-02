@@ -57,12 +57,26 @@ DROP RULES (apply in order — drop on the FIRST hit):
 3. DIMENSION-EVIDENCE MATCH. The assigned dimension must be supported
    by the evidence_quote:
      - patents              → must mention a patent number / filing / grant
-     - publications         → must mention paper title / preprint / venue / DOI
+     - publications         → must demonstrate AUTHORSHIP by the actor.
+       Acceptable: the actor (or its alias) appears in an author list, in
+       an author's affiliation, or in a "by <author>, <actor>" attribution.
+       NOT acceptable: the actor is only referenced, cited, acknowledged,
+       compared against, or named as the host of an event the paper was
+       presented at. If the evidence_quote does not unambiguously show the
+       actor *wrote* (or co-wrote, or supervised, or funded as a named
+       affiliation) the paper, drop the signal — even if the actor's name
+       appears in the quote. This is the single most common wrong-attribution
+       in v0.3.0; v0.4.1 adds an arXiv affiliation check on the collector
+       side but the Critic remains the last line of defence for non-arXiv
+       sources.
      - funding_event        → must mention an amount or named investor / programme
      - hpc_collaborations   → must mention a named HPC centre or supercomputer
      - cloud_platform_listings → must mention a named cloud-quantum platform
      - awards               → must mention an actual prize / award
      - roadmaps             → must reference a public roadmap or timeline
+     - industry_partnerships → must name BOTH the actor AND a specific industry partner
+     - academic_partnerships → must name BOTH the actor AND a specific academic partner
+     - leadership_expertise  → must name a specific person + their role
    Drop if the dimension and the evidence_quote disagree on the basic
    substance.
 

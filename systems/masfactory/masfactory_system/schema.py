@@ -74,6 +74,16 @@ class Actor(BaseModel):
         default=None,
         description="Optional arXiv search query — typically affiliation or author cluster.",
     )
+    # v0.4.1 — optional alias list for affiliation matching across name variants.
+    # Used by the arXiv collector's author-affiliation check so that a paper
+    # whose author's `arxiv:affiliation` says "ETHZ" or "ETH Zürich" is still
+    # attributed to the actor whose canonical name is "ETH Zurich". Without
+    # aliases, only the canonical `name` is used.
+    aliases: Optional[list[str]] = Field(
+        default=None,
+        description="Alternative names (abbreviations, translations) used to "
+                    "match the actor in arXiv author-affiliation strings.",
+    )
     notes: Optional[str] = None
 
 

@@ -204,6 +204,51 @@ Idempotent — re-running the block is a no-op once migrated.
 
 ---
 
+## 2026-06-02 — `signal_flags` table (Workflow B from wrong-signals-strategy.md)
+
+Adds the `signal_flags` table the `/api/signal-flags` endpoint writes to.
+Users (Anna, supervisor, reviewers) flag wrong signals via the Report
+button on the website; the cron's Persistence step refuses to re-insert
+any flagged `(actor_slug, source_url, content_hash)` tuple. The aggregate
+flag rate by source / system / actor-category is a thesis-citable
+quality metric (Chapter 3.5 quality leg).
+
+Required after pulling commits in the "signal_flags" merge or later;
+without it, hitting `POST /api/signal-flags` will return a 500.
+
+**Paste this into the Supabase SQL editor and Run:**
+
+```sql
+create table if not exists public.signal_flags (
+    id          uuid primary key default gen_random_uuid(),
+    signal_id   uuid not null references public.signals(id) on delete cascade,
+    reason      text not null check (reason in (
+        'wrong_actor', 'off_topic', 'wrong_dimension',
+        'low_quality', 'duplicate', 'other'
+    )),
+    note        text,
+    flagged_at  timestamptz not null default now(),
+    flagged_by  text
+);
+
+create index if not exists signal_flags_signal_idx on public.signal_flags (signal_id);
+create index if not exists signal_flags_reason_idx on public.signal_flags (reason);
+create index if not exists signal_flags_flagged_at_idx on public.signal_flags (flagged_at);
+
+grant all on public.signal_flags to service_role;
+```
+
+**Verify** (returns 0 rows on a fresh install):
+
+```sql
+select count(*) from public.signal_flags;
+```
+
+The table is in the canonical `schema.sql` (idempotent), so re-applying the
+full file works too.
+
+---
+
 ## How to apply
 
 1. Open <https://supabase.com/dashboard> → your project → **SQL editor**

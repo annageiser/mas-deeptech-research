@@ -114,12 +114,29 @@ def _persist(_input: dict, attrs: dict) -> dict:
     doc_pairs = {(d.get("actor_slug"), d.get("source_url")) for d in documents}
     doc_actors = {d.get("actor_slug") for d in documents}
 
+    # User-flagged tuples (Workflow B from docs/wrong-signals-strategy.md):
+    # any (actor, url) the user has tagged via the website's flag button
+    # is refused re-insertion. Empty set if store unavailable / flags table
+    # empty / fetch fails — never raises.
+    flagged_tuples: set[tuple[str, str]] = set()
+    if store is not None and hasattr(store, "flagged_tuples"):
+        try:
+            flagged_tuples = store.flagged_tuples()
+        except Exception:
+            flagged_tuples = set()
+
     dropped: list[dict] = []
+    dropped_flagged: list[dict] = []
     validated: list[dict] = []
     for s in surviving:
         a, u = s.get("actor_slug"), s.get("source_url")
-        # Strict: (actor, url) must match exactly. Fallback if URL drifted:
-        # at minimum the actor_slug must be one we fed in this run.
+        # First gate: user has previously flagged this exact (actor, url) as
+        # wrong → refuse re-insertion forever.
+        if (a, u) in flagged_tuples:
+            dropped_flagged.append({"signal": s, "reason": "user-flagged tuple"})
+            continue
+        # Second gate: strict (actor, url) must match exactly. Fallback if
+        # URL drifted: at minimum the actor_slug must be one we fed in this run.
         if (a, u) in doc_pairs or (a in doc_actors and u and any(
             d.get("source_url") == u for d in documents
         )):
@@ -133,6 +150,8 @@ def _persist(_input: dict, attrs: dict) -> dict:
         audit.write_json("signals.json", validated)
         if dropped:
             audit.write_json("dropped_hallucinations.json", dropped)
+        if dropped_flagged:
+            audit.write_json("dropped_user_flagged.json", dropped_flagged)
         # The per-actor Loop's AccumulateActor records its own
         # cross-actor drops; surface them in the audit too.
         cross_dropped = attrs.get("dropped_cross_actor") or []

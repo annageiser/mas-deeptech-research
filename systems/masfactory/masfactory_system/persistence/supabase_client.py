@@ -149,6 +149,44 @@ class SupabaseStore:
             row["signal_type"] = s.signal_type
         return row
 
+    # ---------- signal_flags (Workflow B) ----------
+
+    def flagged_tuples(self, *, days_back: int = 365) -> set[tuple[str, str]]:
+        """Return the set of (actor_slug, source_url) tuples that the user
+        has flagged as wrong via /api/signal-flags. Persistence calls this
+        before insert and skips any candidate whose tuple is flagged.
+
+        Lookback is generous (1 year by default) so a once-flagged signal
+        stays out of the corpus even if the original cron tick that produced
+        it falls out of any rolling window.
+
+        Soft-fails to an empty set on any error — the cron should never
+        crash because the flags table isn't reachable.
+        """
+        try:
+            from datetime import datetime, timedelta, timezone
+            since = (datetime.now(timezone.utc) - timedelta(days=days_back)).isoformat()
+            flags = (self._client.table("signal_flags")
+                     .select("signal_id")
+                     .gte("flagged_at", since)
+                     .execute()).data or []
+            if not flags:
+                return set()
+            ids = list({f["signal_id"] for f in flags})
+            tuples: set[tuple[str, str]] = set()
+            for i in range(0, len(ids), 100):
+                chunk = ids[i:i + 100]
+                sigs = (self._client.table("signals")
+                        .select("actor_slug,source_url")
+                        .in_("id", chunk)
+                        .execute()).data or []
+                for s in sigs:
+                    if s.get("actor_slug") and s.get("source_url"):
+                        tuples.add((s["actor_slug"], s["source_url"]))
+            return tuples
+        except Exception:
+            return set()
+
     # ---------- semantic dedup (pgvector cosine via RPC) ----------
 
     def find_similar_signal(

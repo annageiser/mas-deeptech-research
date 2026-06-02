@@ -209,6 +209,31 @@ update public.signals set signal_type = case dimension
 create index if not exists signals_signal_type_idx on public.signals (signal_type);
 create index if not exists signals_dimension_legacy_idx on public.signals (dimension_legacy);
 
+-- ---------- signal_flags — user-reported wrong signals (Workflow B) ----------
+-- See docs/wrong-signals-strategy.md. Anna (or anyone with access to the
+-- dashboard) can flag a wrong signal via the /api/signal-flags endpoint;
+-- the cron's Persistence step refuses to re-insert any signal whose
+-- (actor_slug, source_url, content_hash) matches a flagged row. The
+-- aggregate "wrong-signal rate" by source / system / actor category is
+-- a thesis-citable quality metric (Chapter 3.5 quality leg).
+create table if not exists public.signal_flags (
+    id          uuid primary key default gen_random_uuid(),
+    signal_id   uuid not null references public.signals(id) on delete cascade,
+    reason      text not null check (reason in (
+        'wrong_actor', 'off_topic', 'wrong_dimension',
+        'low_quality', 'duplicate', 'other'
+    )),
+    note        text,
+    flagged_at  timestamptz not null default now(),
+    -- Optional source-tracking. Empty in v0.4.0 (flagging is anonymous);
+    -- reserved for a future labelled-rater workflow.
+    flagged_by  text
+);
+
+create index if not exists signal_flags_signal_idx on public.signal_flags (signal_id);
+create index if not exists signal_flags_reason_idx on public.signal_flags (reason);
+create index if not exists signal_flags_flagged_at_idx on public.signal_flags (flagged_at);
+
 -- ---------- semantic-dedup RPC (uses pgvector cosine distance) ----------
 -- Returns the nearest existing signals for a given (actor_slug, query
 -- embedding) pair within the last N days. The persistence step calls this

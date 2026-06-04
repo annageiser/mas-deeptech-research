@@ -76,6 +76,38 @@ def normalise_dimension(key: str) -> str:
     return legacy_dimension_map().get(key, key)
 
 
+def few_shot_examples_block(examples: list[dict]) -> str:
+    """v0.4.2 — render Anna's hand-labelled gold examples as a few-shot
+    block for the Classifier prompt. Empty list → empty string (prompt
+    runs without few-shot, same as v0.4.1).
+
+    Each example: actor_slug, dimension, signal_type, evidence_quote,
+    title, anna_note. Format compact so it survives a tight context budget.
+    """
+    if not examples:
+        return ""
+    lines: list[str] = [
+        "",
+        "## Hand-labelled gold examples (from the researcher's parallel coding)",
+        "These are EXEMPLAR signals that the researcher (Anna Geiser) has",
+        "manually verified as correct classifications. Use them as anchors",
+        "for similar evidence quotes; do not pattern-match too narrowly.",
+        "",
+    ]
+    for i, ex in enumerate(examples, 1):
+        dim = ex.get("dimension", "?")
+        st = ex.get("signal_type") or "?"
+        actor = ex.get("actor_slug", "?")
+        quote = (ex.get("evidence_quote") or "").strip().replace("\n", " ")[:240]
+        note = (ex.get("anna_note") or "").strip().replace("\n", " ")[:160]
+        lines.append(f"{i}. actor={actor}  signal_type={st}  dimension={dim}")
+        lines.append(f"   evidence: \"{quote}\"")
+        if note:
+            lines.append(f"   researcher note: {note}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 @lru_cache(maxsize=1)
 def dimension_cost_map() -> dict[str, str]:
     """dimension key -> signal_cost class ('high'|'medium'|'low')."""

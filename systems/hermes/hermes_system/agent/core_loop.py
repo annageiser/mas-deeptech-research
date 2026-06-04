@@ -115,9 +115,20 @@ class AIAgent:
 
     def run_actor(self, actor: dict[str, Any]) -> AgentResult:
         actor_slug = str(actor.get("slug", "unknown"))
+        actor_name = str(actor.get("name", actor_slug))
+        # `aliases` is optional; YAML loader may pass [] or None.
+        actor_aliases = list(actor.get("aliases") or [])
         signals: list[dict[str, Any]] = []
         registry = ToolsRegistry()
-        register_default_tools(registry, actor_slug=actor_slug, signal_buffer=signals)
+        # Pass actor identity to the tools registry so arxiv_search can
+        # enforce the author-affiliation check (v0.4.1).
+        register_default_tools(
+            registry,
+            actor_slug=actor_slug,
+            signal_buffer=signals,
+            actor_name=actor_name,
+            actor_aliases=actor_aliases,
+        )
 
         skills_block = "\n\n".join(s.to_prompt_block() for s in self.skills) or "(no skills loaded)"
         tools_block = registry.schema_block()

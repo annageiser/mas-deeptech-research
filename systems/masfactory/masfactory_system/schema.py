@@ -26,12 +26,21 @@ SourceKind = Literal["arxiv", "website", "swissreg", "manual", "news"]
 
 
 # Ehrenthal et al. (2026) four-signal scheme — the top-level taxonomy.
+# v0.4.2 adds a 5th type 'defense_signals' as an extension into the
+# negative-signalling space (silence / ambivalence around defense topics).
 SignalType = Literal[
     "legitimacy",
     "customer_cocreation",
     "community_ecosystem",
     "future_trajectory",
+    "defense_signals",
 ]
+
+
+# Stakeholder lens — which audience the signal is primarily aimed at.
+# Helps the thesis surface 'who is this signal for?' beyond pure-Ehrenthal
+# coding. Optional on every row.
+Stakeholder = Literal["end_user", "vendor", "ecosystem", "government", "investor"]
 
 # Sub-categories (dimensions) under the four signal_types. Eighteen total;
 # sixteen match Ehrenthal's coded markers verbatim, two are explicit
@@ -62,6 +71,10 @@ SignalDimension = Literal[
     "milestones",
     "technological_advances",
     "long_horizon_claims",
+    # Defense signals (v0.4.2 — thesis-novel 5th signal_type extending
+    # Ehrenthal's positive-signal frame into negative/ambivalent space)
+    "defense_engagement",
+    "defense_ambivalence",
 ]
 
 
@@ -73,6 +86,16 @@ class Actor(BaseModel):
     arxiv_query: Optional[str] = Field(
         default=None,
         description="Optional arXiv search query — typically affiliation or author cluster.",
+    )
+    # v0.4.1 — optional alias list for affiliation matching across name variants.
+    # Used by the arXiv collector's author-affiliation check so that a paper
+    # whose author's `arxiv:affiliation` says "ETHZ" or "ETH Zürich" is still
+    # attributed to the actor whose canonical name is "ETH Zurich". Without
+    # aliases, only the canonical `name` is used.
+    aliases: Optional[list[str]] = Field(
+        default=None,
+        description="Alternative names (abbreviations, translations) used to "
+                    "match the actor in arXiv author-affiliation strings.",
     )
     notes: Optional[str] = None
 

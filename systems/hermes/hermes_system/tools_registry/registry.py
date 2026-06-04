@@ -56,11 +56,24 @@ class ToolsRegistry:
 # ---------- default tool implementations ----------
 
 
-def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_buffer: list[dict[str, Any]]) -> None:
+def register_default_tools(
+    registry: ToolsRegistry,
+    *,
+    actor_slug: str,
+    signal_buffer: list[dict[str, Any]],
+    actor_name: str = "",
+    actor_aliases: list[str] | None = None,
+) -> None:
     """Install the four canonical tools the architecture diagram lists.
 
     `signal_buffer` is a shared list the `register_signal` tool appends to;
     the runner reads it after the loop finishes and ships rows to Supabase.
+
+    `actor_name` + `actor_aliases` are used by the arxiv_search tool to
+    enforce the author-affiliation check (v0.4.1 — fixes attribution of
+    papers that merely mention the actor in references). Older callers that
+    don't pass these arguments get the v0.3.0 lax behaviour for backward
+    compatibility (the eval harness flags this with a warning).
     """
     from ..collectors import (
         collect_arxiv_for_query,
@@ -70,8 +83,16 @@ def register_default_tools(registry: ToolsRegistry, *, actor_slug: str, signal_b
         collect_website_for_url,
     )
 
+    _aliases = list(actor_aliases or [])
+
     def arxiv_search(query: str, max_results: int = 5) -> str:
-        docs = collect_arxiv_for_query(query=query, max_results=max_results, actor_slug=actor_slug)
+        docs = collect_arxiv_for_query(
+            query=query,
+            max_results=max_results,
+            actor_slug=actor_slug,
+            actor_name=actor_name,
+            aliases=_aliases,
+        )
         return json.dumps(docs)
 
     def website_fetch(url: str, max_pages: int = 1) -> str:

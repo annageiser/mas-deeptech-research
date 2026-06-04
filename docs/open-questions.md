@@ -27,6 +27,17 @@ A living document. Each entry has: **what the question is**, **why it matters**,
 **Current default.** One-at-a-time. Each layer gets a dedicated weeklong cron window with audit folders tagged in `config_snapshot`. Marginal contribution reported as the delta vs baseline.
 **Decision point for supervisor today.**
 
+### Q1.4b — Stock validator as a credibility cross-check
+**Question.** Should a "stock validator" component be added to both systems — e.g. when a public actor announces a major partnership, cross-check against the next trading day's stock-price movement as a market-validation signal?
+**Why it matters.** The signalling-theory literature treats stock-price reaction as the *receiver-side* validation of a costly signal (Connelly et al. 2011 §receiver condition). Including this would add a quantitative validation leg the dashboard could use to weight signals.
+**Current default.** Not implemented — supervisor decision pending.
+**Open questions for the supervisor:**
+- Which system(s): both, or only one? (Probably both, to keep the comparison clean.)
+- Which API: Yahoo Finance (free), Alpha Vantage (free tier), or paid Refinitiv?
+- What window: T+1 day, T+5 day, or both?
+- Which actors qualify: only the publicly-listed ones (IonQ, D-Wave, Rigetti) — the Swiss actors are mostly private + government.
+**Decision needed before implementation.** See [`feature-candidates.md`](feature-candidates.md) §Evaluation for the stock-data libraries.
+
 ### Q1.5 — Reproducibility audit
 **Question.** Constructive research methodology asks for reproducibility. What's the operational definition for the thesis?
 **Candidates.** (a) re-run two random runs verbatim and compare signal counts + dimensions; (b) full prompt + model + version replay; (c) just point at the git SHA + Supabase point-in-time and call it reproducible.
@@ -68,6 +79,14 @@ A living document. Each entry has: **what the question is**, **why it matters**,
 ### Q3.4 — Wrong-signal correction policy
 **Question.** When a wrong signal is spotted on the dashboard, what's the lifecycle?
 **See dedicated strategy doc.** [`docs/wrong-signals-strategy.md`](wrong-signals-strategy.md).
+
+### Q3.5 — Anna's parallel coding methodology (decision needed)
+**Question.** Anna will mark signals as positive examples ("Parallelcodierung") to feed the systems. Three sub-decisions:
+1. **Tool:** the website's flag button (in-app, lowest friction) vs ATLAS.ti (richer coding interface, more familiar to qualitative researchers) vs QualCoder (open-source, SQLite export). v0.4.2 ships the in-app flag (reason `correct_example`) which automatically becomes a few-shot exemplar for the Classifier prompt; this is the default until the supervisor prefers otherwise.
+2. **Corpus subset:** every signal Anna reviews, or a stratified random sample (≥ 3 per actor-category × signal-type cell)? Stratified-random gives a more defensible thesis claim; comprehensive gives more examples for the Classifier.
+3. **Timeline:** rolling (Anna labels as the cron produces signals each day) vs batched (one labelling session per week / fortnight). Rolling matches Kasanen's build-evaluate-refine loop; batched is less interruptive.
+**Current default (v0.4.2):** in-app flag button + rolling labelling. Whichever signals Anna marks as `correct_example` automatically become Classifier exemplars on the next cron tick (via `classification.few_shot_examples_block()`).
+**For supervisor:** confirm or amend.
 
 ---
 

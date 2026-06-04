@@ -209,6 +209,54 @@ update public.signals set signal_type = case dimension
 create index if not exists signals_signal_type_idx on public.signals (signal_type);
 create index if not exists signals_dimension_legacy_idx on public.signals (dimension_legacy);
 
+-- ---------- v0.4.2 stakeholder + human-validation + prompt_version ----------
+-- Stakeholder lens: which audience the signal is primarily aimed at. Optional;
+-- the Classifier fills it when it can, NULL when it can't.
+alter table public.signals add column if not exists stakeholder text;
+-- Human-validation layer: Anna marks signals as verified during her parallel
+-- coding. The dashboard surfaces validated rows with a badge; the eval
+-- harness uses them as gold-set entries.
+alter table public.signals add column if not exists human_validated boolean not null default false;
+alter table public.signals add column if not exists validator_notes text;
+alter table public.signals add column if not exists validated_by   text;
+alter table public.signals add column if not exists validated_at   timestamptz;
+-- Prompt version recorded for traceability across iterations.
+alter table public.signals add column if not exists prompt_version text;
+
+create index if not exists signals_stakeholder_idx  on public.signals (stakeholder);
+create index if not exists signals_validated_idx    on public.signals (human_validated) where human_validated = true;
+
+-- ---------- v0.4.2 learning-loop tables ----------
+-- missed_signals: things Anna saw in her manual coding (or in the wild) that
+-- neither MAS system produced. Each row carries a why_missed hypothesis
+-- (LLM-generated when possible) + a manual_correction field.
+create table if not exists public.missed_signals (
+    id              uuid primary key default gen_random_uuid(),
+    actor_slug      text not null references public.actors(slug),
+    source_url      text not null,
+    title           text,
+    summary         text,
+    expected_dimension    text,
+    expected_signal_type  text,
+    why_missed            text,
+    manual_correction     text,
+    found_by              text,
+    found_at              timestamptz not null default now()
+);
+create index if not exists missed_signals_actor_idx on public.missed_signals (actor_slug);
+
+-- false_positives view: convenience view over signal_flags joined with
+-- signals so the learning-loop weekly report can query in one shot.
+create or replace view public.false_positives_recent as
+    select f.id as flag_id, f.signal_id, f.reason, f.note, f.flagged_at,
+           s.actor_slug, s.dimension, s.signal_type, s.source_kind,
+           s.source_url, s.title, s.evidence_quote, s.confidence,
+           s.system
+      from public.signal_flags f
+      join public.signals s on s.id = f.signal_id
+     where f.flagged_at > now() - interval '90 days';
+grant select on public.false_positives_recent to service_role;
+
 -- ---------- signal_flags — user-reported wrong signals (Workflow B) ----------
 -- See docs/wrong-signals-strategy.md. Anna (or anyone with access to the
 -- dashboard) can flag a wrong signal via the /api/signal-flags endpoint;
@@ -221,7 +269,10 @@ create table if not exists public.signal_flags (
     signal_id   uuid not null references public.signals(id) on delete cascade,
     reason      text not null check (reason in (
         'wrong_actor', 'off_topic', 'wrong_dimension',
-        'low_quality', 'duplicate', 'other'
+        'low_quality', 'duplicate', 'other',
+        -- v0.4.2: positive label — Anna marks a signal as a correct
+        -- example to teach the Classifier (few-shot exemplar).
+        'correct_example'
     )),
     note        text,
     flagged_at  timestamptz not null default now(),

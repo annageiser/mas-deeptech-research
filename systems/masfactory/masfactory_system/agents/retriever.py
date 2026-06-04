@@ -16,6 +16,7 @@ from ..collection import (
     collect_google_news,
     collect_patents,
     collect_press_releases,
+    collect_rss_for_actors,
     collect_website,
 )
 from ..schema import Actor
@@ -33,6 +34,7 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
         plan = raw_plan or {}
 
     actors_by_slug: dict[str, dict] = {a["slug"]: a for a in attrs.get("actor_pool", [])}
+
     # v0.4.0 — wider collection funnel. Raised across the board so the Critic
     # (now substantially stricter) has more candidates to filter and the
     # final corpus reflects a richer evidence base. Cron knobs in .env.example
@@ -46,6 +48,26 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
 
     documents: list[dict] = []
     errors: list[dict] = list(attrs.get("retriever_errors", []) or [])
+
+    # v0.4.2 — RSS feed-discovery layer. Runs ONCE per actor pool (not per
+    # actor) because RSS feeds are feed-first, not actor-first: one fetch
+    # broadcasts entries to every matching actor. Saves N×fan-out HTTP calls.
+    # Result merged into the per-actor `documents` list below.
+    rss_by_actor: dict[str, list[dict]] = {}
+    try:
+        actor_objs: list[Actor] = []
+        for entry in plan.get("selected", []):
+            slug = entry.get("slug")
+            actor_dict = actors_by_slug.get(slug) if slug else None
+            if actor_dict:
+                actor_objs.append(Actor.model_validate(actor_dict))
+        if actor_objs:
+            raw_map = collect_rss_for_actors(actor_objs, max_entries_per_feed=25)
+            rss_by_actor = {
+                k: [d.model_dump(mode="json") for d in v] for k, v in raw_map.items()
+            }
+    except Exception as exc:
+        errors.append({"slug": "*", "source": "rss", "error": str(exc)})
 
     for entry in plan.get("selected", []):
         slug = entry.get("slug")
@@ -93,6 +115,11 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
                 )
             except Exception as exc:
                 errors.append({"slug": slug, "source": "press", "error": str(exc)})
+
+        # RSS feed-discovery — pre-computed once for the whole actor pool
+        # above. Just merge the per-actor slice.
+        if rss_by_actor.get(slug):
+            documents.extend(rss_by_actor[slug])
 
         # EPO OPS patent search → fills source_kind='swissreg'. Returns []
         # silently if EPO_OPS_CONSUMER_KEY/SECRET aren't configured, so this

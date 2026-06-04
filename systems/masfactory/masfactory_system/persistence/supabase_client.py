@@ -151,6 +151,44 @@ class SupabaseStore:
 
     # ---------- signal_flags (Workflow B) ----------
 
+    def gold_examples(self, *, limit_per_dimension: int = 2) -> list[dict]:
+        """v0.4.2 — return Anna's hand-labelled positive examples for the
+        Classifier prompt. Reads signal_flags WHERE reason='correct_example'
+        joined to signals, returns the top-N most recent per dimension so
+        the few-shot block stays diverse across the 21 dimensions.
+
+        Used by classification.few_shot_examples() to dynamically build the
+        Classifier's prompt block. Empty list = no examples yet → Classifier
+        runs prompt-only (same as v0.4.1)."""
+        try:
+            flags = (self._client.table("signal_flags")
+                     .select("signal_id,note,flagged_at")
+                     .eq("reason", "correct_example")
+                     .order("flagged_at", desc=True)
+                     .limit(200)
+                     .execute()).data or []
+            if not flags:
+                return []
+            ids = list({f["signal_id"] for f in flags})
+            note_by_id = {f["signal_id"]: f.get("note") or "" for f in flags}
+            by_dim: dict[str, list[dict]] = {}
+            for i in range(0, len(ids), 100):
+                chunk = ids[i:i + 100]
+                sigs = (self._client.table("signals")
+                        .select("id,actor_slug,dimension,signal_type,evidence_quote,"
+                                "title,confidence")
+                        .in_("id", chunk)
+                        .execute()).data or []
+                for s in sigs:
+                    dim = s.get("dimension") or "unknown"
+                    bucket = by_dim.setdefault(dim, [])
+                    if len(bucket) < limit_per_dimension:
+                        bucket.append({**s, "anna_note": note_by_id.get(s["id"], "")})
+            # Flatten in a deterministic order so the prompt is stable run-to-run.
+            return [s for dim in sorted(by_dim) for s in by_dim[dim]]
+        except Exception:
+            return []
+
     def flagged_tuples(self, *, days_back: int = 365) -> set[tuple[str, str]]:
         """Return the set of (actor_slug, source_url) tuples that the user
         has flagged as wrong via /api/signal-flags. Persistence calls this

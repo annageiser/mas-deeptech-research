@@ -249,6 +249,86 @@ full file works too.
 
 ---
 
+## 2026-06-02 — v0.4.2 schema: defense_signals + stakeholder + human-validation + learning-loop + correct_example flag
+
+Adds the v0.4.2 columns + the learning-loop infrastructure. All idempotent.
+
+**Paste this into the Supabase SQL editor and Run:**
+
+```sql
+-- New columns on signals
+alter table public.signals add column if not exists stakeholder      text;
+alter table public.signals add column if not exists human_validated  boolean not null default false;
+alter table public.signals add column if not exists validator_notes  text;
+alter table public.signals add column if not exists validated_by     text;
+alter table public.signals add column if not exists validated_at     timestamptz;
+alter table public.signals add column if not exists prompt_version   text;
+create index if not exists signals_stakeholder_idx on public.signals (stakeholder);
+create index if not exists signals_validated_idx   on public.signals (human_validated) where human_validated = true;
+
+-- Learning-loop tables
+create table if not exists public.missed_signals (
+    id              uuid primary key default gen_random_uuid(),
+    actor_slug      text not null references public.actors(slug),
+    source_url      text not null,
+    title           text,
+    summary         text,
+    expected_dimension    text,
+    expected_signal_type  text,
+    why_missed            text,
+    manual_correction     text,
+    found_by              text,
+    found_at              timestamptz not null default now()
+);
+create index if not exists missed_signals_actor_idx on public.missed_signals (actor_slug);
+
+create or replace view public.false_positives_recent as
+    select f.id as flag_id, f.signal_id, f.reason, f.note, f.flagged_at,
+           s.actor_slug, s.dimension, s.signal_type, s.source_kind,
+           s.source_url, s.title, s.evidence_quote, s.confidence,
+           s.system
+      from public.signal_flags f
+      join public.signals s on s.id = f.signal_id
+     where f.flagged_at > now() - interval '90 days';
+grant select on public.false_positives_recent to service_role;
+grant all on public.missed_signals to service_role;
+
+-- Extend signal_flags reason CHECK to allow positive 'correct_example' label
+-- (the new few-shot exemplar flag).
+do $$ begin
+    if exists (
+        select 1 from pg_constraint
+        where conname = 'signal_flags_reason_check'
+          and conrelid = 'public.signal_flags'::regclass
+          and not pg_get_constraintdef(oid) ilike '%correct_example%'
+    ) then
+        alter table public.signal_flags drop constraint signal_flags_reason_check;
+        alter table public.signal_flags add constraint signal_flags_reason_check
+            check (reason in (
+                'wrong_actor', 'off_topic', 'wrong_dimension',
+                'low_quality', 'duplicate', 'other', 'correct_example'
+            ));
+    end if;
+end $$;
+```
+
+**Verify:**
+
+```sql
+-- All new columns present:
+select column_name from information_schema.columns
+ where table_name='signals' and column_name in
+       ('stakeholder','human_validated','validator_notes','validated_by','validated_at','prompt_version');
+-- Learning-loop view returns rows joinable with signals:
+select count(*) from public.false_positives_recent;
+-- correct_example reason now allowed:
+insert into public.signal_flags(signal_id, reason)
+  select id, 'correct_example' from public.signals limit 1;
+delete from public.signal_flags where reason = 'correct_example';  -- cleanup
+```
+
+---
+
 ## How to apply
 
 1. Open <https://supabase.com/dashboard> → your project → **SQL editor**

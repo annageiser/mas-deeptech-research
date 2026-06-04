@@ -54,6 +54,8 @@ SIGNAL_TYPE_LABEL = {
     "customer_cocreation": "Customer co-creation signals",
     "community_ecosystem": "Community-ecosystem signals",
     "future_trajectory":   "Future-trajectory signals",
+    # v0.4.2 — thesis-novel 5th type extending Ehrenthal's positive frame
+    "defense_signals":     "Defense / national-security signals",
 }
 
 SIGNAL_TYPE_SHORT = {
@@ -61,6 +63,7 @@ SIGNAL_TYPE_SHORT = {
     "customer_cocreation": "Customer co-creation",
     "community_ecosystem": "Community / ecosystem",
     "future_trajectory":   "Future trajectory",
+    "defense_signals":     "Defense",
 }
 
 SIGNAL_TYPE_DESCRIPTION = {
@@ -84,6 +87,7 @@ SIGNAL_TYPE_COLOR = {
     "customer_cocreation": "#2ca02c",   # green
     "community_ecosystem": "#9467bd",   # purple
     "future_trajectory":   "#ff7f0e",   # orange
+    "defense_signals":     "#8c564b",   # brown (signals the gravity / distinctness)
 }
 
 
@@ -115,6 +119,9 @@ DIMENSION_LABEL = {
     "milestones":                  "Milestones",
     "technological_advances":      "Technological advances",
     "long_horizon_claims":         "Long-horizon claims",
+    # Defense (v0.4.2)
+    "defense_engagement":          "Defense engagement",
+    "defense_ambivalence":         "Defense ambivalence",
 }
 
 DIMENSION_HINT = {
@@ -174,6 +181,8 @@ DIMENSION_WEIGHT = {
     "milestones":                  0.7,
     "technological_advances":      1.0,
     "long_horizon_claims":         0.3,
+    "defense_engagement":          1.3,
+    "defense_ambivalence":         0.4,
 }
 
 # Signal-cost class per dimension — heart of signalling theory (Spence 1973).
@@ -197,6 +206,8 @@ DIMENSION_COST = {
     "milestones":                  "medium",
     "technological_advances":      "medium",
     "long_horizon_claims":         "low",
+    "defense_engagement":          "high",
+    "defense_ambivalence":         "low",
 }
 
 COST_MULTIPLIER = {"high": 1.0, "medium": 0.7, "low": 0.4}
@@ -221,6 +232,8 @@ DIMENSION_OBSERVABILITY = {
     "milestones":                  "high",
     "technological_advances":      "medium",
     "long_horizon_claims":         "high",
+    "defense_engagement":          "high",
+    "defense_ambivalence":         "medium",
 }
 
 # Dimension → signal_type lookup, computed inline (keeps the source of truth
@@ -245,6 +258,8 @@ DIMENSION_SIGNAL_TYPE = {
     "milestones":                  "future_trajectory",
     "technological_advances":      "future_trajectory",
     "long_horizon_claims":         "future_trajectory",
+    "defense_engagement":          "defense_signals",
+    "defense_ambivalence":         "defense_signals",
 }
 
 COST_LABEL = {"high": "High-cost (hard to fake)", "medium": "Medium-cost", "low": "Low-cost (cheap talk)"}

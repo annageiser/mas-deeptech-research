@@ -1,0 +1,69 @@
+# Central RSS feed registry — used by BOTH systems (MASFactory's
+# FeedDiscoveryAgent + Hermes' rss_search tool). Comparative-validity
+# invariant kept: same inputs to both systems.
+#
+# Each entry:
+#   - name      : human-readable label (shown in audit folders)
+#   - url       : RSS / Atom feed URL
+#   - tags      : free-form metadata for filtering
+#   - groups    : which actor-match strategy to use:
+#       industry: entries are surfaced as documents for ANY actor whose
+#                 name (or alias) appears in the entry title/summary
+#       vendor:   entries are pre-attributed to one specific actor_slug
+#                 (set the `actor_slug` field below)
+#
+# Hand-edit freely. The collector reads this file at runtime on every
+# scrape, so a new feed appears in the next cron tick.
+
+industry:
+  - name: "The Quantum Insider — Daily"
+    url: "https://thequantuminsider.com/feed/"
+    tags: [news, daily, industry]
+
+  - name: "Phys.org — Quantum Physics"
+    url: "https://phys.org/rss-feed/physics-news/quantum-physics/"
+    tags: [news, science]
+
+  - name: "Nature — Quantum information"
+    url: "https://www.nature.com/subjects/quantum-information.rss"
+    tags: [science, journal]
+
+  - name: "Science Daily — Quantum Physics"
+    url: "https://www.sciencedaily.com/rss/matter_energy/quantum_physics.xml"
+    tags: [news, science]
+
+swiss_media:
+  - name: "SwissInfo — Sci-Tech"
+    url: "https://www.swissinfo.ch/eng/sci-tech.rss"
+    tags: [swiss, news]
+
+  - name: "Innovation Origins — Swiss Quantum"
+    url: "https://innovationorigins.com/en/topic/quantum/feed/"
+    tags: [european, news]
+
+vendor:
+  # Per-vendor blog feeds — entries are pre-attributed to actor_slug below.
+  # Add an entry here when an actor publishes an RSS-enabled blog and you
+  # want every post attributed to them automatically.
+  - name: "Quantinuum Blog"
+    url: "https://www.quantinuum.com/news/feed"
+    actor_slug: "quantinuum"
+    tags: [vendor, blog]
+
+  - name: "IBM Quantum Blog"
+    url: "https://www.ibm.com/quantum/blog/feed.xml"
+    actor_slug: "ibm-research-zurich"
+    tags: [vendor, blog]
+
+  - name: "Microsoft Azure Quantum Blog"
+    url: "https://cloudblogs.microsoft.com/quantum/feed/"
+    actor_slug: "microsoft-zurich"
+    tags: [vendor, blog]
+
+# Defense / dual-use coverage (sparse — these feeds matter for the v0.4.2
+# defense_signals signal_type even though most entries won't match Swiss
+# actors).
+defense:
+  - name: "Inside Defense — Quantum keyword"
+    url: "https://insidedefense.com/rss/search/quantum"
+    tags: [defense, news, us]

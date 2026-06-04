@@ -27,9 +27,14 @@ from ..classification import schema_as_prompt_block
 
 CLASSIFIER_INSTRUCTIONS = f"""You are the Classifier in a Swiss-quantum ecosystem-mapping pipeline.
 
+Context: this classification task is normally performed by human researchers
+using qualitative-coding software like ATLAS.ti or QualCoder. Your output
+must be the kind of structured coding a careful human researcher would
+produce — defensible against a second human coder reviewing your call.
+
 You receive a JSON array of signal *candidates*. For each candidate you must
 assign:
-- `signal_type`: one of {{legitimacy, customer_cocreation, community_ecosystem, future_trajectory}} (Ehrenthal et al. 2026 four-signal scheme).
+- `signal_type`: one of {{legitimacy, customer_cocreation, community_ecosystem, future_trajectory, defense_signals}} (Ehrenthal et al. 2026 four-signal scheme, plus the v0.4.2 defense_signals extension for the dual-use quantum domain).
 - `dimension`: one of the sub-category keys under that signal_type (taxonomy below).
 - `is_technical`: whether that dimension is a technical signal (taxonomy below).
 - `confidence`: float in [0, 1] for your label confidence.

@@ -251,12 +251,36 @@ full file works too.
 
 ## 2026-06-02 — v0.4.2 schema: defense_signals + stakeholder + human-validation + learning-loop + correct_example flag
 
-Adds the v0.4.2 columns + the learning-loop infrastructure. All idempotent.
+Adds the v0.4.2 columns + the learning-loop infrastructure. **Self-contained + idempotent** — safe to paste in any state (fresh project, post-v0.4.0, post-v0.4.1) and safe to re-run.
+
+If the prior `signal_flags` migration (the 2026-06-02 v0.4.0 Workflow B block above) wasn't applied, the v0.4.2 block creates the table itself rather than failing with `relation "public.signal_flags" does not exist`.
 
 **Paste this into the Supabase SQL editor and Run:**
 
 ```sql
--- New columns on signals
+-- ---------- Prerequisite: signal_flags table (idempotent self-heal) ----------
+-- The false_positives_recent view below depends on this table. If the
+-- prior Workflow B migration was applied, this is a no-op. If not, we
+-- create the table with the v0.4.2 reason set so the migration is
+-- self-sufficient.
+create table if not exists public.signal_flags (
+    id          uuid primary key default gen_random_uuid(),
+    signal_id   uuid not null references public.signals(id) on delete cascade,
+    reason      text not null check (reason in (
+        'wrong_actor', 'off_topic', 'wrong_dimension',
+        'low_quality', 'duplicate', 'other',
+        'correct_example'  -- v0.4.2 positive label (Anna's labelling)
+    )),
+    note        text,
+    flagged_at  timestamptz not null default now(),
+    flagged_by  text
+);
+create index if not exists signal_flags_signal_idx     on public.signal_flags (signal_id);
+create index if not exists signal_flags_reason_idx     on public.signal_flags (reason);
+create index if not exists signal_flags_flagged_at_idx on public.signal_flags (flagged_at);
+grant all on public.signal_flags to service_role;
+
+-- ---------- v0.4.2 — new columns on signals ----------
 alter table public.signals add column if not exists stakeholder      text;
 alter table public.signals add column if not exists human_validated  boolean not null default false;
 alter table public.signals add column if not exists validator_notes  text;
@@ -266,7 +290,7 @@ alter table public.signals add column if not exists prompt_version   text;
 create index if not exists signals_stakeholder_idx on public.signals (stakeholder);
 create index if not exists signals_validated_idx   on public.signals (human_validated) where human_validated = true;
 
--- Learning-loop tables
+-- ---------- v0.4.2 — learning-loop tables ----------
 create table if not exists public.missed_signals (
     id              uuid primary key default gen_random_uuid(),
     actor_slug      text not null references public.actors(slug),
@@ -293,8 +317,10 @@ create or replace view public.false_positives_recent as
 grant select on public.false_positives_recent to service_role;
 grant all on public.missed_signals to service_role;
 
--- Extend signal_flags reason CHECK to allow positive 'correct_example' label
--- (the new few-shot exemplar flag).
+-- ---------- v0.4.2 — extend signal_flags reason CHECK if it pre-existed ----------
+-- This is a no-op on fresh installs (the CREATE TABLE above already includes
+-- 'correct_example'). It rewrites the constraint only when the table existed
+-- previously with the v0.4.0 reason set (no 'correct_example').
 do $$ begin
     if exists (
         select 1 from pg_constraint

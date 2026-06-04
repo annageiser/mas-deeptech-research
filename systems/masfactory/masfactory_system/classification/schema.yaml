@@ -33,8 +33,8 @@
 # subtypes as the literature review evolves — the dashboard and the Classifier /
 # Critic agents read this YAML at runtime.
 
-version: 0.4.0
-last_revised: "2026-06-01"
+version: 0.4.2
+last_revised: "2026-06-02"
 
 # ----------------------------------------------------------------------------
 # Signalling-theory reference (read by the Methodology page so the live site

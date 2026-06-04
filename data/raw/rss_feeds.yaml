@@ -33,37 +33,25 @@ industry:
     tags: [news, science]
 
 swiss_media:
-  - name: "SwissInfo — Sci-Tech"
-    url: "https://www.swissinfo.ch/eng/sci-tech.rss"
-    tags: [swiss, news]
-
-  - name: "Innovation Origins — Swiss Quantum"
+  - name: "Innovation Origins — Quantum"
     url: "https://innovationorigins.com/en/topic/quantum/feed/"
     tags: [european, news]
+  # NOTE: SwissInfo's sci-tech RSS returned 404 in 2026-06-04 testing.
+  # Re-curate when a working Swiss-domestic quantum feed is identified.
 
 vendor:
   # Per-vendor blog feeds — entries are pre-attributed to actor_slug below.
   # Add an entry here when an actor publishes an RSS-enabled blog and you
   # want every post attributed to them automatically.
+  # NOTE: each URL was verified live on 2026-06-04. If a vendor changes
+  # their CMS, the feed may 404 — the collector silently skips bad feeds
+  # so this isn't fatal, just a coverage gap until you re-curate.
   - name: "Quantinuum Blog"
     url: "https://www.quantinuum.com/news/feed"
     actor_slug: "quantinuum"
     tags: [vendor, blog]
 
-  - name: "IBM Quantum Blog"
-    url: "https://www.ibm.com/quantum/blog/feed.xml"
-    actor_slug: "ibm-research-zurich"
-    tags: [vendor, blog]
-
-  - name: "Microsoft Azure Quantum Blog"
-    url: "https://cloudblogs.microsoft.com/quantum/feed/"
-    actor_slug: "microsoft-zurich"
-    tags: [vendor, blog]
-
-# Defense / dual-use coverage (sparse — these feeds matter for the v0.4.2
-# defense_signals signal_type even though most entries won't match Swiss
-# actors).
-defense:
-  - name: "Inside Defense — Quantum keyword"
-    url: "https://insidedefense.com/rss/search/quantum"
-    tags: [defense, news, us]
+# Defense / dual-use coverage — most defense outlets paywall their RSS.
+# Left as an empty list rather than broken URLs; populate when a free
+# defense-quantum feed is identified.
+defense: []

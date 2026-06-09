@@ -257,6 +257,25 @@ create or replace view public.false_positives_recent as
      where f.flagged_at > now() - interval '90 days';
 grant select on public.false_positives_recent to service_role;
 
+-- ---------- v0.4.3 industry_news — worldwide quantum news (no actor) ----------
+-- RSS / news entries that don't match any of the 40 Swiss actors but are
+-- still relevant quantum-computing news. Surfaced on the website's
+-- /quantum-news page; never participates in per-actor scoring.
+create table if not exists public.industry_news (
+    id              uuid primary key default gen_random_uuid(),
+    source_url      text not null,
+    source_name     text not null,          -- e.g. "The Quantum Insider"
+    title           text not null,
+    summary         text,
+    published_at    timestamptz,
+    fetched_at      timestamptz not null default now(),
+    content_hash    text not null,
+    unique (source_url, content_hash)
+);
+create index if not exists industry_news_published_idx on public.industry_news (published_at desc);
+create index if not exists industry_news_source_idx    on public.industry_news (source_name);
+grant all on public.industry_news to service_role;
+
 -- ---------- signal_flags — user-reported wrong signals (Workflow B) ----------
 -- See docs/wrong-signals-strategy.md. Anna (or anyone with access to the
 -- dashboard) can flag a wrong signal via the /api/signal-flags endpoint;

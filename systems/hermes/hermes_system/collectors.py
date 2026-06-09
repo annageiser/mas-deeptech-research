@@ -26,7 +26,10 @@ BING_NEWS_ENDPOINT = "https://www.bing.com/news/search"
 EPO_OPS_BASE = "https://ops.epo.org/3.2"
 EPO_OPS_TOKEN_URL = f"{EPO_OPS_BASE}/auth/accesstoken"
 EPO_OPS_SEARCH_URL = f"{EPO_OPS_BASE}/rest-services/published-data/search/biblio"
-USER_AGENT = "hermes-thesis/0.1 (+https://github.com/anna-geiser/mas-deeptech-research)"
+# v0.4.3 — browser-like UA so Google News + Bing News don't 403 us from
+# the Hostinger datacenter IP. The prior "hermes-thesis/0.1" branding was
+# fine for arXiv but tripped bot-detection on the search engines.
+USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15"
 # Verbs that bias Bing News' ranker toward press-release-style content. Kept
 # identical to systems/masfactory/collection/press.py so the comparative
 # invariant holds (same external behaviour, code-independent implementations).

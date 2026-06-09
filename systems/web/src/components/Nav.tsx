@@ -23,6 +23,12 @@ const GROUPS: { label: string; items: { href: string; icon: string; label: strin
     ],
   },
   {
+    label: "Context",
+    items: [
+      { href: "/quantum-news", icon: "🌍", label: "Worldwide quantum news" },
+    ],
+  },
+  {
     label: "Reference",
     items: [
       { href: "/reports", icon: "📄", label: "Reports" },

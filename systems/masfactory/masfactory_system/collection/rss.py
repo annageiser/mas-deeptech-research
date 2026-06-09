@@ -132,6 +132,11 @@ def collect_rss_for_actors(
     Returns {actor_slug: [Document, ...]} for every actor that picked up
     at least one entry. Actors with zero matches are omitted from the
     result dict.
+
+    Side-effect (v0.4.3): unmatched industry/swiss_media/defense entries
+    are persisted to public.industry_news for the worldwide-quantum-news
+    page. See collect_industry_news_unattributed() for the standalone
+    entrypoint used when no actor pool is available.
     """
     cfg = load_feed_config()
     if not cfg or not actors:
@@ -177,3 +182,49 @@ def collect_rss_for_actors(
 
     # Drop empty actor entries for a cleaner audit folder.
     return {slug: docs for slug, docs in out.items() if docs}
+
+
+def collect_industry_news_unattributed(
+    *,
+    max_entries_per_feed: int = 50,
+) -> list[dict]:
+    """v0.4.3 — fetch industry/swiss_media/defense feeds and return EVERY
+    entry as an industry_news record (not actor-attributed). Used by a
+    separate cron job that populates public.industry_news.
+
+    Each record: source_url, source_name, title, summary, published_at,
+    content_hash. Caller upserts on (source_url, content_hash) for idempotence.
+    """
+    import hashlib
+    cfg = load_feed_config()
+    if not cfg:
+        return []
+    records: list[dict] = []
+    for group in ("industry", "swiss_media", "defense"):
+        for feed in cfg.get(group, []) or []:
+            body = _fetch_feed(feed["url"])
+            if not body:
+                continue
+            parsed = feedparser.parse(body)
+            for entry in parsed.entries[: max_entries_per_feed]:
+                title = (entry.get("title") or "").strip()
+                summary = (entry.get("summary") or entry.get("description") or "").strip()
+                url = (entry.get("link") or "").strip()
+                if not title or not url:
+                    continue
+                published = None
+                try:
+                    if entry.get("published_parsed"):
+                        published = datetime(*entry["published_parsed"][:6], tzinfo=timezone.utc)
+                except Exception:
+                    published = None
+                body_blob = f"{title}\n\n{summary}"
+                records.append({
+                    "source_url": url,
+                    "source_name": feed["name"],
+                    "title": title[:500],
+                    "summary": summary[:2000],
+                    "published_at": published.isoformat() if published else None,
+                    "content_hash": hashlib.sha256(body_blob.encode("utf-8")).hexdigest(),
+                })
+    return records

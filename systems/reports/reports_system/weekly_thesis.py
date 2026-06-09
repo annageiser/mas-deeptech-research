@@ -40,7 +40,7 @@ def generate_weekly_thesis(*, settings: Settings) -> dict:
             {"role": "system", "content": prompt},
             {"role": "user", "content": json.dumps(user_payload, default=str)},
         ],
-        max_tokens=4096,
+        max_tokens=8192,  # v0.4.3 — reports were getting truncated at 4096
         temperature=0.4,
     )
 

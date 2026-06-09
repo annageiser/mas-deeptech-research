@@ -355,6 +355,38 @@ delete from public.signal_flags where reason = 'correct_example';  -- cleanup
 
 ---
 
+## 2026-06-04 — v0.4.3: industry_news table for worldwide quantum news
+
+Adds the unattributed industry-news table backing the new /quantum-news page.
+
+**Paste this into the Supabase SQL editor and Run:**
+
+```sql
+create table if not exists public.industry_news (
+    id              uuid primary key default gen_random_uuid(),
+    source_url      text not null,
+    source_name     text not null,
+    title           text not null,
+    summary         text,
+    published_at    timestamptz,
+    fetched_at      timestamptz not null default now(),
+    content_hash    text not null,
+    unique (source_url, content_hash)
+);
+create index if not exists industry_news_published_idx on public.industry_news (published_at desc);
+create index if not exists industry_news_source_idx    on public.industry_news (source_name);
+grant all on public.industry_news to service_role;
+```
+
+**Verify:** `select count(*) from public.industry_news;` → `0` on fresh install.
+
+After applying, run the populator once to seed:
+```bash
+ssh annageiser@187.127.87.208 'cd /opt/mas-deeptech-research && docker compose run --rm --entrypoint python reports -m reports_system.industry_news_runner'
+```
+
+---
+
 ## How to apply
 
 1. Open <https://supabase.com/dashboard> → your project → **SQL editor**

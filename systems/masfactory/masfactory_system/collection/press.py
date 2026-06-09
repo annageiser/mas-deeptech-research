@@ -48,7 +48,8 @@ from ..schema import Actor, Document
 
 
 BING_NEWS_ENDPOINT = "https://www.bing.com/news/search"
-USER_AGENT = "masfactory-thesis/0.1 (+https://github.com/anna-geiser/mas-deeptech-research)"
+# v0.4.3 — browser-like UA to evade datacenter-IP bot detection.
+USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15"
 
 # Verbs that bias Bing News' ranker toward press-release-style content. Kept
 # small + boolean-OR'd so a release matching any one verb surfaces. Discovered

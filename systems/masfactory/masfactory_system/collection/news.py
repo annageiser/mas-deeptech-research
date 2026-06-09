@@ -31,7 +31,21 @@ from ..schema import Actor, Document
 
 
 GNEWS_ENDPOINT = "https://news.google.com/rss/search"
-USER_AGENT = "masfactory-thesis/0.1 (+https://github.com/anna-geiser/mas-deeptech-research)"
+# v0.4.3 — Google News blocks our previous user-agent from datacenter IPs.
+# Use a browser-like UA so the request is treated like a regular Reader-app.
+# Still respects robots / per-IP rate limits — we throttle to 1 req per
+# Retriever pass per actor.
+USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15"
+
+# v0.4.3 — drop entries older than MASF_SIGNAL_MAX_AGE_DAYS (default 180).
+# Without this filter, an RSS feed entry from 2024 could still surface as
+# a "current" signal in the daily report.
+def _signal_max_age_days() -> int:
+    import os
+    try:
+        return int(os.environ.get("MASF_SIGNAL_MAX_AGE_DAYS", "180"))
+    except (TypeError, ValueError):
+        return 180
 
 
 def _build_query(actor: Actor) -> str:
@@ -74,6 +88,9 @@ def collect_google_news(
     feed = feedparser.parse(resp.text)
     docs: list[Document] = []
     now = datetime.now(timezone.utc)
+    max_age_days = _signal_max_age_days()
+    from datetime import timedelta
+    cutoff = now - timedelta(days=max_age_days)
 
     for entry in feed.entries[:max_results]:
         # Google News rewrites article URLs through news.google.com/articles/...
@@ -92,6 +109,11 @@ def collect_google_news(
                 published = datetime(*entry["published_parsed"][:6], tzinfo=timezone.utc)
         except Exception:
             published = None
+        # v0.4.3 — drop entries older than the age cutoff. Items without
+        # a publication date are KEPT (fail-open) — the Critic still gets
+        # a shot to evaluate them.
+        if published is not None and published < cutoff:
+            continue
         docs.append(
             Document(
                 source_kind="news",

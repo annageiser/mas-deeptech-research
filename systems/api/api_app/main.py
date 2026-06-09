@@ -379,6 +379,26 @@ def get_kg(system: Optional[str] = None, days: int = Query(90, ge=1, le=365),
     return build_graph_json(da.signals(system=sys, days=days), da.actors(), shared_dim_threshold=threshold)
 
 
+@app.get("/api/industry-news")
+def get_industry_news(days: int = Query(30, ge=1, le=365),
+                      limit: int = Query(100, ge=1, le=500)) -> dict:
+    """v0.4.3 — worldwide quantum news (not actor-attributed). Backing
+    table public.industry_news is populated by the industry-news cron job.
+    Read-only."""
+    try:
+        from datetime import datetime, timedelta, timezone
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        rows = (da.client().table("industry_news")
+                .select("id,source_url,source_name,title,summary,published_at,fetched_at")
+                .gte("fetched_at", since)
+                .order("published_at", desc=True)
+                .limit(limit)
+                .execute()).data or []
+        return {"items": rows, "count": len(rows), "days": days}
+    except Exception as exc:
+        return {"items": [], "count": 0, "error": str(exc)}
+
+
 @app.get("/api/reports")
 def get_reports(kind: Optional[str] = None, period: Optional[str] = None, file: Optional[str] = None) -> dict:
     if period and file and kind:

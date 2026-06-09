@@ -10,6 +10,9 @@ dependencies = [
     "tenacity>=8.2.0",
     "pyyaml>=6.0.2",
     "python-dateutil>=2.9.0",
+    # v0.4.3 — industry_news_runner reads RSS feeds via feedparser + httpx
+    "feedparser>=6.0.11",
+    "httpx>=0.27.0",
 ]
 
 [project.scripts]

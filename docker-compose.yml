@@ -44,7 +44,7 @@ services:
       dockerfile: Dockerfile
       args:
         UPSTREAM_TAG: local
-    image: mas-deeptech-research/hermes:0.2.1
+    image: mas-deeptech-research/hermes:0.2.2
     container_name: hermes-system-b
     restart: "no"
     env_file: [.env]

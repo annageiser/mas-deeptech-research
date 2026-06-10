@@ -1,7 +1,8 @@
 #!/bin/sh
 # Loop over every actor in /data/raw/actors.yaml and invoke the real
 # Hermes CLI with our Swiss-quantum skill. Output is parsed JSON-by-JSON
-# and upserted into Supabase as system='hermes'.
+# and upserted into Supabase as system='hermes', tied to a single
+# public.runs row that's created at start + closed at end.
 #
 # Bind-mount contract (from docker-compose.yml):
 #   /data/raw/actors.yaml   — read-only host actors file
@@ -13,9 +14,11 @@
 #   SUPABASE_URL            — required
 #   SUPABASE_SERVICE_KEY    — required
 #   OPENROUTER_API_KEY      — required (read by the agent's OpenRouter provider)
+#   TAVILY_API_KEY (or one of EXA / BRAVE_SEARCH / FIRECRAWL / PARALLEL)
+#                           — required for the agent's web_search + web_extract
 #
 # Exit codes:
-#   0  — completed without fatal errors (per-actor failures are logged, not raised)
+#   0  — completed without fatal errors (per-actor failures logged, not raised)
 #   2  — missing required env var
 #   3  — actors.yaml not found
 
@@ -25,6 +28,7 @@ ACTORS_FILE="${ACTORS_FILE:-/data/raw/actors.yaml}"
 LIMIT="${HERMES_LIMIT_ACTORS:-0}"
 LOOKBACK="${HERMES_LOOKBACK_DAYS:-180}"
 LOGDIR="${HERMES_HOME:-/opt/data}/state/runs/$(date -u +%Y%m%dT%H%M%SZ)"
+PERSIST=/opt/swiss-quantum/scripts/persist_signals.py
 
 # ── preflight ────────────────────────────────────────────────────────────
 for var in SUPABASE_URL SUPABASE_SERVICE_KEY OPENROUTER_API_KEY; do
@@ -34,6 +38,13 @@ for var in SUPABASE_URL SUPABASE_SERVICE_KEY OPENROUTER_API_KEY; do
         exit 2
     fi
 done
+
+# Soft check: at least ONE search-provider key. Not fatal — the agent
+# would fail-soft (Tools: 0, signals: []), but warn loudly.
+if [ -z "${TAVILY_API_KEY:-}${EXA_API_KEY:-}${BRAVE_SEARCH_API_KEY:-}${FIRECRAWL_API_KEY:-}${PARALLEL_API_KEY:-}${FIRECRAWL_API_URL:-}" ]; then
+    echo "WARN: no search-provider key set (TAVILY_API_KEY / EXA_API_KEY / BRAVE_SEARCH_API_KEY / FIRECRAWL_API_KEY / PARALLEL_API_KEY)." >&2
+    echo "WARN: the agent's web_search/web_extract will be unavailable; expect 0 signals across all actors." >&2
+fi
 
 if [ ! -f "${ACTORS_FILE}" ]; then
     echo "FATAL: actors file not found at ${ACTORS_FILE}" >&2
@@ -68,6 +79,26 @@ PY
 
 N=$(wc -l < "${ACTOR_LIST}" | tr -d ' ')
 echo "[collect_all_actors] ${N} actors to process"
+
+# ── create the runs row (must exist before any signals are inserted) ────
+RUN_ID=$(python3 "${PERSIST}" --create-run)
+if [ -z "${RUN_ID}" ]; then
+    echo "FATAL: failed to create runs row" >&2
+    exit 1
+fi
+echo "[collect_all_actors] run_id: ${RUN_ID}"
+
+# Trap: ensure we close the run row even if we exit unexpectedly.
+# The trap stays "running" → "error" until the explicit close at the end.
+RUN_CLOSED=0
+close_run() {
+    if [ "${RUN_CLOSED}" = "0" ]; then
+        python3 "${PERSIST}" --close-run --run-id "${RUN_ID}" \
+            --status error --error-message "shell interrupted before normal close" \
+            >/dev/null 2>&1 || true
+    fi
+}
+trap close_run EXIT INT TERM
 
 # ── per-actor loop ───────────────────────────────────────────────────────
 OK=0
@@ -104,10 +135,11 @@ EOF
             --toolsets web,skills \
             -q "${PROMPT}" \
             > "${AGENT_OUT}" 2> "${AGENT_ERR}"; then
-        # Parse + persist; the parser returns the number of new signals inserted.
-        if NEW=$(python3 /opt/swiss-quantum/scripts/persist_signals.py \
+        # Parse + persist; the persister returns the number of NEW signals inserted.
+        if NEW=$(python3 "${PERSIST}" \
                     --actor-slug "${slug}" \
                     --stdin-file "${AGENT_OUT}" \
+                    --run-id "${RUN_ID}" \
                     --run-log "${LOGDIR}/persist.log"); then
             SIGNALS=$((SIGNALS + NEW))
             OK=$((OK + 1))
@@ -122,8 +154,21 @@ EOF
     fi
 done < "${ACTOR_LIST}"
 
+# ── close the run row ────────────────────────────────────────────────────
+if [ "${FAIL}" -eq 0 ]; then
+    STATUS=ok
+    ERR_MSG=""
+else
+    STATUS=error
+    ERR_MSG="${FAIL} of ${N} actors failed (see ${LOGDIR}/persist.log)"
+fi
+python3 "${PERSIST}" --close-run --run-id "${RUN_ID}" --status "${STATUS}" \
+    ${ERR_MSG:+--error-message "${ERR_MSG}"} >/dev/null
+RUN_CLOSED=1
+trap - EXIT INT TERM
+
 echo ""
-echo "[collect_all_actors] DONE  actors=${N}  ok=${OK}  fail=${FAIL}  signals=${SIGNALS}"
+echo "[collect_all_actors] DONE  run=${RUN_ID}  actors=${N}  ok=${OK}  fail=${FAIL}  signals=${SIGNALS}"
 echo "[collect_all_actors] full logs: ${LOGDIR}"
 
 exit 0

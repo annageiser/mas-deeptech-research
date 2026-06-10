@@ -44,14 +44,33 @@ services:
       dockerfile: Dockerfile
       args:
         UPSTREAM_TAG: local
-    image: mas-deeptech-research/hermes:0.2.0
+    image: mas-deeptech-research/hermes:0.2.1
     container_name: hermes-system-b
     restart: "no"
     env_file: [.env]
     environment:
       HERMES_HOME: /opt/data
-      # HERMES_LIMIT_ACTORS / HERMES_LOOKBACK_DAYS may be overridden in .env
-      # for smoke tests; default = process all actors, 180-day window.
+      # Smoke-test knobs: `HERMES_LIMIT_ACTORS=3 HERMES_LOOKBACK_DAYS=60
+      # docker compose run --rm hermes`. Default = all 40 actors, 180-day window.
+      # Compose only forwards shell env when it appears in this block — that's
+      # why `HERMES_LIMIT_ACTORS=3 docker compose run …` was silently ignored
+      # before v0.4.5 (see docs/iterations/v0.4.5-...).
+      HERMES_LIMIT_ACTORS: ${HERMES_LIMIT_ACTORS:-}
+      HERMES_LOOKBACK_DAYS: ${HERMES_LOOKBACK_DAYS:-180}
+      # ── Web-search backends — provision at least ONE in .env ─────────────
+      # Upstream's web_tools.py tries them in priority order:
+      #   firecrawl → parallel → tavily → exa → brave-free → ddgs
+      # Without a key, `web_search` + `web_extract` register but fail their
+      # availability check, the agent ends up with `Tools: 0`, and our skill
+      # correctly returns empty signals (quality rule #1: never fabricate).
+      # Tavily is the recommended free-tier choice — 1k req/mo, covers both
+      # search AND extract. See docs/reproducibility.md § "Hermes web tools".
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      EXA_API_KEY: ${EXA_API_KEY:-}
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      FIRECRAWL_API_URL: ${FIRECRAWL_API_URL:-}
+      PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
       TZ: Europe/Zurich
     volumes:
       - ./data:/data

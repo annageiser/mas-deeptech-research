@@ -184,6 +184,42 @@ HRM_LIMIT_ACTORS=40
 HRM_MAX_ITERATIONS=6
 ```
 
+## Hermes web tools (Tavily / alternates)
+
+System B's agent needs an external search-provider API key to actually use `web_search` + `web_extract`. Without one, the tools register but fail their availability check at call-time, the agent ends up with `Tools: 0`, and every actor returns 0 signals.
+
+Upstream tries six backends in priority order. The simplest free-tier setup is **Tavily** (1,000 credits/month, covers both search and extract on one key).
+
+```bash
+# 1. Register: https://app.tavily.com/sign-in → Researcher plan → API Keys → copy tvly-…
+
+# 2. Add to .env on the VPS
+echo "TAVILY_API_KEY=tvly-YOUR-KEY-HERE" >> /opt/mas-deeptech-research/.env
+
+# 3. Recreate the hermes container so the new env var lands
+cd /opt/mas-deeptech-research
+docker compose build hermes      # only needed if image version bumped
+HERMES_LIMIT_ACTORS=3 HERMES_LOOKBACK_DAYS=60 docker compose run --rm hermes
+
+# 4. Verify in a fresh hermes shell
+docker compose run --rm --entrypoint sh hermes -c \
+  'hermes tools list 2>&1 | grep -E "web|✓|✗"'
+# expect: ✓ enabled  web  🔍 Web Search & Scraping  (with no "unavailable" debug lines)
+```
+
+| Backend | Env var | Free tier | Covers |
+| --- | --- | --- | --- |
+| **Tavily** (recommended) | `TAVILY_API_KEY` | 1,000/mo | search + extract |
+| Exa | `EXA_API_KEY` | 1,000/mo | search + extract |
+| Brave (free) | `BRAVE_SEARCH_API_KEY` | 2,000/mo | search only |
+| Firecrawl | `FIRECRAWL_API_KEY` | 500/mo | search + extract |
+| Parallel | `PARALLEL_API_KEY` | paid | search + extract |
+| DuckDuckGo (ddgs) | none — needs `ddgs` Python pkg | unlimited | search only — pkg not in upstream image |
+
+All env vars are wired through `docker-compose.yml`'s `hermes.environment` block; you only need to set the one(s) you have keys for in `.env`.
+
+**Capacity math for cron**: 40 actors × ~6 searches/actor × 4 weekly runs = ~960 searches/month → fits inside Tavily's 1k/mo. Daily cron (~7,200/mo) exceeds every free tier — schedule **weekly** unless you upgrade. The shipped crontab.sample is daily-cron; flip the cron expression to `0 5 * * 1` (Mondays 05:00 Europe/Zurich) for weekly.
+
 ## Site auth (basic)
 
 The public site lives behind Caddy basic auth — see [`caddy/Caddyfile`](../caddy/Caddyfile).

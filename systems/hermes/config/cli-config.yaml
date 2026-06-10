@@ -28,6 +28,54 @@ model:
   # expensive. Nemotron Nano's native window is large; we don't need it.
   context_length: 32768
 
+# ── FREE-ONLY POLICY (v0.4.8) ────────────────────────────────────────────
+# The thesis runs on free-tier LLMs only. Without explicit overrides the
+# upstream agent's auxiliary paths default to `provider: "auto"` and can
+# silently route to PAID endpoints (Gemini-Flash via OpenRouter, native
+# Claude, etc.). v0.4.7 capped the main turn; v0.4.8 pins every aux path
+# to a known-free `:free` slug so a hot session can't quietly burn credit.
+auxiliary:
+  # vision_analyze + browser-screenshot analysis. Our skill doesn't use
+  # images, but the agent might call it as a "what do you see here" probe
+  # when a page fails to text-extract. Pin to a free vision-capable model.
+  vision:
+    provider: "openrouter"
+    model: "meta-llama/llama-3.3-70b-instruct:free"
+    timeout: 30
+    download_timeout: 30
+
+  # web_extract LLM summarisation (post-fetch summarisation of long pages).
+  # This fires every time the agent uses `web_extract` — so probably the
+  # path Anna's first big run was charged on.
+  web_extract:
+    provider: "openrouter"
+    model: "meta-llama/llama-3.3-70b-instruct:free"
+
+  # Session search summarisation. We don't use sessions across runs, but
+  # pin anyway so future regressions can't accidentally bill against it.
+  session_search:
+    provider: "openrouter"
+    model: "meta-llama/llama-3.3-70b-instruct:free"
+    timeout: 30
+    max_concurrency: 2
+
+  # Context-compression summarisation. Triggers when conversation crosses
+  # `compression.threshold` (50% of context_length = 16k tokens). Without
+  # an explicit free model here, the auto-router can pick Gemini-Flash
+  # (paid on OpenRouter).
+  compression:
+    provider: "openrouter"
+    model: "meta-llama/llama-3.3-70b-instruct:free"
+
+# Force OpenRouter to keep requests inside free-tier providers wherever
+# possible. `require_parameters` ensures the chosen provider supports
+# the parameters we send (max_tokens, tools), so requests don't silently
+# downgrade to a non-tool-capable endpoint.
+provider_routing:
+  require_parameters: true
+  data_collection: "deny"   # belt-and-braces; don't ship our prompts to
+                             # providers that store data for training
+
 # Cron-safe behaviour — no chatter, no auto-update prompts, no banner.
 display:
   compact: true

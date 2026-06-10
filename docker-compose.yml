@@ -27,23 +27,39 @@ services:
       - ./data:/data
     command: ["run-once"]
 
+  # System B — real NousResearch hermes-agent CLI (v0.16.0, pinned via
+  # the systems/hermes/upstream git submodule). The earlier pattern
+  # implementation (single AIAgent loop in pure Python) was retired on
+  # 2026-06-10 in favour of the upstream CLI driven by a Swiss-quantum
+  # collection skill. Historical signals tagged system='hermes' from the
+  # pattern era remain in Supabase untouched — the new agent inherits
+  # the same `system='hermes'` namespace.
+  #
+  # Build prerequisite (10-15 min, ~1.5 GB) — run once before first deploy:
+  #     docker build -t hermes-upstream:local systems/hermes/upstream
+  # Then `docker compose build hermes` builds the thin wrapper.
   hermes:
     build:
       context: ./systems/hermes
       dockerfile: Dockerfile
-    image: mas-deeptech-research/hermes:0.1.0
+      args:
+        UPSTREAM_TAG: local
+    image: mas-deeptech-research/hermes:0.2.0
     container_name: hermes-system-b
     restart: "no"
     env_file: [.env]
     environment:
-      HRM_AUDIT_DIR: /data/raw/runs
-      HRM_SKILLS_DIR: /app/skills
-      HRM_MEMORY_PATH: /data/raw/hermes_memory.sqlite
-      HRM_WEB_CACHE_DIR: /data/raw/hermes_web_cache
+      HERMES_HOME: /opt/data
+      # HERMES_LIMIT_ACTORS / HERMES_LOOKBACK_DAYS may be overridden in .env
+      # for smoke tests; default = process all actors, 180-day window.
       TZ: Europe/Zurich
     volumes:
       - ./data:/data
-    command: ["run-once"]
+      - hermes_state:/opt/data
+    # Default CMD in the Dockerfile runs collect_all_actors.sh.
+    # Override for interactive debugging:
+    #   docker compose run --rm hermes \
+    #       hermes chat --skills collect-swiss-quantum-signals
 
   reports:
     build:
@@ -135,3 +151,7 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  # Hermes agent's persistent state (memory + per-run trajectory logs).
+  # Named volume rather than bind-mount so the upstream image's UID remap
+  # (HERMES_UID=10000) doesn't fight host ownership semantics.
+  hermes_state:

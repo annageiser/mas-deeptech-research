@@ -1,0 +1,5 @@
+# Runtime state — agent memory, per-run trajectory logs, etc.
+state/
+# Python bytecode from local persist_signals.py smoke tests.
+__pycache__/
+*.pyc

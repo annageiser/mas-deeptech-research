@@ -136,7 +136,7 @@ Two threats stack and deserve their own discussion:
 
 ### 5.1 — The two systems were designed for different *kinds* of tasks
 
-System B (Hermes pattern) is canonically a *long-running personal-assistant* agent. System A (MASFactory) is a *cron-driven batch graph*. Running both on the same batch-cron task may underweight Hermes's design strengths. The comparison is therefore *"how well does each architecture survive being forced into a batch task it wasn't natively designed for"* — not *"which is the better architecture in general."*
+System B (Hermes Agent) is canonically a *long-running personal-assistant* agent. System A (MASFactory) is a *cron-driven batch graph*. Running both on the same batch-cron task may underweight Hermes's design strengths. The comparison is therefore *"how well does each architecture survive being forced into a batch task it wasn't natively designed for"* — not *"which is the better architecture in general."*
 
 **Reported as:** Section 4.1.2 (Comparative Evaluation) opens with this framing. The headline finding is task-conditional.
 

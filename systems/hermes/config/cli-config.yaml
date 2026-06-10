@@ -1,0 +1,56 @@
+# Hermes Agent — configuration for the Swiss-quantum signal-collection
+# cron job. Mounted into the container at $HERMES_HOME/config.yaml.
+#
+# The agent runs in single-query mode (`hermes chat -q "<prompt>"`),
+# loads the `collect-swiss-quantum-signals` skill, and emits a JSON
+# block on stdout. A wrapper script then parses the JSON and upserts
+# the signals into Supabase as system='hermes'.
+#
+# Why these knobs were chosen — see docs/iterations/v0.4.4-real-hermes-agent.md
+
+model:
+  # OpenRouter free tier — same provider both MAS use, so the comparison
+  # stays apples-to-apples. Override with $HERMES_MODEL at runtime.
+  default: "nvidia/nemotron-nano-9b-v2:free"
+  provider: "openrouter"
+  base_url: "https://openrouter.ai/api/v1"
+
+# Cron-safe behaviour — no chatter, no auto-update prompts, no banner.
+display:
+  compact: true
+  tool_progress: "off"
+  bell_on_complete: false
+  show_reasoning: false
+  streaming: false
+
+# Memory carries across runs (the agent's "self-improving" pitch).
+# It lives under /opt/data/memory inside the container — bind-mounted
+# to ./systems/hermes/state/ on the host so it survives image
+# rebuilds and is git-ignored.
+memory:
+  memory_enabled: true
+  user_profile_enabled: false   # we are not a user, we are a cron job
+
+# Tool surface — minimum needed for web research. No terminal, no
+# browser automation (Playwright is huge), no image generation.
+platform_toolsets:
+  cli: [web, skills]
+
+# Guardrails for an unattended cron run: hard-stop if the model loops.
+tool_loop_guardrails:
+  warnings_enabled: true
+  hard_stop_enabled: true
+  hard_stop_after:
+    exact_failure: 3
+    same_tool_failure: 5
+    idempotent_no_progress: 3
+
+agent:
+  max_turns: 30        # ≤ 30 tool calls per actor — generous but capped
+  reasoning_effort: "low"  # signal-collection is more search than reasoning
+
+# Context compression — long search histories shouldn't blow the budget.
+compression:
+  enabled: true
+  threshold: 0.50
+  target_ratio: 0.20

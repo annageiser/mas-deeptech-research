@@ -1,0 +1,129 @@
+#!/bin/sh
+# Loop over every actor in /data/raw/actors.yaml and invoke the real
+# Hermes CLI with our Swiss-quantum skill. Output is parsed JSON-by-JSON
+# and upserted into Supabase as system='hermes'.
+#
+# Bind-mount contract (from docker-compose.yml):
+#   /data/raw/actors.yaml   — read-only host actors file
+#   /opt/data/state/        — agent memory + per-actor trajectory logs
+#
+# Environment:
+#   HERMES_LIMIT_ACTORS     — int, cap for smoke tests (default: unset = all)
+#   HERMES_LOOKBACK_DAYS    — int, lookback window (default: 180)
+#   SUPABASE_URL            — required
+#   SUPABASE_SERVICE_KEY    — required
+#   OPENROUTER_API_KEY      — required (read by the agent's OpenRouter provider)
+#
+# Exit codes:
+#   0  — completed without fatal errors (per-actor failures are logged, not raised)
+#   2  — missing required env var
+#   3  — actors.yaml not found
+
+set -eu
+
+ACTORS_FILE="${ACTORS_FILE:-/data/raw/actors.yaml}"
+LIMIT="${HERMES_LIMIT_ACTORS:-0}"
+LOOKBACK="${HERMES_LOOKBACK_DAYS:-180}"
+LOGDIR="${HERMES_HOME:-/opt/data}/state/runs/$(date -u +%Y%m%dT%H%M%SZ)"
+
+# ── preflight ────────────────────────────────────────────────────────────
+for var in SUPABASE_URL SUPABASE_SERVICE_KEY OPENROUTER_API_KEY; do
+    eval "v=\${${var}:-}"
+    if [ -z "${v}" ]; then
+        echo "FATAL: ${var} is not set" >&2
+        exit 2
+    fi
+done
+
+if [ ! -f "${ACTORS_FILE}" ]; then
+    echo "FATAL: actors file not found at ${ACTORS_FILE}" >&2
+    exit 3
+fi
+
+mkdir -p "${LOGDIR}"
+echo "[collect_all_actors] log dir: ${LOGDIR}"
+echo "[collect_all_actors] lookback: ${LOOKBACK}d  limit: ${LIMIT:-all}"
+
+# ── extract actors via python (yaml parsing in shell is masochism) ──────
+ACTOR_LIST="${LOGDIR}/actors.tsv"
+python3 - <<PY > "${ACTOR_LIST}"
+import sys, yaml
+with open("${ACTORS_FILE}", "r", encoding="utf-8") as f:
+    data = yaml.safe_load(f) or {}
+actors = data.get("actors", [])
+limit = int("${LIMIT}" or 0)
+if limit > 0:
+    actors = actors[:limit]
+for a in actors:
+    slug = a.get("slug", "")
+    name = a.get("name", "")
+    aliases = ",".join(a.get("aliases", []) or [])
+    website = a.get("website", "")
+    cat = a.get("category", "")
+    if not slug or not name:
+        continue
+    # TSV: slug<TAB>name<TAB>aliases<TAB>website<TAB>category
+    print(f"{slug}\t{name}\t{aliases}\t{website}\t{cat}")
+PY
+
+N=$(wc -l < "${ACTOR_LIST}" | tr -d ' ')
+echo "[collect_all_actors] ${N} actors to process"
+
+# ── per-actor loop ───────────────────────────────────────────────────────
+OK=0
+FAIL=0
+SIGNALS=0
+while IFS="$(printf '\t')" read -r slug name aliases website category; do
+    [ -z "${slug}" ] && continue
+
+    PROMPT=$(cat <<EOF
+Use the collect-swiss-quantum-signals skill to find signals for this actor.
+
+Actor: ${slug}
+Name: ${name}
+Aliases: ${aliases}
+Website: ${website}
+Category: ${category}
+
+Lookback: ${LOOKBACK} days.
+
+Output the JSON block as specified by the skill. Nothing else.
+EOF
+)
+
+    AGENT_OUT="${LOGDIR}/${slug}.stdout.txt"
+    AGENT_ERR="${LOGDIR}/${slug}.stderr.txt"
+
+    echo "[collect_all_actors] ▶ ${slug}"
+
+    # Quiet, non-interactive, skill-aware, tool-progress off.
+    # `--skills` activates our methodology skill; `-q` is single-query mode.
+    if timeout 600 hermes chat \
+            --quiet \
+            --skills collect-swiss-quantum-signals \
+            --toolsets web,skills \
+            -q "${PROMPT}" \
+            > "${AGENT_OUT}" 2> "${AGENT_ERR}"; then
+        # Parse + persist; the parser returns the number of new signals inserted.
+        if NEW=$(python3 /opt/swiss-quantum/scripts/persist_signals.py \
+                    --actor-slug "${slug}" \
+                    --stdin-file "${AGENT_OUT}" \
+                    --run-log "${LOGDIR}/persist.log"); then
+            SIGNALS=$((SIGNALS + NEW))
+            OK=$((OK + 1))
+            echo "[collect_all_actors] ✓ ${slug} — ${NEW} new signals"
+        else
+            FAIL=$((FAIL + 1))
+            echo "[collect_all_actors] ✗ ${slug} — persist failed (see ${LOGDIR}/persist.log)"
+        fi
+    else
+        FAIL=$((FAIL + 1))
+        echo "[collect_all_actors] ✗ ${slug} — agent timed out or errored"
+    fi
+done < "${ACTOR_LIST}"
+
+echo ""
+echo "[collect_all_actors] DONE  actors=${N}  ok=${OK}  fail=${FAIL}  signals=${SIGNALS}"
+echo "[collect_all_actors] full logs: ${LOGDIR}"
+
+exit 0

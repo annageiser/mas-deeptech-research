@@ -1,6 +1,6 @@
 # Hostinger VPS runbook — both systems
 
-Phase 0 ➜ Phase 5 below take a fresh Hostinger Ubuntu VPS to a state where both **System A (MASFactory)** and **System B (Hermes-pattern)** are running on cron and writing to the same Supabase.
+Phase 0 ➜ Phase 5 below take a fresh Hostinger Ubuntu VPS to a state where both **System A (MASFactory)** and **System B (Hermes Agent)** are running on cron and writing to the same Supabase.
 
 > **Estimated time end-to-end:** ~60 minutes. Most of it is the two `docker compose build` steps (~15 min each) and Supabase provisioning (~10 min).
 
@@ -183,6 +183,26 @@ MASF_LIMIT_PATENTS=10  # was 5 (only active if EPO_OPS keys set)
 HRM_LIMIT_ACTORS=40
 HRM_MAX_ITERATIONS=6
 ```
+
+## Site auth (basic)
+
+The public site lives behind Caddy basic auth — see [`caddy/Caddyfile`](../caddy/Caddyfile).
+
+The shipped credentials are **placeholder only** (user `anna`, password `change-me`). Rotate them on first deploy:
+
+```bash
+# On the VPS — generate a fresh bcrypt hash
+docker run --rm caddy:2.10-alpine caddy hash-password --plaintext "<new-password>"
+# → prints  $2a$14$...
+
+# Paste the hash into the basicauth block in caddy/Caddyfile
+sudo nano caddy/Caddyfile
+
+# Reload Caddy in-place (no restart of other services needed)
+docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+```
+
+By default the auth gates **every** route, including `/api/*`. If you need the API to stay open (e.g. so an external evaluator script can hit it without credentials), move the `basicauth` directive INSIDE the `handle` block you want to gate, not at the site level.
 
 ## Troubleshooting
 

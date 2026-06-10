@@ -1,16 +1,25 @@
-# Host-side crontab entry for System B (Hermes).
+# Host-side crontab entry for System B (real NousResearch hermes-agent).
 #
-# Install on the Hostinger VPS host (NOT inside the container) with:
-#   sudo cp systems/hermes/crontab.sample /etc/cron.d/hermes
-#   sudo chmod 0644 /etc/cron.d/hermes
+# Install on the Hostinger VPS host (NOT inside the container):
+#   sudo cp systems/hermes/crontab.sample /etc/cron.d/mas-deeptech-research-hermes
+#   sudo chmod 0644 /etc/cron.d/mas-deeptech-research-hermes
 #   sudo systemctl restart cron
 #
-# Daily at 05:00 UTC (3 hours after System A so they don't compete for
-# arXiv / the same actor websites). Scrape, then daily report.
+# Daily at 05:00 Europe/Zurich (1 h after MASFactory at 04:00 so the
+# two agents don't compete for the same actor websites / OpenRouter
+# rate limit). Scrape, then daily report.
+#
+# Before the FIRST cron run, you MUST build the upstream image once
+# (10-15 min, ~1.5 GB) — cron will fail if `hermes-upstream:local`
+# does not exist:
+#
+#   cd /opt/mas-deeptech-research
+#   docker build -t hermes-upstream:local systems/hermes/upstream
+#   docker compose build hermes
 
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 CRON_TZ=Europe/Zurich
 
 # m h dom mon dow user  command
-0 5 * * *   root   cd /opt/mas-deeptech-research && /usr/bin/docker compose run --rm hermes run-once >> /var/log/hermes.log 2>&1 && /usr/bin/docker compose run --rm reports daily --system hermes >> /var/log/reports.log 2>&1
+0 5 * * *   root   cd /opt/mas-deeptech-research && /usr/bin/docker compose run --rm hermes >> /var/log/hermes.log 2>&1 && /usr/bin/docker compose run --rm reports daily --system hermes >> /var/log/reports.log 2>&1

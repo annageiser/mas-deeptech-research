@@ -48,7 +48,7 @@ flowchart LR
 
 ---
 
-## System B — Hermes pattern (memory- and skill-centric)
+## System B — Hermes Agent (memory- and skill-centric)
 
 A **single AIAgent in one long loop**. No graph. Each iteration, the Agent reads its memory, picks a skill, calls tools, maybe writes a signal, and decides whether to keep going or finish.
 

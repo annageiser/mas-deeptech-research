@@ -18,7 +18,7 @@ _ZURICH = ZoneInfo("Europe/Zurich")
 
 SYSTEM_LABELS = {
     "masfactory": ("MASFactory System A", "A"),
-    "hermes": ("Hermes-pattern System B", "B"),
+    "hermes": ("Hermes System B", "B"),
 }
 
 

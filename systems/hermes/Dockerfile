@@ -1,36 +1,64 @@
-# syntax=docker/dockerfile:1.7
+# Real NousResearch Hermes Agent — thesis System B (production CLI variant).
+#
+# Build context: this Dockerfile builds the upstream hermes-agent image
+# from the git submodule at ./upstream and adds our skill + cron
+# entrypoint. We DO NOT use the published `nousresearch/hermes-agent`
+# image because (a) it doesn't pin a version yet on Docker Hub and
+# (b) the submodule gives us a frozen SHA — reproducibility wins.
+#
+# Build the upstream image first (10-15 min, ~1.5 GB):
+#
+#     docker build -t hermes-upstream:local systems/hermes/upstream
+#
+# Then build this wrapper:
+#
+#     docker compose build hermes
+#
+# At runtime the wrapper image runs:
+#     entrypoint.sh  →  loops actors  →  hermes chat -q  →  persist_signals.py
+#
+# Comparison-validity invariant: System A (MASFactory) and System B
+# (hermes) MUST share no Python code beyond the Supabase schema.
+# This image installs a separate Python venv via the upstream image's uv;
+# our wrapper scripts use only `httpx` + `pyyaml` from the system python.
+# No imports from masfactory_system / hermes_system are permitted.
 
-FROM python:3.11-slim AS base
+ARG UPSTREAM_TAG=local
+FROM hermes-upstream:${UPSTREAM_TAG}
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+# Switch to root briefly to install our wrapper bits — the upstream
+# image drops to UID 10000 (hermes) by default via s6-overlay.
+USER root
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      build-essential \
-      ca-certificates \
-      curl \
-      tzdata \
- && rm -rf /var/lib/apt/lists/*
+# Our wrapper scripts use httpx + pyyaml — the upstream image already
+# has both because they're transitive deps of the agent. We do not
+# `uv pip install` anything else to avoid mutating the upstream venv.
 
-ENV TZ=Europe/Zurich
+# Install the Swiss-quantum skill into the agent's skills directory.
+# The agent picks up skills from $HERMES_HOME/skills/* at startup.
+# HERMES_HOME defaults to /opt/data (volume-mounted, so we copy the
+# skill at runtime via stage2-hook, not at build time).
+COPY skills/collect-swiss-quantum-signals \
+     /opt/swiss-quantum/skills/collect-swiss-quantum-signals
 
-WORKDIR /app
+# Our cron-mode config. Copied into $HERMES_HOME/config.yaml on first
+# boot by the seed script below.
+COPY config/cli-config.yaml /opt/swiss-quantum/config.yaml
 
-COPY pyproject.toml README.md /app/
-COPY hermes_system /app/hermes_system
-COPY skills /app/skills
+# Wrapper scripts that turn the agent into a signal-collection cron job.
+COPY scripts/ /opt/swiss-quantum/scripts/
+RUN chmod +x /opt/swiss-quantum/scripts/*.sh /opt/swiss-quantum/scripts/*.py 2>/dev/null || true
 
-RUN python -m pip install --upgrade pip \
- && python -m pip install .
+# Seed script — runs as cont-init.d so it executes ONCE before s6
+# starts services. Copies our skill + config into the volume-mounted
+# $HERMES_HOME, but only if they don't already exist (idempotent —
+# user edits are not clobbered on restart).
+COPY scripts/seed-hermes-home.sh /etc/cont-init.d/03-seed-swiss-quantum
+RUN chmod +x /etc/cont-init.d/03-seed-swiss-quantum
 
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+# Drop back to the hermes user so the supervised services run unprivileged.
+USER hermes
 
-# Build-time smoke check: package imports + skill files parse.
-RUN HRM_SKILLS_DIR=/app/skills python -m hermes_system.runner build-check
-
-ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["run-once"]
+# Default to our cron loop instead of interactive chat. Override with
+# `docker run ... hermes chat` for interactive debugging.
+CMD ["/opt/swiss-quantum/scripts/collect_all_actors.sh"]

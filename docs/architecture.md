@@ -166,15 +166,18 @@ Loop helpers: [`systems/masfactory/masfactory_system/agents/loop_nodes.py`](../s
 
 ## System B component map
 
-| Diagram label | Implementation |
+System B is the **real NousResearch hermes-agent CLI** (v0.16.0, MIT, pinned as a git submodule at [`systems/hermes/upstream/`](../systems/hermes/upstream)). The pattern implementation that previously lived here was retired on 2026-06-10 — full history in [`docs/iterations/v0.4.4-real-hermes-agent.md`](iterations/v0.4.4-real-hermes-agent.md).
+
+| Diagram label | Implementation (real CLI) |
 | --- | --- |
-| Entry Points + Gateway | `systems/hermes/hermes_system/entry_points/` + `runner.py` (CLI). Telegram is a `TelegramGatewayStub`. |
-| AIAgent (Core Loop) | `systems/hermes/hermes_system/agent/core_loop.py` |
-| Tools Registry | `systems/hermes/hermes_system/tools_registry/registry.py` |
-| Skills Loader | `systems/hermes/hermes_system/skills_loader/loader.py` |
-| Memory Manager | `systems/hermes/hermes_system/memory/sqlite_manager.py` |
-| Providers (Model API) | `systems/hermes/hermes_system/providers/openrouter.py` |
-| Skills | `systems/hermes/skills/{arxiv,scrapling,parallel-cli,research-paper-writing}/SKILL.md` |
+| Entry Points + Gateway | `systems/hermes/scripts/collect_all_actors.sh` (cron entrypoint) invokes `hermes chat -q "<prompt>"`. Upstream's chat gateways (Telegram/Discord/Slack/WhatsApp/Signal) exist in the image but are not wired — System B runs strictly headless. |
+| AIAgent (Core Loop) | `systems/hermes/upstream/agent/conversation_loop.py` (~240 KB, upstream) |
+| Tools Registry | `systems/hermes/upstream/model_tools.py` + `toolsets.py` (upstream); cron run is constrained to `--toolsets web,skills` |
+| Skills Loader | upstream's `skill_view` / `--skills` flag loads from `$HERMES_HOME/skills/` |
+| Memory Manager | upstream's persistent memory in `$HERMES_HOME/memory/` (mounted on the `hermes_state` named volume) |
+| Providers (Model API) | upstream's OpenRouter provider, configured via `config/cli-config.yaml` (mirrored to `$HERMES_HOME/config.yaml` on first boot) |
+| Skill | `systems/hermes/skills/collect-swiss-quantum-signals/SKILL.md` — methodology (Ehrenthal 4 + defense) + JSON output contract |
+| Persistence wrapper | `systems/hermes/scripts/persist_signals.py` — parses agent stdout JSON, validates, upserts to `public.signals` as `system='hermes'`. Zero Python imports from `systems/masfactory/` — comparison-validity invariant preserved. |
 
 ## Shared data contracts
 

@@ -129,10 +129,19 @@ EOF
 
     # Quiet, non-interactive, skill-aware, tool-progress off.
     # `--skills` activates our methodology skill; `-q` is single-query mode.
+    #
+    # --model + --provider are passed explicitly as belt-and-braces:
+    # they take precedence over config.yaml in case anything ever wins the
+    # race to clobber our config in $HERMES_HOME again (see v0.4.9 trail).
+    # FREE-ONLY POLICY (v0.4.8): every model slug in this codebase ends
+    # in `:free`. If you need a different model, override via $HERMES_MODEL.
+    MODEL="${HERMES_MODEL:-nvidia/nemotron-nano-9b-v2:free}"
     if timeout 600 hermes chat \
             --quiet \
             --skills collect-swiss-quantum-signals \
             --toolsets web,skills \
+            --model "${MODEL}" \
+            --provider openrouter \
             -q "${PROMPT}" \
             > "${AGENT_OUT}" 2> "${AGENT_ERR}"; then
         # Parse + persist; the persister returns the number of NEW signals inserted.

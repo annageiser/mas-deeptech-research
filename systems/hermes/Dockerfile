@@ -34,6 +34,17 @@ USER root
 # has both because they're transitive deps of the agent. We do not
 # `uv pip install` anything else to avoid mutating the upstream venv.
 
+# v0.4.14: install ddgs (DuckDuckGo Search) into the upstream venv.
+# Upstream's web_tools.py supports ddgs as a free, no-API-key fallback
+# but does NOT install it by default. With ddgs in the venv, web_search
+# works unlimited and free — no Firecrawl/Tavily/Brave/etc keys needed.
+# This unlocks DAILY cron without burning anyone's paid quota.
+#
+# web_extract is NOT covered by ddgs (it's search-only). The agent will
+# use search snippets as evidence when deep page-reading is unavailable.
+RUN /opt/hermes/.venv/bin/python -m pip install --no-cache-dir ddgs \
+    && chown -R hermes:hermes /opt/hermes/.venv
+
 # Install the Swiss-quantum skill into the agent's skills directory.
 # The agent picks up skills from $HERMES_HOME/skills/* at startup.
 # HERMES_HOME defaults to /opt/data (volume-mounted, so we copy the

@@ -46,11 +46,17 @@ for var in SUPABASE_URL SUPABASE_SERVICE_KEY OPENROUTER_API_KEY; do
     fi
 done
 
-# Soft check: at least ONE search-provider key. Not fatal — the agent
-# would fail-soft (Tools: 0, signals: []), but warn loudly.
-if [ -z "${TAVILY_API_KEY:-}${EXA_API_KEY:-}${BRAVE_SEARCH_API_KEY:-}${FIRECRAWL_API_KEY:-}${PARALLEL_API_KEY:-}${FIRECRAWL_API_URL:-}" ]; then
-    echo "WARN: no search-provider key set (TAVILY_API_KEY / EXA_API_KEY / BRAVE_SEARCH_API_KEY / FIRECRAWL_API_KEY / PARALLEL_API_KEY)." >&2
-    echo "WARN: the agent's web_search/web_extract will be unavailable; expect 0 signals across all actors." >&2
+# v0.4.14: ddgs (DuckDuckGo) is installed in the image as the free
+# unlimited web_search backend — no API key needed. Search-provider
+# keys (TAVILY_API_KEY / FIRECRAWL_API_KEY / etc) are still honored if
+# set: upstream tries firecrawl/parallel/tavily/exa/brave/ddgs in
+# priority order. Without any paid key, ddgs serves web_search and
+# web_extract is unavailable; the agent falls back to using search
+# snippets as evidence (see the skill).
+if [ -n "${TAVILY_API_KEY:-}${EXA_API_KEY:-}${BRAVE_SEARCH_API_KEY:-}${FIRECRAWL_API_KEY:-}${PARALLEL_API_KEY:-}${FIRECRAWL_API_URL:-}" ]; then
+    echo "[collect_all_actors] paid search backend detected (web_extract enabled)"
+else
+    echo "[collect_all_actors] using ddgs (DuckDuckGo, free unlimited); web_extract unavailable, agent uses snippets"
 fi
 
 if [ ! -f "${ACTORS_FILE}" ]; then
@@ -149,8 +155,11 @@ EOF
     # FREE-ONLY POLICY (v0.4.8): every model slug in this codebase ends
     # in `:free`. If you need a different model, override via $HERMES_MODEL.
     MODEL="${HERMES_MODEL:-nvidia/nemotron-3-super-120b-a12b:free}"
+    # --skills loads our methodology skill AND the bundled `arxiv` skill
+    # so the agent can use the upstream's structured arXiv API tool for
+    # publications instead of relying on noisy web_search results.
     if timeout 600 hermes chat \
-            --skills collect-swiss-quantum-signals \
+            --skills collect-swiss-quantum-signals,arxiv \
             --toolsets web,skills \
             --model "${MODEL}" \
             --provider openrouter \

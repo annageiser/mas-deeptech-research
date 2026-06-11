@@ -19,9 +19,20 @@ You may also receive an optional `--lookback-days N` hint (default 180).
 
 ## Methodology
 
-For the named actor, gather public signals from the open web. Use the
-`web_search` and `web_extract` tools. Do **not** fabricate URLs, dates,
-or quoted text — every signal must trace to a real published source.
+For the named actor, gather public signals using the tools available.
+The cron-mode environment ships with these free, no-API-key sources:
+
+| Tool / skill | What it gives you | Notes |
+|---|---|---|
+| `web_search` | titles + URLs + snippets | DuckDuckGo-backed, unlimited |
+| Bundled `arxiv` skill | structured publication metadata | best for publications |
+| `web_extract` | full page text via LLM summarisation | only if a paid backend is configured — may be unavailable |
+
+**If `web_extract` is unavailable**, use the search SNIPPETS from
+`web_search` as your evidence — they are short but real and verifiable.
+
+**Do NOT fabricate URLs, dates, or quoted text — every signal must trace
+to a real published source.**
 
 Search-query patterns to try (limit ~6 searches per run to stay efficient):
 
@@ -29,13 +40,14 @@ Search-query patterns to try (limit ~6 searches per run to stay efficient):
 2. `"<name>" quantum announcement OR launched OR partnership`
 3. `"<name>" site:linkedin.com 2026`
 4. `"<name>" "press release" quantum`
-5. `"<name>" "arxiv" 2026`  (publications)
+5. For publications: prefer the bundled `arxiv` skill over a web search.
 6. One alias variant if `Aliases` is non-empty.
 
-For each candidate, fetch the page (`web_extract`) and decide if it is a
-**signal**: a public, dated event that another stakeholder (customer,
-investor, partner, talent) could interpret as evidence about the actor's
-quantum capability, intent, or trajectory.
+For each candidate, decide if it is a **signal**: a public, dated event
+that another stakeholder (customer, investor, partner, talent) could
+interpret as evidence about the actor's quantum capability, intent, or
+trajectory. If you only have a search snippet (no full page text), copy
+the snippet verbatim into `evidence_quote`.
 
 ## Classification — Ehrenthal four-signal scheme
 

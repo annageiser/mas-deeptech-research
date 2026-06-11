@@ -81,6 +81,24 @@ The `/signals` page client component used `useSearchParams` directly. Next.js 14
 
 Discovered when an empty-choices response came from a paid-tier model too. Defensive coding around LLM API responses (assume any field can be absent; assume any list can be empty) is good practice regardless of provider.
 
+### 2.7 — `caddy reload` returns success but doesn't apply changes
+
+On 2026-06-11, basic-auth setup on the public site burned 3+ hours of debugging that all traced to a single docker-runtime quirk: `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile` returned success and logged "config loaded", but the running in-memory config was untouched. Every edit to `caddy/Caddyfile` looked applied; none of them were. Six iteration docs (v0.4.4 → v0.4.16) chased phantom Caddyfile-syntax bugs that didn't exist.
+
+The diagnostic that finally exposed it was Caddy's admin-API log line `"config is unchanged"` printed on every reload — a benign-looking message that actually means "the parser produced JSON identical to what I already had", which in our case was the empty-auth start-time config. Without that log line surfacing, the parser-vs-runtime divergence is **invisible**.
+
+**Fix:** always use `docker compose restart caddy` after editing `caddy/Caddyfile`. Never use `caddy reload`. Verified with `curl -I` returning 401 immediately after `restart` but 200 after `reload`.
+
+**Generalisable lesson:** when a config-reload mechanism reports success silently, prove it actually applied changes by observing a behavioural difference — not by reading the reload's exit code. In our case the proof would have been `curl -I` returning 401, not `caddy reload` returning 0. Reload-vs-restart semantics in containerised reverse proxies are an unmarked footgun.
+
+### 2.8 — `:free` LLM models still pre-authorise credit holds
+
+Hermes Phase B's first surfaced failure (after v0.4.5's config wiring) was OpenRouter 402: "requested up to 128000 tokens, but can only afford 110819." The model in question was `nvidia/nemotron-nano-9b-v2:free` — supposed to be unconditionally free. But OpenRouter pre-authorises a credit hold equal to `max_tokens × per-token-rate` for every request, even free ones, and a near-empty balance can fail the pre-auth even though no actual charge will land.
+
+The further twist (v0.4.9) was that v0.4.5–v0.4.8's config-side fixes (cap max_tokens, pin auxiliary models to `:free`, etc.) were all silently overwritten on every container start by the upstream's default config — which routed to a *paid* Claude Opus 4.6. We were debugging a free-tier credit-hold issue while actually paying for Claude Opus calls. The credits Anna burned in the early days of Hermes Phase B all went to Opus.
+
+**Generalisable lesson:** "the agent is using model X" is a claim you must verify from inside the running process, not from the config file you edited. Print the active model name at startup; surface it in the stderr the agent emits per call.
+
 ---
 
 ## 3 — Methodological lessons

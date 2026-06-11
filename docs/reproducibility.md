@@ -224,21 +224,37 @@ All env vars are wired through `docker-compose.yml`'s `hermes.environment` block
 
 The public site lives behind Caddy basic auth — see [`caddy/Caddyfile`](../caddy/Caddyfile).
 
-The shipped credentials are **placeholder only** (user `anna`, password `change-me`). Rotate them on first deploy:
+The shipped Caddyfile has a clearly-marked **placeholder hash** that must be replaced before the gate is meaningful. Rotate on first deploy:
 
 ```bash
 # On the VPS — generate a fresh bcrypt hash
-docker run --rm caddy:2.10-alpine caddy hash-password --plaintext "<new-password>"
+docker run --rm caddy:2.10-alpine caddy hash-password --plaintext "<your-password>"
 # → prints  $2a$14$...
 
-# Paste the hash into the basicauth block in caddy/Caddyfile
-sudo nano caddy/Caddyfile
+# Paste the hash into caddy/Caddyfile, replacing the line containing
+# "PLACEHOLDER_HASH_REPLACE_BEFORE_DEPLOY". You can use sed:
+sed -i 's|\$2a\$14\$PLACEHOLDER_HASH_REPLACE_BEFORE_DEPLOY___________________|<paste-real-hash>|' caddy/Caddyfile
 
-# Reload Caddy in-place (no restart of other services needed)
-docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+# ━━━ CRITICAL: USE RESTART, NOT RELOAD ━━━
+docker compose restart caddy
+sleep 4
+
+# Verify
+curl -I https://mas-deeptech-research.cloud         # expect HTTP/2 401
+curl -I -u "anna:<your-password>" https://mas-deeptech-research.cloud   # expect HTTP/2 200
 ```
 
-By default the auth gates **every** route, including `/api/*`. If you need the API to stay open (e.g. so an external evaluator script can hit it without credentials), move the `basicauth` directive INSIDE the `handle` block you want to gate, not at the site level.
+### Why `restart`, not `reload`?
+
+In a Caddy 2.10-alpine container behind docker-compose, `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile` returns success ("config loaded") but leaves the **running in-memory config untouched**. The Caddyfile parser produces JSON, but Caddy's admin API logs `"config is unchanged"` because it compares to a stale baseline. The result: edits to the Caddyfile silently never take effect via `reload`.
+
+This was discovered after 3+ hours of debugging Caddy's `basicauth` syntax on 2026-06-11. The Caddyfile syntax was correct the whole time. The fix is to use `docker compose restart caddy` after any edit to `caddy/Caddyfile`. Restart re-reads the file from scratch and the new config takes effect immediately.
+
+### Layout notes
+
+By default the auth gates **every** route, including `/api/*`. If you need the API to stay open (e.g. so an external evaluator script can hit it without credentials), move the `basicauth` directive INSIDE the `handle` block you want to gate, not at the site level — and `restart` afterwards.
+
+If you ever see `curl -I https://mas-deeptech-research.cloud` return `200` instead of `401`, the running Caddy has stale config. `docker compose restart caddy` fixes it.
 
 ## Troubleshooting
 

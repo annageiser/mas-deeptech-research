@@ -7,36 +7,32 @@
 #   /api/*  → api  (FastAPI JSON service, container `api-container-f`)
 #   /*      → web  (Next.js frontend,     container `web-container-g`)
 #
-# Authentication (added v0.4.4, task #97):
-#   Whole site behind basic auth — the data here is a public-domain research
-#   project but we want the supervisor + ASA / FHNW audience to see a gate
-#   that signals "this is a thesis artefact, not a production product."
-#
-#   Credentials default to user="anna", password="change-me". Rotate before
-#   exposing the domain — see docs/reproducibility.md § "Site auth (basic)"
-#   for the one-liner that generates a fresh bcrypt hash.
+# Authentication (v0.4.4; fixed v0.4.15):
+#   The whole site is behind basic auth. v0.4.4 placed `basicauth` at site
+#   level alongside `handle` blocks — but in Caddy 2.x, `handle` creates an
+#   EXCLUSIVE subroute that doesn't inherit site-level auth, so the gate
+#   never fired. v0.4.15 switches to a single `route` block that executes
+#   directives in order — basicauth runs first, then the path-matched
+#   reverse_proxy calls. Verified with `curl -I` returning 401.
 
 mas-deeptech-research.cloud {
     encode gzip
 
-    # Site-wide basic auth — applied to every route, including /api/*.
-    # If you need /api/* unauthenticated (e.g. so an external evaluator can
-    # hit it without credentials), move the `basicauth` directive INSIDE
-    # the `handle` block you want to gate, not at the site level.
-    basicauth {
-        # username  bcrypt-hash
-        # Default placeholder: user="anna", password="change-me" (bcrypt cost 14).
-        # Generate a real hash on the VPS:
-        #   docker run --rm caddy:2.10-alpine caddy hash-password --plaintext "your-password"
-        # Then replace the line below and `docker compose restart caddy`.
-        anna $2a$14$tQM5/HRGSm6t8.h7wmAYuQpv76Q0Zo9P7gE1zR2dG8nVxXnPpFx4u
-    }
+    @api path /api/*
 
-    handle /api/* {
-        reverse_proxy api-container-f:8000
-    }
-
-    handle {
+    # `route` executes directives in declared order, unlike top-level
+    # directives which auto-order. basicauth fires FIRST and gates
+    # every request before any reverse_proxy is reached.
+    route {
+        basicauth {
+            # username  bcrypt-hash
+            # PLACEHOLDER below — generate a real hash on the VPS:
+            #   docker run --rm caddy:2.10-alpine caddy hash-password --plaintext "your-password"
+            # Paste the resulting $2a$14$... string in place of the placeholder
+            # and `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile`.
+            anna $2a$14$PLACEHOLDER_HASH_REPLACE_BEFORE_DEPLOY___________________
+        }
+        reverse_proxy @api api-container-f:8000
         reverse_proxy web-container-g:3000
     }
 }

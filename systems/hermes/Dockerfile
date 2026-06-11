@@ -42,7 +42,11 @@ USER root
 #
 # web_extract is NOT covered by ddgs (it's search-only). The agent will
 # use search snippets as evidence when deep page-reading is unavailable.
-RUN /opt/hermes/.venv/bin/python -m pip install --no-cache-dir ddgs \
+#
+# Upstream uses `uv` to manage the venv (no `pip` binary inside .venv).
+# VIRTUAL_ENV points uv at the right venv without needing --python flag.
+ENV VIRTUAL_ENV=/opt/hermes/.venv
+RUN uv pip install --no-cache-dir ddgs \
     && chown -R hermes:hermes /opt/hermes/.venv
 
 # Install the Swiss-quantum skill into the agent's skills directory.

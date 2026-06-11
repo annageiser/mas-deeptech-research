@@ -30,6 +30,13 @@ LOOKBACK="${HERMES_LOOKBACK_DAYS:-180}"
 LOGDIR="${HERMES_HOME:-/opt/data}/state/runs/$(date -u +%Y%m%dT%H%M%SZ)"
 PERSIST=/opt/swiss-quantum/scripts/persist_signals.py
 
+# v0.4.13: Hermes uses Rich for output formatting. Rich auto-wraps text
+# to terminal width (default 80 cols when stdout is not a TTY), which
+# breaks the agent's JSON string values across multiple lines —
+# json.loads() then rejects them. Tell Rich to use a very wide
+# "terminal" so it doesn't wrap inside the JSON values.
+export COLUMNS=10000
+
 # ── preflight ────────────────────────────────────────────────────────────
 for var in SUPABASE_URL SUPABASE_SERVICE_KEY OPENROUTER_API_KEY; do
     eval "v=\${${var}:-}"

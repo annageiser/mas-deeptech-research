@@ -135,7 +135,7 @@ EOF
     # race to clobber our config in $HERMES_HOME again (see v0.4.9 trail).
     # FREE-ONLY POLICY (v0.4.8): every model slug in this codebase ends
     # in `:free`. If you need a different model, override via $HERMES_MODEL.
-    MODEL="${HERMES_MODEL:-nvidia/nemotron-nano-9b-v2:free}"
+    MODEL="${HERMES_MODEL:-nvidia/nemotron-3-super-120b-a12b:free}"
     if timeout 600 hermes chat \
             --quiet \
             --skills collect-swiss-quantum-signals \

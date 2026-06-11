@@ -9,24 +9,27 @@
 # Why these knobs were chosen — see docs/iterations/v0.4.4-real-hermes-agent.md
 
 model:
-  # OpenRouter free tier — same provider both MAS use, so the comparison
-  # stays apples-to-apples. Override with $HERMES_MODEL at runtime.
-  default: "nvidia/nemotron-nano-9b-v2:free"
+  # OpenRouter free tier — same model MASFactory uses, so the cross-system
+  # comparison is apples-to-apples. Override with $HERMES_MODEL at runtime.
+  #
+  # v0.4.10: was nvidia/nemotron-nano-9b-v2:free (32k context). Hermes
+  # Agent has a hard 64k context floor and refused to initialise. Nemotron
+  # Super 120B is free, has 128k context, supports tool calls, and matches
+  # MASFactory's primary model exactly.
+  default: "nvidia/nemotron-3-super-120b-a12b:free"
   provider: "openrouter"
   base_url: "https://openrouter.ai/api/v1"
 
   # Cap output per turn. Without this the agent asks for the model's
-  # native ceiling (128k for Nemotron Nano), and OpenRouter requires
-  # enough credit balance to pre-authorize the WHOLE max_tokens hold —
-  # even on `:free` models. With a near-empty balance you get:
-  #   Error 402: You requested up to 128000 tokens, but can only afford ...
+  # native ceiling (128k), and OpenRouter requires enough credit balance
+  # to pre-authorize the WHOLE max_tokens hold — even on `:free` models.
   # 4096 is plenty for our skill's JSON output contract.
   max_tokens: 4096
 
-  # Cap total context. Compression triggers at 50% of this (see below),
-  # so the agent compresses long search histories before they get
-  # expensive. Nemotron Nano's native window is large; we don't need it.
-  context_length: 32768
+  # Total context window. Must be >= 64000 (Hermes Agent's hard floor).
+  # Nemotron Super's native window is 128k; we cap at 64k to keep the
+  # credit-hold reservation low and trigger compression sooner.
+  context_length: 65536
 
 # ── FREE-ONLY POLICY (v0.4.8) ────────────────────────────────────────────
 # The thesis runs on free-tier LLMs only. Without explicit overrides the

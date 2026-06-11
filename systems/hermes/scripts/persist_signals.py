@@ -52,35 +52,62 @@ VALID_SIGNAL_TYPES = {
 
 
 def _extract_json_block(text: str) -> dict[str, Any] | None:
-    """Find the last well-formed JSON object in agent stdout.
+    """Find the agent's signal-list JSON object in stdout.
 
     Strategy:
-      1. Prefer a fenced ```json ... ``` block (skill instructs this).
-      2. Fall back to a brace-balanced scan from the rightmost `{`.
-    Returns None if no parseable object is found.
+      1. Prefer a fenced ```json ... ``` block (the skill instructs this
+         format, but Hermes's UI sometimes strips backticks when rendering
+         in box mode).
+      2. Fall back to scanning EVERY balanced top-level `{...}` block
+         and returning the LARGEST one that contains a `signals` key.
+         This handles both:
+           - the agent emitting just an inner signal object (small wrong)
+           - the rendered Hermes box stripping fence markers (no ```json)
+
+    Returns None if no parseable signal-list object is found.
     """
+    # Strategy 1: fenced block. Match non-greedy on the LAST occurrence.
     fences = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     for candidate in reversed(fences):
         try:
-            return json.loads(candidate)
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict) and "signals" in parsed:
+                return parsed
         except json.JSONDecodeError:
             continue
 
-    last_open = text.rfind("{")
-    while last_open != -1:
+    # Strategy 2: enumerate ALL balanced {...} blocks in `text`. Among
+    # parseable ones with a "signals" key, return the LARGEST (the outer
+    # wrapper rather than any individual signal object).
+    candidates: list[dict[str, Any]] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] != "{":
+            i += 1
+            continue
         depth = 0
-        for i, ch in enumerate(text[last_open:], start=last_open):
+        for j in range(i, n):
+            ch = text[j]
             if ch == "{":
                 depth += 1
             elif ch == "}":
                 depth -= 1
                 if depth == 0:
-                    candidate = text[last_open : i + 1]
+                    candidate = text[i : j + 1]
                     try:
-                        return json.loads(candidate)
+                        parsed = json.loads(candidate)
+                        if isinstance(parsed, dict) and "signals" in parsed:
+                            candidates.append(parsed)
                     except json.JSONDecodeError:
-                        break
-        last_open = text.rfind("{", 0, last_open)
+                        pass
+                    i = j + 1
+                    break
+        else:
+            i = n
+    if candidates:
+        # Largest = outermost wrapper (contains all the inner signals)
+        return max(candidates, key=lambda d: len(d.get("signals") or []))
     return None
 
 

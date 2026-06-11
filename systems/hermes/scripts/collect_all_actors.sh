@@ -127,22 +127,28 @@ EOF
 
     echo "[collect_all_actors] ▶ ${slug}"
 
-    # Quiet, non-interactive, skill-aware, tool-progress off.
-    # `--skills` activates our methodology skill; `-q` is single-query mode.
+    # v0.4.12: dropped `--quiet`. Interactive testing showed `hermes chat`
+    # works perfectly without --quiet (exits 0, returns real JSON) but
+    # silently exits non-zero under --quiet + redirected stdout. Root
+    # cause unclear (upstream bug, maybe interactive-only auth path); the
+    # output we lose to --quiet is just the banner + tool-progress
+    # decorations, which the parser ignores anyway.
     #
-    # --model + --provider are passed explicitly as belt-and-braces:
-    # they take precedence over config.yaml in case anything ever wins the
-    # race to clobber our config in $HERMES_HOME again (see v0.4.9 trail).
+    # </dev/null closes stdin so any upstream interactive prompt (if it
+    # ever appears) fails fast instead of blocking forever.
+    #
+    # --model + --provider take precedence over config.yaml as
+    # belt-and-braces against config drift (see v0.4.9 trail).
     # FREE-ONLY POLICY (v0.4.8): every model slug in this codebase ends
     # in `:free`. If you need a different model, override via $HERMES_MODEL.
     MODEL="${HERMES_MODEL:-nvidia/nemotron-3-super-120b-a12b:free}"
     if timeout 600 hermes chat \
-            --quiet \
             --skills collect-swiss-quantum-signals \
             --toolsets web,skills \
             --model "${MODEL}" \
             --provider openrouter \
             -q "${PROMPT}" \
+            < /dev/null \
             > "${AGENT_OUT}" 2> "${AGENT_ERR}"; then
         # Parse + persist; the persister returns the number of NEW signals inserted.
         if NEW=$(python3 "${PERSIST}" \

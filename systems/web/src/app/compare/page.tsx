@@ -27,12 +27,41 @@ export default async function Compare({ searchParams }: SP) {
     </tr>
   );
 
+  // System B identity transition: rows tagged system='hermes' before
+  // 2026-06-10 came from a pattern implementation; from that date the real
+  // NousResearch CLI is used. The window slider below lets you exclude the
+  // pattern-era rows by picking days <= today − 2026-06-10.
+  const today = new Date();
+  const transitionDate = new Date("2026-06-10T00:00:00Z");
+  const daysSinceTransition = Math.max(
+    1,
+    Math.floor((today.getTime() - transitionDate.getTime()) / 86_400_000),
+  );
+
   return (
     <>
       <PageHeader
         title="System A vs System B"
         lead="Two architectures, same task, same sources, same model. MASFactory is an orchestrated 7-agent graph; Hermes is a single agent loop with memory + skills. The interesting question is not which wins — it's where and why they diverge."
       />
+
+      <Card style={{ marginBottom: "1rem", background: "var(--bg-subtle)" }}>
+        <div className="small">
+          <strong>Window:</strong> last {days} days.{" "}
+          <a href={`/compare?days=${daysSinceTransition}`}>
+            Restrict to post-2026-06-10 (real Hermes CLI only)
+          </a>{" "}
+          ·{" "}
+          <a href="/compare?days=30">30d</a> · <a href="/compare?days=90">90d</a> ·{" "}
+          <a href="/compare?days=365">1y</a>
+        </div>
+        <div className="small faint" style={{ marginTop: "0.4rem" }}>
+          <em>Why this matters:</em> System B rows before 2026-06-10 came from a Python pattern
+          implementation; from that date forward the real NousResearch hermes-agent CLI is used.
+          See <a href="/methodology">methodology</a> § "System B" for the full identity
+          transition, or restrict the window to compare only the real-CLI era.
+        </div>
+      </Card>
 
       <div className="grid cols-3">
         <Stat label="Agree on actor" value={c.agreement_counts.both} help="Actors both systems flagged with non-trivial impact." />

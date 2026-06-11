@@ -21,5 +21,10 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 CRON_TZ=Europe/Zurich
 
+# v0.4.18: preflight `docker rm -f` of stale hermes-run containers from
+# prior interrupted runs (s6-log would otherwise hit "lock: Resource busy"
+# and the run fails before the agent starts). The `2>/dev/null || true`
+# guards make this a no-op when nothing stale exists.
+
 # m h dom mon dow user  command
-0 5 * * *   root   cd /opt/mas-deeptech-research && /usr/bin/docker compose run --rm hermes >> /var/log/hermes.log 2>&1 && /usr/bin/docker compose run --rm reports daily --system hermes >> /var/log/reports.log 2>&1
+0 5 * * *   root   cd /opt/mas-deeptech-research && (docker rm -f $(docker ps -aq --filter "name=mas-deeptech-research-hermes-run-") 2>/dev/null || true) && /usr/bin/docker compose run --rm hermes >> /var/log/hermes.log 2>&1 && /usr/bin/docker compose run --rm reports daily --system hermes >> /var/log/reports.log 2>&1

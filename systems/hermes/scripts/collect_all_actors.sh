@@ -1,8 +1,12 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Loop over every actor in /data/raw/actors.yaml and invoke the real
 # Hermes CLI with our Swiss-quantum skill. Output is parsed JSON-by-JSON
 # and upserted into Supabase as system='hermes', tied to a single
 # public.runs row that's created at start + closed at end.
+#
+# v0.4.18: bash (not sh) because dash's `read` with non-whitespace IFS
+# collapses consecutive empty TSV fields. Actor metadata was landing in
+# the wrong prompt slots (Aliases got Category's value, etc.).
 #
 # Bind-mount contract (from docker-compose.yml):
 #   /data/raw/actors.yaml   — read-only host actors file
@@ -68,6 +72,16 @@ mkdir -p "${LOGDIR}"
 echo "[collect_all_actors] log dir: ${LOGDIR}"
 echo "[collect_all_actors] lookback: ${LOOKBACK}d  limit: ${LIMIT:-all}"
 
+# v0.4.18: prune per-run audit folders older than 30 days. Each run writes
+# ~80 files (40 actors × stdout+stderr); after 30 days that's ~2400 files
+# in the hermes_state volume. Cheap to delete here at run start.
+PRUNE_BASE="${HERMES_HOME:-/opt/data}/state/runs"
+if [ -d "${PRUNE_BASE}" ]; then
+    PRUNED=$(find "${PRUNE_BASE}" -mindepth 1 -maxdepth 1 -type d -mtime +30 \
+               -print -exec rm -rf {} \; 2>/dev/null | wc -l | tr -d ' ')
+    [ "${PRUNED:-0}" -gt 0 ] && echo "[collect_all_actors] pruned ${PRUNED} run dirs older than 30d"
+fi
+
 # ── extract actors via python (yaml parsing in shell is masochism) ──────
 ACTOR_LIST="${LOGDIR}/actors.tsv"
 python3 - <<PY > "${ACTOR_LIST}"
@@ -82,7 +96,8 @@ for a in actors:
     slug = a.get("slug", "")
     name = a.get("name", "")
     aliases = ",".join(a.get("aliases", []) or [])
-    website = a.get("website", "")
+    # actors.yaml uses 'homepage', NOT 'website' (v0.4.18 fix).
+    website = a.get("homepage", "") or a.get("website", "")
     cat = a.get("category", "")
     if not slug or not name:
         continue

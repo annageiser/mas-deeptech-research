@@ -70,14 +70,21 @@ auxiliary:
     provider: "openrouter"
     model: "meta-llama/llama-3.3-70b-instruct:free"
 
-# Force OpenRouter to keep requests inside free-tier providers wherever
-# possible. `require_parameters` ensures the chosen provider supports
-# the parameters we send (max_tokens, tools), so requests don't silently
+# Force OpenRouter to keep requests inside endpoints that support the
+# parameters we send (max_tokens, tools), so requests don't silently
 # downgrade to a non-tool-capable endpoint.
+#
+# v0.4.11 NOTE — we previously set `data_collection: "deny"` here for
+# privacy. Removed because almost every OpenRouter `:free` model is free
+# precisely because the provider trains on prompts. With deny set, every
+# request 404s with "No endpoints found matching your data policy."
+# Our prompts contain only public data (actor names from data/raw/actors.yaml,
+# skill text from this repo, web-search results from the public internet),
+# so opting into the free-model-training pool is acceptable. Anna's
+# OpenRouter account-level privacy setting still applies as the final
+# control surface (https://openrouter.ai/settings/privacy).
 provider_routing:
   require_parameters: true
-  data_collection: "deny"   # belt-and-braces; don't ship our prompts to
-                             # providers that store data for training
 
 # Cron-safe behaviour — no chatter, no auto-update prompts, no banner.
 display:

@@ -6,6 +6,7 @@ import type {
   Actor,
   ActorScore,
   CompareResponse,
+  CoverageResponse,
   EcosystemResponse,
   KnowledgeGraph,
   MetaResponse,
@@ -51,6 +52,8 @@ export const api = {
   actor: (slug: string, system?: string, days = 30) =>
     get<any>(`/api/actor/${encodeURIComponent(slug)}${qs({ system, days })}`),
   compare: (days = 30) => get<CompareResponse>(`/api/compare${qs({ days })}`),
+  coverage: (system?: string, days = 90) =>
+    get<CoverageResponse>(`/api/coverage${qs({ system, days })}`),
   knowledgeGraph: (system?: string, days = 30, threshold = 2) =>
     get<KnowledgeGraph>(`/api/knowledge-graph${qs({ system, days, threshold })}`),
   reports: (kind?: string) => get<{ reports: ReportListItem[] }>(`/api/reports${qs({ kind })}`),

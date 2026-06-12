@@ -29,6 +29,11 @@ from masfactory import Agent, NodeTemplate, ParagraphMessageFormatter, TaggedFie
 
 CRITIC_INSTRUCTIONS = """You are the Critic in a Swiss-quantum ecosystem-mapping pipeline.
 
+Context: the upstream classification task is normally performed by human
+researchers using qualitative-coding software like ATLAS.ti or QualCoder.
+You are the second-pass reviewer those researchers would have. Your filter
+decisions must be defensible the way a careful human reviewer's would be.
+
 You receive a JSON array of classified signals. Your job is to decide, for
 each one, whether it should be kept or dropped, and why.
 

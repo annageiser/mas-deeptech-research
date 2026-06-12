@@ -150,6 +150,10 @@ alter table public.signals add column if not exists dimension_legacy text;
 -- v0.4.19: defense as boolean flags overlaid on the Ehrenthal four
 alter table public.signals add column if not exists defense_engagement  boolean not null default false;
 alter table public.signals add column if not exists defense_ambivalence boolean not null default false;
+-- v0.4.19d (task D.2): actor-level marker — different claim from the
+-- per-signal flag. Hand-edited in Supabase; systems do not auto-set it.
+alter table public.actors  add column if not exists defense_ambivalence_marker       boolean not null default false;
+alter table public.actors  add column if not exists defense_ambivalence_marker_notes text;
 
 -- Preserve the original value before we rewrite `dimension`. Only fills
 -- rows that haven't been preserved yet so re-runs don't clobber.

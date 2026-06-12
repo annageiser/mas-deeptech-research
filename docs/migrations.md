@@ -477,6 +477,35 @@ docker compose build masfactory hermes
 
 ---
 
+## 2026-06-11 — v0.4.19d: actor-level defense_ambivalence marker (task D.2 / #106)
+
+Per-signal flags say "this signal is defense-flavoured." The actor-level marker says "this actor exhibits the defense-ambivalence pattern as a persistent behaviour" — a different claim. Worth having both.
+
+**Paste this into the Supabase SQL editor and Run:**
+
+```sql
+alter table public.actors
+    add column if not exists defense_ambivalence_marker boolean not null default false;
+
+alter table public.actors
+    add column if not exists defense_ambivalence_marker_notes text;
+```
+
+**Seed for known cases** (edit the slugs to match what's in your `actors` table):
+
+```sql
+-- Example seed — uncomment and run for actors you've confirmed exhibit the pattern.
+-- update public.actors
+--    set defense_ambivalence_marker = true,
+--        defense_ambivalence_marker_notes =
+--          'Anna 2026-06-11: known US defense ties; deliberately opaque about quantum-specific work.'
+--  where slug = 'd-wave';
+```
+
+The marker is hand-edited in the Supabase Table editor going forward. The systems do not auto-set it.
+
+---
+
 ## How to apply
 
 1. Open <https://supabase.com/dashboard> → your project → **SQL editor**

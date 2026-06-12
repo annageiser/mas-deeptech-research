@@ -97,10 +97,11 @@ def _headers(key: str) -> dict[str, str]:
     }
 
 
-def _fetch_batch(client: httpx.Client, base: str, headers: dict, batch_size: int) -> list[dict]:
-    """Get up to batch_size hermes rows still lacking an embedding."""
+def _fetch_batch(client: httpx.Client, base: str, headers: dict,
+                 batch_size: int, system: str) -> list[dict]:
+    """Get up to batch_size rows of `system` still lacking an embedding."""
     url = (f"{base.rstrip('/')}/rest/v1/signals"
-           f"?system=eq.hermes&embedding=is.null"
+           f"?system=eq.{system}&embedding=is.null"
            f"&select=id,title,summary,evidence_quote,dimension"
            f"&limit={batch_size}&order=inserted_at.asc")
     r = client.get(url, headers=headers)
@@ -132,6 +133,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="Compute embeddings but skip UPDATE")
     parser.add_argument("--sleep", type=float, default=0.0,
                         help="Seconds to sleep between rows (default 0)")
+    parser.add_argument("--system", default="hermes",
+                        choices=["hermes", "masfactory"],
+                        help="Which system's rows to backfill (default hermes)")
     args = parser.parse_args(argv)
 
     if args.batch_size < 1 or args.batch_size > 1000:
@@ -152,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
             batch_size = (min(args.batch_size, args.limit - total_processed)
                           if args.limit else args.batch_size)
             try:
-                rows = _fetch_batch(client, base, headers, batch_size)
+                rows = _fetch_batch(client, base, headers, batch_size, args.system)
             except httpx.HTTPStatusError as exc:
                 print(f"FATAL: fetch failed: HTTP {exc.response.status_code} "
                       f"{exc.response.text[:200]}", file=sys.stderr)

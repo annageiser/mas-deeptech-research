@@ -21,6 +21,7 @@ from .audit import AuditFolder
 from .config import ConfigError, load_settings
 from .graph import build_graph
 from .model import build_main_model
+from .observability import init as init_phoenix
 from .persistence import SupabaseStore
 from .schema import Actor
 
@@ -65,6 +66,22 @@ def cmd_run_once(args: argparse.Namespace) -> int:
     audit.write_json("actor_pool.json", actor_pool)
 
     run_id = store.start_run(actor_slugs=[a.slug for a in actors], config_snapshot=config_snapshot)
+
+    # v0.4.25: Phoenix tracing. Must come BEFORE the model is constructed
+    # so the OpenAI SDK is instrumented before its first network call. No-op
+    # when PHOENIX_ENABLED is unset (default).
+    phoenix_on = init_phoenix(run_id=run_id)
+    if phoenix_on:
+        audit.write_json("phoenix.json", {
+            "enabled": True,
+            "endpoint": __import__("os").environ.get(
+                "PHOENIX_COLLECTOR_ENDPOINT", "http://phoenix:6006"
+            ),
+            "project": __import__("os").environ.get(
+                "PHOENIX_PROJECT_NAME", "masfactory-swiss-quantum"
+            ),
+            "run_id": run_id,
+        })
 
     model = build_main_model(settings)
     candidate_actors_json = json.dumps(actor_pool)

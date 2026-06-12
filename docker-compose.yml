@@ -157,6 +157,36 @@ services:
       - web
       - api
 
+  # v0.4.25 — Phoenix observability (Arize). Off by default at runtime
+  # because it adds per-call overhead and the thesis evaluation chapter
+  # only needs traces for a handful of representative runs.
+  #
+  # To turn on for a single cron run:
+  #   docker compose up -d phoenix
+  #   PHOENIX_ENABLED=1 docker compose run --rm masfactory run-once --limit-actors 3
+  #
+  # UI is on :6006 inside the compose network. NOT routed through Caddy
+  # by default — exposed to host on 127.0.0.1:6006 so you can reach it
+  # via SSH tunnel without making it world-readable:
+  #   ssh -L 6006:127.0.0.1:6006 root@<vps>
+  #   open http://localhost:6006 in your browser
+  #
+  # If you want public access later, add a Caddy reverse-proxy block
+  # (matched on a subdomain or sub-path with basicauth) — same pattern
+  # as the main site.
+  phoenix:
+    image: arizephoenix/phoenix:version-7
+    container_name: mas-phoenix
+    restart: unless-stopped
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+      # Phoenix listens on 6006 (UI + OTLP) by default.
+      PHOENIX_PORT: 6006
+    volumes:
+      - phoenix_data:/mnt/data
+    ports:
+      - "127.0.0.1:6006:6006"
+
   # Legacy Streamlit dashboard — kept reachable on :8501 during the cutover,
   # no longer wired to the domain. Remove this service once `web` is proven.
   dashboard:
@@ -182,3 +212,5 @@ volumes:
   # Named volume rather than bind-mount so the upstream image's UID remap
   # (HERMES_UID=10000) doesn't fight host ownership semantics.
   hermes_state:
+  # v0.4.25 — Phoenix SQLite database (traces survive container restarts).
+  phoenix_data:

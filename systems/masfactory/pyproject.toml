@@ -27,6 +27,14 @@ dependencies = [
     # v0.4.24: VADER sentiment scoring (Hutto & Gilbert 2014). Tiny lexicon,
     # no model download. Default ON; opt out with MASF_SENTIMENT=0.
     "vaderSentiment>=3.3.2",
+    # v0.4.25: Phoenix observability — ship LLM-call traces to a local
+    # Phoenix server so we can replay them in the UI. Off by default;
+    # turn on with PHOENIX_ENABLED=1. The two packages combine to:
+    #   - arize-phoenix-otel: OTLP exporter + register() helper
+    #   - openinference-instrumentation-openai: auto-instruments the
+    #     openai SDK that MASFactory's LegacyOpenAIModel uses under the hood
+    "arize-phoenix-otel>=0.6.0",
+    "openinference-instrumentation-openai>=0.1.18",
 ]
 
 [project.scripts]

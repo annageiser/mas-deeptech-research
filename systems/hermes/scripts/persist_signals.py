@@ -41,6 +41,57 @@ from typing import Any
 import httpx
 
 
+# v0.4.20: embedding model matches systems/masfactory/.../embedding.py so
+# cross-system signals about the same event embed to nearby points (required
+# for cross-system semantic dedup). VENDORED — comparison-validity invariant
+# says this persister cannot import from masfactory_system.
+_EMBEDDING_MODEL_NAME = "BAAI/bge-base-en-v1.5"
+_EMBEDDING_DIM = 768
+_embedding_model: Any = None
+
+
+def _embed_text(text: str) -> list[float] | None:
+    """Return 768d BGE embedding or None if disabled / unavailable.
+
+    Gated by HRM_EMBEDDINGS=1 env var (matches MASFactory's MASF_EMBEDDINGS).
+    Lazy-loads fastembed on first call so cold start without embeddings is fast.
+    """
+    if os.environ.get("HRM_EMBEDDINGS", "").strip() not in ("1", "true", "yes"):
+        return None
+    if not text or not text.strip():
+        return None
+    global _embedding_model
+    if _embedding_model is None:
+        try:
+            from fastembed import TextEmbedding  # heavy native import; lazy
+        except ImportError:
+            return None
+        try:
+            _embedding_model = TextEmbedding(model_name=_EMBEDDING_MODEL_NAME)
+        except Exception:
+            return None
+    try:
+        gen = _embedding_model.embed([text.strip()])
+        vec = list(next(gen))
+        return vec if len(vec) == _EMBEDDING_DIM else None
+    except Exception:
+        return None
+
+
+def _compose_signal_text(signal: dict[str, Any]) -> str:
+    """SAME composition as systems/masfactory/.../embedding.py compose_signal_text.
+
+    Concatenates title + evidence_quote + summary + dimension marker.
+    """
+    parts = [
+        signal.get("title") or "",
+        signal.get("evidence_quote") or "",
+        signal.get("summary") or "",
+        f"dimension:{signal.get('dimension') or 'unknown'}",
+    ]
+    return "\n".join(p.strip() for p in parts if p.strip())
+
+
 # v0.4.19: signal_type is now the Ehrenthal FOUR only. Defense is two
 # boolean flags layered on top — see docs/migrations.md § v0.4.19.
 VALID_SIGNAL_TYPES = {
@@ -294,6 +345,12 @@ def _upsert_signals(
             "defense_ambivalence":
                 bool(s.get("defense_ambivalence", False)) or _detect_defense_flags(s)[1],
         })
+        # v0.4.20: compute embedding using the SAME model + composition as
+        # System A so cross-system semantic dedup works (M.1). No-op when
+        # HRM_EMBEDDINGS is unset; lazy-loads fastembed on first call.
+        emb = _embed_text(_compose_signal_text(s))
+        if emb is not None:
+            rows[-1]["embedding"] = emb
     if not rows:
         return 0
 

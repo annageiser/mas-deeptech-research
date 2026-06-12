@@ -48,6 +48,13 @@ ENV VIRTUAL_ENV=/opt/hermes/.venv
 RUN uv pip install --no-cache-dir ddgs \
     && chown -R hermes:hermes /opt/hermes/.venv
 
+# v0.4.20: install fastembed + onnxruntime so the Hermes persister can
+# compute the SAME 768d BGE embedding as MASFactory does — required for
+# cross-system semantic dedup. Gated at runtime by HRM_EMBEDDINGS=1.
+# Adds ~210 MB to the image but unlocks the comparison-validity fix.
+RUN uv pip install --no-cache-dir 'fastembed>=0.4.0' \
+    && chown -R hermes:hermes /opt/hermes/.venv
+
 # Install the Swiss-quantum skill into the agent's skills directory.
 # The agent picks up skills from $HERMES_HOME/skills/* at startup.
 COPY skills/collect-swiss-quantum-signals \

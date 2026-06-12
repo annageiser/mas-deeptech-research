@@ -50,6 +50,11 @@ services:
     env_file: [.env]
     environment:
       HERMES_HOME: /opt/data
+      # v0.4.20: HRM_EMBEDDINGS=1 enables the 768d BGE embedding pass in
+      # persist_signals.py (same model + composition as MASFactory's
+      # MASF_EMBEDDINGS, so cross-system signals embed to nearby points).
+      # Prereq for M.1 (semantic dedup) being meaningful for B.
+      HRM_EMBEDDINGS: ${HRM_EMBEDDINGS:-}
       # Smoke-test knobs: `HERMES_LIMIT_ACTORS=3 HERMES_LOOKBACK_DAYS=60
       # docker compose run --rm hermes`. Default = all 40 actors, 180-day window.
       # Compose only forwards shell env when it appears in this block — that's

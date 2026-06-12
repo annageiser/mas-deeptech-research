@@ -47,6 +47,7 @@ from .critic_debate import (
 from .survivor import SurvivorNode
 from .analyst import AnalystNode
 from .persistence import PersistenceNode
+from .reranker_prefilter import RerankerPreFilterNode
 from .loop_nodes import (
     AccumulateActorNode,
     PrepareCurrentActorNode,
@@ -81,6 +82,7 @@ __all__ = [
     "SurvivorNode",
     "AnalystNode",
     "PersistenceNode",
+    "RerankerPreFilterNode",
     "PrepareCurrentActorNode",
     "AccumulateActorNode",
     "actor_loop_done",

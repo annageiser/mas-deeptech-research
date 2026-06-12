@@ -162,6 +162,10 @@ def _persist(_input: dict, attrs: dict) -> dict:
         cross_dropped = attrs.get("dropped_cross_actor") or []
         if cross_dropped:
             audit.write_json("dropped_cross_actor.json", cross_dropped)
+        # v0.4.23: reranker pre-filter drops, accumulated across actors.
+        rerank_dropped = attrs.get("dropped_reranker") or []
+        if rerank_dropped:
+            audit.write_json("dropped_reranker.json", rerank_dropped)
         brief = attrs.get("brief_md")
         if brief:
             audit.write_text("brief.md", brief if isinstance(brief, str) else str(brief))

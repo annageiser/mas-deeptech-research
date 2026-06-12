@@ -19,6 +19,11 @@ dependencies = [
     # ONNX-based, no torch dependency. ~80MB native lib + ~210MB model
     # cached on first use. See masfactory_system/embedding.py.
     "fastembed>=0.4.0",
+    # v0.4.22: structured-output discipline at the Classifier/Persistence
+    # boundary. The validate-only path uses pydantic directly; the LLM-repair
+    # path (gated by MASF_INSTRUCTOR_REPAIR=1) uses instructor to re-prompt
+    # OpenRouter when a candidate fails ClassifiedSignal validation.
+    "instructor>=1.6.0",
 ]
 
 [project.scripts]

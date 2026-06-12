@@ -26,6 +26,11 @@ from masfactory import CustomNode, NodeTemplate
 from ..classification import normalise_dimension, signal_type_for_dimension
 from ..embedding import compose_signal_text, embed_text, is_enabled as embeddings_enabled
 from ..persistence import SignalRow
+from ..structured_output import (
+    instructor_repair,
+    instructor_repair_available,
+    validate_classified_batch,
+)
 
 
 def _semantic_dedup_config() -> tuple[bool, float, int]:
@@ -162,6 +167,35 @@ def _persist(_input: dict, attrs: dict) -> dict:
             audit.write_text("brief.md", brief if isinstance(brief, str) else str(brief))
 
     surviving = validated
+
+    # v0.4.22: schema-level validation pass. The Critic + actor-attribution
+    # gates only check signal CONTENT; this gate enforces the Classifier's
+    # output SHAPE (ClassifiedSignal pydantic model). Invalid rows get
+    # dropped to dropped_validation.json so we can see what went wrong.
+    # Repair path (MASF_INSTRUCTOR_REPAIR=1) re-prompts OpenRouter to emit
+    # a valid version — off by default because it costs tokens.
+    schema_valid, schema_invalid = validate_classified_batch(surviving)
+    repaired_count = 0
+    if instructor_repair_available() and schema_invalid:
+        for record in schema_invalid:
+            repaired = instructor_repair(record["raw"])
+            if repaired is not None:
+                schema_valid.append(repaired)
+                record["repaired"] = True
+                repaired_count += 1
+            else:
+                record["repaired"] = False
+    if audit is not None and schema_invalid:
+        audit.write_json("dropped_validation.json", schema_invalid)
+    if audit is not None:
+        audit.write_json("validation_summary.json", {
+            "validated_in": len(surviving),
+            "validated_out": len(schema_valid),
+            "invalid": len(schema_invalid),
+            "repaired": repaired_count,
+            "instructor_repair_enabled": instructor_repair_available(),
+        })
+    surviving = schema_valid
 
     inserted = 0
     embed_on = embeddings_enabled()

@@ -125,6 +125,42 @@ def _content_hash(actor_slug: str, signal: dict[str, Any]) -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
+# D.3 keyword backstop — deterministic detection independent of the agent's
+# judgment. The agent's flag setting wins when true; this only fires the flag
+# when the agent left it false but explicit keywords appear in the text.
+DEFENSE_ENGAGEMENT_KEYWORDS = (
+    "darpa", "afcea", "nato", "department of defense", "dod ",
+    "dual-use", "dual use", "itar", "ear ", "export-control",
+    "export control", "national defense", "ministry of defence",
+    "ministry of defense", "armasuisse", "armaforces",
+    "us army", "us navy", "us air force", "us space force",
+)
+DEFENSE_AMBIVALENCE_KEYWORDS = (
+    "national security",
+    "classified",
+    "we cannot disclose",
+    "cannot share details",
+    "due to security",
+    "for security reasons",
+    "export restrictions",
+    "restricted disclosure",
+)
+
+
+def _detect_defense_flags(s: dict[str, Any]) -> tuple[bool, bool]:
+    """Return (engagement, ambivalence) detected purely from keywords.
+
+    Searches the signal's title + summary + evidence_quote (all lowercased).
+    OR'd with the agent's flag values at row-build time.
+    """
+    text = " ".join(
+        str(s.get(k) or "") for k in ("title", "summary", "evidence_quote")
+    ).lower()
+    engagement = any(kw in text for kw in DEFENSE_ENGAGEMENT_KEYWORDS)
+    ambivalence = any(kw in text for kw in DEFENSE_AMBIVALENCE_KEYWORDS)
+    return engagement, ambivalence
+
+
 def _validate_signal(s: dict[str, Any]) -> str | None:
     """Return None if signal is valid; otherwise a short error message."""
     for required in ("title", "source_url", "signal_type", "dimension"):
@@ -249,9 +285,14 @@ def _upsert_signals(
             "observed_at": s.get("published_at"),
             "content_hash": _content_hash(actor_slug, s),
             # v0.4.19: defense overlays on the Ehrenthal four. Both default
-            # to false; the agent only sets them true when evidence is explicit.
-            "defense_engagement": bool(s.get("defense_engagement", False)),
-            "defense_ambivalence": bool(s.get("defense_ambivalence", False)),
+            # to false; the agent sets them true when evidence is explicit.
+            # D.3 backstop: deterministic keyword detection OR-ed with the
+            # agent's setting — so a keyword-explicit signal can never end
+            # up unflagged if the agent missed it.
+            "defense_engagement":
+                bool(s.get("defense_engagement", False)) or _detect_defense_flags(s)[0],
+            "defense_ambivalence":
+                bool(s.get("defense_ambivalence", False)) or _detect_defense_flags(s)[1],
         })
     if not rows:
         return 0

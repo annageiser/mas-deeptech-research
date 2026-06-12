@@ -14,8 +14,8 @@ Full architectural-decision rationale: [`docs/iterations/v0.4.4-real-hermes-agen
 
 ```
 systems/hermes/
-├── upstream/                                       # git submodule → NousResearch/hermes-agent@ba44de06
-├── Dockerfile                                      # wrapper image: FROM hermes-upstream:local + our skill + entrypoint
+├── upstream/                                       # git submodule → NousResearch/hermes-agent (source reference; NOT in build chain v0.4.20+)
+├── Dockerfile                                      # wrapper image: FROM nousresearch/hermes-agent:v2026.6.5 (digest-pinned)
 ├── crontab.sample                                  # daily 05:00 Europe/Zurich
 ├── .gitignore                                      # state/ + __pycache__/
 ├── config/cli-config.yaml                          # cron-mode config (web+skills only, no chatter)
@@ -38,13 +38,7 @@ systems/hermes/
 
 ## Build + deploy
 
-### One-time: build the upstream image (10-15 min, ~1.5 GB)
-
-```bash
-docker build -t hermes-upstream:local systems/hermes/upstream
-```
-
-### Build the wrapper
+### Build the wrapper (fast — pulls the official image from Docker Hub)
 
 ```bash
 docker compose build hermes

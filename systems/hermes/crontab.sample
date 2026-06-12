@@ -9,12 +9,10 @@
 # two agents don't compete for the same actor websites / OpenRouter
 # rate limit). Scrape, then daily report.
 #
-# Before the FIRST cron run, you MUST build the upstream image once
-# (10-15 min, ~1.5 GB) — cron will fail if `hermes-upstream:local`
-# does not exist:
+# Before the FIRST cron run, build the wrapper image (fast — ~30 s
+# now that v0.4.20 pulls the official upstream from Docker Hub):
 #
 #   cd /opt/mas-deeptech-research
-#   docker build -t hermes-upstream:local systems/hermes/upstream
 #   docker compose build hermes
 
 SHELL=/bin/bash

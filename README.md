@@ -50,10 +50,7 @@ git submodule update --init --depth 1 systems/hermes/upstream
 
 cp .env.example .env && nano .env       # OPENROUTER_API_KEY, SUPABASE_*
 
-# One-time: build the upstream Hermes image (10-15 min, ~1.5 GB)
-docker build -t hermes-upstream:local systems/hermes/upstream
-
-# Build everything else
+# Build everything (Hermes pulls the official image from Docker Hub since v0.4.20 — no upstream build needed)
 docker compose build
 
 # Smoke-test each system before scheduling cron

@@ -42,9 +42,9 @@ services:
     build:
       context: ./systems/hermes
       dockerfile: Dockerfile
-      args:
-        UPSTREAM_TAG: local
-    image: mas-deeptech-research/hermes:0.3.0
+      # v0.4.20: no longer needs UPSTREAM_TAG. Dockerfile pulls the
+      # official published image from Docker Hub (digest-pinned).
+    image: mas-deeptech-research/hermes:0.4.0
     container_name: hermes-system-b
     restart: "no"
     env_file: [.env]

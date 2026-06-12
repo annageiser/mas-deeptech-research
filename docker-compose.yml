@@ -55,6 +55,9 @@ services:
       # MASF_EMBEDDINGS, so cross-system signals embed to nearby points).
       # Prereq for M.1 (semantic dedup) being meaningful for B.
       HRM_EMBEDDINGS: ${HRM_EMBEDDINGS:-}
+      # v0.4.24: HRM_SENTIMENT (default ON; set to 0/false/no/off to skip
+      # VADER scoring). Same lexicon + thresholds as MASFactory's MASF_SENTIMENT.
+      HRM_SENTIMENT: ${HRM_SENTIMENT:-}
       # Smoke-test knobs: `HERMES_LIMIT_ACTORS=3 HERMES_LOOKBACK_DAYS=60
       # docker compose run --rm hermes`. Default = all 40 actors, 180-day window.
       # Compose only forwards shell env when it appears in this block — that's

@@ -34,6 +34,10 @@ export interface Signal {
   is_technical: boolean;
   confidence: number;
   inserted_at: string;
+  // v0.4.24 — VADER compound sentiment. Both fields are null on legacy rows
+  // (anything before the v0.4.24 migration); newer rows always have both.
+  sentiment_score?: number | null;
+  sentiment_label?: "positive" | "neutral" | "negative" | null;
 }
 
 export interface ActorScore {

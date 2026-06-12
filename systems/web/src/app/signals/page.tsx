@@ -133,7 +133,7 @@ function SignalsInner() {
           <table>
             <thead>
               <tr>
-                <th>When</th><th>Actor</th><th>Signal type</th><th>Sub-dimension</th><th>Cost</th><th>Headline</th><th className="num">Conf.</th><th></th><th></th>
+                <th>When</th><th>Actor</th><th>Signal type</th><th>Sub-dimension</th><th>Cost</th><th>Sent.</th><th>Headline</th><th className="num">Conf.</th><th></th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -157,6 +157,7 @@ function SignalsInner() {
                   </td>
                   <td className="small">{s.dimension_label}</td>
                   <td><CostBadge cost={s.cost_class || "medium"} /></td>
+                  <td><SentimentBadge label={s.sentiment_label ?? null} score={s.sentiment_score ?? null} /></td>
                   <td className="small">{s.title || s.summary?.slice(0, 80)}</td>
                   <td className="num">{Number(s.confidence).toFixed(2)}</td>
                   <td><a href={s.source_url} target="_blank" rel="noreferrer" className="small">↗</a></td>
@@ -168,6 +169,41 @@ function SignalsInner() {
         </Card>
       )}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SentimentBadge — v0.4.24. Small coloured chip on each row showing the VADER
+// sentiment label for the signal's evidence + summary. Hovered tooltip shows
+// the compound score. Renders an em-dash for legacy rows (sentiment NULL).
+// ---------------------------------------------------------------------------
+
+const SENTIMENT_STYLES: Record<string, { bg: string; fg: string; symbol: string }> = {
+  positive: { bg: "#dcfce7", fg: "#166534", symbol: "+" },
+  neutral:  { bg: "#f1f5f9", fg: "#475569", symbol: "·" },
+  negative: { bg: "#fee2e2", fg: "#991b1b", symbol: "−" },
+};
+
+function SentimentBadge({ label, score }: { label: string | null; score: number | null }) {
+  if (!label) return <span className="small faint">—</span>;
+  const style = SENTIMENT_STYLES[label] || SENTIMENT_STYLES.neutral;
+  const tooltip = score != null ? `VADER compound ${score.toFixed(2)}` : `VADER label: ${label}`;
+  return (
+    <span
+      className="small"
+      title={tooltip}
+      style={{
+        display: "inline-block",
+        padding: "0.05rem 0.35rem",
+        borderRadius: 3,
+        background: style.bg,
+        color: style.fg,
+        fontSize: "0.7rem",
+        fontWeight: 600,
+      }}
+    >
+      {style.symbol}
+    </span>
   );
 }
 

@@ -24,6 +24,9 @@ dependencies = [
     # path (gated by MASF_INSTRUCTOR_REPAIR=1) uses instructor to re-prompt
     # OpenRouter when a candidate fails ClassifiedSignal validation.
     "instructor>=1.6.0",
+    # v0.4.24: VADER sentiment scoring (Hutto & Gilbert 2014). Tiny lexicon,
+    # no model download. Default ON; opt out with MASF_SENTIMENT=0.
+    "vaderSentiment>=3.3.2",
 ]
 
 [project.scripts]

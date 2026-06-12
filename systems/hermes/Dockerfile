@@ -55,6 +55,13 @@ RUN uv pip install --no-cache-dir ddgs \
 RUN uv pip install --no-cache-dir 'fastembed>=0.4.0' \
     && chown -R hermes:hermes /opt/hermes/.venv
 
+# v0.4.24: install vaderSentiment so the Hermes persister can score signals
+# with the SAME lexicon + thresholds as MASFactory does. Tiny dep (~120 KB),
+# no model download, no native code. Gated at runtime by HRM_SENTIMENT
+# (default ON; disable with HRM_SENTIMENT=0).
+RUN uv pip install --no-cache-dir 'vaderSentiment>=3.3.2' \
+    && chown -R hermes:hermes /opt/hermes/.venv
+
 # Install the Swiss-quantum skill into the agent's skills directory.
 # The agent picks up skills from $HERMES_HOME/skills/* at startup.
 COPY skills/collect-swiss-quantum-signals \

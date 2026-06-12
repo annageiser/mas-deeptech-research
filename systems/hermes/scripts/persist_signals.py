@@ -95,6 +95,61 @@ def _compose_signal_text(signal: dict[str, Any]) -> str:
     return "\n".join(p.strip() for p in parts if p.strip())
 
 
+# v0.4.24 — VENDORED VADER sentiment (matches systems/masfactory/.../sentiment.py).
+# Both systems use IDENTICAL thresholds + composition so cross-system sentiment
+# comparison isn't confounded by tooling differences. Default ON; disable with
+# HRM_SENTIMENT=0|false|no|off. Reads HRM_SENTIMENT (not MASF_) so the two
+# systems can be toggled independently if needed.
+_VADER_POS_THRESHOLD = 0.05
+_VADER_NEG_THRESHOLD = -0.05
+_sentiment_analyzer: Any = None
+
+
+def _sentiment_enabled() -> bool:
+    return os.environ.get("HRM_SENTIMENT", "").strip().lower() not in (
+        "0", "false", "no", "off"
+    )
+
+
+def _compose_sentiment_text(signal: dict[str, Any]) -> str:
+    """SAME composition as MASFactory's sentiment.compose_sentiment_text."""
+    parts = [signal.get("evidence_quote") or "", signal.get("summary") or ""]
+    return " ".join(p.strip() for p in parts if p.strip())
+
+
+def _sentiment_label(score: float) -> str:
+    if score >= _VADER_POS_THRESHOLD:
+        return "positive"
+    if score <= _VADER_NEG_THRESHOLD:
+        return "negative"
+    return "neutral"
+
+
+def _score_sentiment(signal: dict[str, Any]) -> tuple[float, str] | None:
+    """Return (compound_score, label) or None when disabled / analyzer absent."""
+    if not _sentiment_enabled():
+        return None
+    text = _compose_sentiment_text(signal)
+    if not text:
+        return None
+    global _sentiment_analyzer
+    if _sentiment_analyzer is None:
+        try:
+            from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+        except ImportError:
+            return None
+        try:
+            _sentiment_analyzer = SentimentIntensityAnalyzer()
+        except Exception:
+            return None
+    try:
+        scores = _sentiment_analyzer.polarity_scores(text)
+        compound = round(float(scores.get("compound", 0.0)), 4)
+        return compound, _sentiment_label(compound)
+    except Exception:
+        return None
+
+
 # v0.4.19: signal_type is now the Ehrenthal FOUR only. Defense is two
 # boolean flags layered on top — see docs/migrations.md § v0.4.19.
 VALID_SIGNAL_TYPES = {
@@ -354,6 +409,13 @@ def _upsert_signals(
         emb = _embed_text(_compose_signal_text(s))
         if emb is not None:
             rows[-1]["embedding"] = emb
+        # v0.4.24: VADER sentiment (cheap, no LLM tokens). Vendored helper
+        # uses the SAME thresholds + composition as System A so cross-system
+        # comparison isn't confounded. No-op when HRM_SENTIMENT=0 / vader
+        # missing — column stays NULL.
+        sent = _score_sentiment(s)
+        if sent is not None:
+            rows[-1]["sentiment_score"], rows[-1]["sentiment_label"] = sent
     if not rows:
         return 0
 

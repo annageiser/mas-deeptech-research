@@ -506,6 +506,37 @@ The marker is hand-edited in the Supabase Table editor going forward. The system
 
 ---
 
+## 2026-06-12 — v0.4.24: sentiment columns on `signals` (task C.4 / #117)
+
+Adds two columns so both systems can persist a per-signal sentiment score.
+VADER lexicon (Hutto & Gilbert 2014) computed at persistence time on
+`evidence_quote + summary`. Cross-system parity invariant: both A and B
+use the same thresholds (±0.05) and composition.
+
+```sql
+alter table public.signals add column if not exists sentiment_score real;
+alter table public.signals add column if not exists sentiment_label text;
+create index if not exists signals_sentiment_label_idx
+    on public.signals (sentiment_label);
+```
+
+Verification — both systems should show non-null `scored` after one
+cron tick post-v0.4.24:
+
+```sql
+select system, count(*) total,
+       count(*) filter (where sentiment_label is not null) scored
+from public.signals
+where inserted_at > now() - interval '6 hours'
+group by system;
+```
+
+Pre-v0.4.24 rows remain NULL in both columns. The decision on whether
+to backfill (longitudinal consistency) vs. score-forward only (clean
+methodological cut) is left to the thesis evaluation chapter.
+
+---
+
 ## How to apply
 
 1. Open <https://supabase.com/dashboard> → your project → **SQL editor**

@@ -233,6 +233,16 @@ alter table public.signals add column if not exists prompt_version text;
 create index if not exists signals_stakeholder_idx  on public.signals (stakeholder);
 create index if not exists signals_validated_idx    on public.signals (human_validated) where human_validated = true;
 
+-- ---------- v0.4.24 sentiment (task C.4) ----------
+-- Cheap VADER lexicon-based sentiment, computed at persistence time on the
+-- evidence_quote + summary. Both systems write it; default on (Hutto &
+-- Gilbert 2014). Lets the thesis report whether legitimacy signals skew
+-- positive vs. how future_trajectory signals carry roadmap uncertainty.
+-- score: VADER compound, [-1, 1]. label: 'positive' | 'neutral' | 'negative'.
+alter table public.signals add column if not exists sentiment_score real;
+alter table public.signals add column if not exists sentiment_label text;
+create index if not exists signals_sentiment_label_idx on public.signals (sentiment_label);
+
 -- ---------- v0.4.2 learning-loop tables ----------
 -- missed_signals: things Anna saw in her manual coding (or in the wild) that
 -- neither MAS system produced. Each row carries a why_missed hypothesis

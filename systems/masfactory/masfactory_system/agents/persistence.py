@@ -26,6 +26,7 @@ from masfactory import CustomNode, NodeTemplate
 from ..classification import normalise_dimension, signal_type_for_dimension
 from ..embedding import compose_signal_text, embed_text, is_enabled as embeddings_enabled
 from ..persistence import SignalRow
+from ..sentiment import score_signal as score_sentiment
 from ..structured_output import (
     instructor_repair,
     instructor_repair_available,
@@ -264,6 +265,12 @@ def _persist(_input: dict, attrs: dict) -> dict:
             # derived value otherwise.
             new_dim = normalise_dimension(s.get("dimension", "") or "")
             sig_type = s.get("signal_type") or signal_type_for_dimension().get(new_dim)
+
+            # v0.4.24 — VADER sentiment (cheap, no LLM call). Both columns
+            # remain NULL if disabled / analyzer can't load. Default ON.
+            sentiment = score_sentiment(s)
+            sentiment_score, sentiment_label = (sentiment if sentiment else (None, None))
+
             rows.append(
                 SignalRow(
                     run_id=run_id,
@@ -279,6 +286,8 @@ def _persist(_input: dict, attrs: dict) -> dict:
                     content_hash=content_hash,
                     embedding=emb,
                     signal_type=sig_type,
+                    sentiment_score=sentiment_score,
+                    sentiment_label=sentiment_label,
                 )
             )
         inserted = store.insert_signals(rows)

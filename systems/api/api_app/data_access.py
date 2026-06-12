@@ -77,7 +77,9 @@ def signals(system: Optional[str] = None, days: int = 90) -> pd.DataFrame:
     def _p():
         q = (client().table("signals")
              .select("id,run_id,actor_slug,system,source_kind,source_url,title,summary,"
-                     "evidence_quote,dimension,is_technical,confidence,inserted_at")
+                     "evidence_quote,dimension,is_technical,confidence,inserted_at,"
+                     # v0.4.24 — VADER sentiment (NULL on legacy rows)
+                     "sentiment_score,sentiment_label")
              .gte("inserted_at", _since_iso(days))
              .order("inserted_at", desc=True))
         if system:

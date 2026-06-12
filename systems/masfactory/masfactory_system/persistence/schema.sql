@@ -147,6 +147,13 @@ end $$;
 -- value set so re-runs are no-ops once migrated.
 alter table public.signals add column if not exists signal_type      text;
 alter table public.signals add column if not exists dimension_legacy text;
+-- v0.4.19: defense as boolean flags overlaid on the Ehrenthal four
+alter table public.signals add column if not exists defense_engagement  boolean not null default false;
+alter table public.signals add column if not exists defense_ambivalence boolean not null default false;
+-- v0.4.19d (task D.2): actor-level marker — different claim from the
+-- per-signal flag. Hand-edited in Supabase; systems do not auto-set it.
+alter table public.actors  add column if not exists defense_ambivalence_marker       boolean not null default false;
+alter table public.actors  add column if not exists defense_ambivalence_marker_notes text;
 
 -- Preserve the original value before we rewrite `dimension`. Only fills
 -- rows that haven't been preserved yet so re-runs don't clobber.
@@ -225,6 +232,16 @@ alter table public.signals add column if not exists prompt_version text;
 
 create index if not exists signals_stakeholder_idx  on public.signals (stakeholder);
 create index if not exists signals_validated_idx    on public.signals (human_validated) where human_validated = true;
+
+-- ---------- v0.4.24 sentiment (task C.4) ----------
+-- Cheap VADER lexicon-based sentiment, computed at persistence time on the
+-- evidence_quote + summary. Both systems write it; default on (Hutto &
+-- Gilbert 2014). Lets the thesis report whether legitimacy signals skew
+-- positive vs. how future_trajectory signals carry roadmap uncertainty.
+-- score: VADER compound, [-1, 1]. label: 'positive' | 'neutral' | 'negative'.
+alter table public.signals add column if not exists sentiment_score real;
+alter table public.signals add column if not exists sentiment_label text;
+create index if not exists signals_sentiment_label_idx on public.signals (sentiment_label);
 
 -- ---------- v0.4.2 learning-loop tables ----------
 -- missed_signals: things Anna saw in her manual coding (or in the wild) that

@@ -27,23 +27,66 @@ services:
       - ./data:/data
     command: ["run-once"]
 
+  # System B — real NousResearch hermes-agent CLI (v0.16.0, pinned via
+  # the systems/hermes/upstream git submodule). The earlier pattern
+  # implementation (single AIAgent loop in pure Python) was retired on
+  # 2026-06-10 in favour of the upstream CLI driven by a Swiss-quantum
+  # collection skill. Historical signals tagged system='hermes' from the
+  # pattern era remain in Supabase untouched — the new agent inherits
+  # the same `system='hermes'` namespace.
+  #
+  # Build prerequisite (10-15 min, ~1.5 GB) — run once before first deploy:
+  #     docker build -t hermes-upstream:local systems/hermes/upstream
+  # Then `docker compose build hermes` builds the thin wrapper.
   hermes:
     build:
       context: ./systems/hermes
       dockerfile: Dockerfile
-    image: mas-deeptech-research/hermes:0.1.0
+      # v0.4.20: no longer needs UPSTREAM_TAG. Dockerfile pulls the
+      # official published image from Docker Hub (digest-pinned).
+    image: mas-deeptech-research/hermes:0.4.0
     container_name: hermes-system-b
     restart: "no"
     env_file: [.env]
     environment:
-      HRM_AUDIT_DIR: /data/raw/runs
-      HRM_SKILLS_DIR: /app/skills
-      HRM_MEMORY_PATH: /data/raw/hermes_memory.sqlite
-      HRM_WEB_CACHE_DIR: /data/raw/hermes_web_cache
+      HERMES_HOME: /opt/data
+      # v0.4.20: HRM_EMBEDDINGS=1 enables the 768d BGE embedding pass in
+      # persist_signals.py (same model + composition as MASFactory's
+      # MASF_EMBEDDINGS, so cross-system signals embed to nearby points).
+      # Prereq for M.1 (semantic dedup) being meaningful for B.
+      HRM_EMBEDDINGS: ${HRM_EMBEDDINGS:-}
+      # v0.4.24: HRM_SENTIMENT (default ON; set to 0/false/no/off to skip
+      # VADER scoring). Same lexicon + thresholds as MASFactory's MASF_SENTIMENT.
+      HRM_SENTIMENT: ${HRM_SENTIMENT:-}
+      # Smoke-test knobs: `HERMES_LIMIT_ACTORS=3 HERMES_LOOKBACK_DAYS=60
+      # docker compose run --rm hermes`. Default = all 40 actors, 180-day window.
+      # Compose only forwards shell env when it appears in this block — that's
+      # why `HERMES_LIMIT_ACTORS=3 docker compose run …` was silently ignored
+      # before v0.4.5 (see docs/iterations/v0.4.5-...).
+      HERMES_LIMIT_ACTORS: ${HERMES_LIMIT_ACTORS:-}
+      HERMES_LOOKBACK_DAYS: ${HERMES_LOOKBACK_DAYS:-180}
+      # ── Web-search backends — provision at least ONE in .env ─────────────
+      # Upstream's web_tools.py tries them in priority order:
+      #   firecrawl → parallel → tavily → exa → brave-free → ddgs
+      # Without a key, `web_search` + `web_extract` register but fail their
+      # availability check, the agent ends up with `Tools: 0`, and our skill
+      # correctly returns empty signals (quality rule #1: never fabricate).
+      # Tavily is the recommended free-tier choice — 1k req/mo, covers both
+      # search AND extract. See docs/reproducibility.md § "Hermes web tools".
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      EXA_API_KEY: ${EXA_API_KEY:-}
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      FIRECRAWL_API_URL: ${FIRECRAWL_API_URL:-}
+      PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
       TZ: Europe/Zurich
     volumes:
       - ./data:/data
-    command: ["run-once"]
+      - hermes_state:/opt/data
+    # Default CMD in the Dockerfile runs collect_all_actors.sh.
+    # Override for interactive debugging:
+    #   docker compose run --rm hermes \
+    #       hermes chat --skills collect-swiss-quantum-signals
 
   reports:
     build:
@@ -114,6 +157,40 @@ services:
       - web
       - api
 
+  # v0.4.25 — Phoenix observability (Arize). Off by default at runtime
+  # because it adds per-call overhead and the thesis evaluation chapter
+  # only needs traces for a handful of representative runs.
+  #
+  # Behind a compose PROFILE so `docker compose up -d` skips it. To
+  # start it explicitly:
+  #   docker compose --profile observability up -d phoenix
+  #
+  # Then to capture traces for a single run:
+  #   PHOENIX_ENABLED=1 docker compose run --rm masfactory run-once --limit-actors 3
+  #
+  # UI is on :6006 inside the compose network. NOT routed through Caddy
+  # by default — exposed to host on 127.0.0.1:6006 so you can reach it
+  # via SSH tunnel without making it world-readable:
+  #   ssh -L 6006:127.0.0.1:6006 root@<vps>
+  #   open http://localhost:6006 in your browser
+  #
+  # If you want public access later, add a Caddy reverse-proxy block
+  # (matched on a subdomain or sub-path with basicauth) — same pattern
+  # as the main site.
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: mas-phoenix
+    restart: unless-stopped
+    profiles: ["observability"]
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+      # Phoenix listens on 6006 (UI + OTLP) by default.
+      PHOENIX_PORT: 6006
+    volumes:
+      - phoenix_data:/mnt/data
+    ports:
+      - "127.0.0.1:6006:6006"
+
   # Legacy Streamlit dashboard — kept reachable on :8501 during the cutover,
   # no longer wired to the domain. Remove this service once `web` is proven.
   dashboard:
@@ -135,3 +212,9 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  # Hermes agent's persistent state (memory + per-run trajectory logs).
+  # Named volume rather than bind-mount so the upstream image's UID remap
+  # (HERMES_UID=10000) doesn't fight host ownership semantics.
+  hermes_state:
+  # v0.4.25 — Phoenix SQLite database (traces survive container restarts).
+  phoenix_data:

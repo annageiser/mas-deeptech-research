@@ -19,6 +19,22 @@ dependencies = [
     # ONNX-based, no torch dependency. ~80MB native lib + ~210MB model
     # cached on first use. See masfactory_system/embedding.py.
     "fastembed>=0.4.0",
+    # v0.4.22: structured-output discipline at the Classifier/Persistence
+    # boundary. The validate-only path uses pydantic directly; the LLM-repair
+    # path (gated by MASF_INSTRUCTOR_REPAIR=1) uses instructor to re-prompt
+    # OpenRouter when a candidate fails ClassifiedSignal validation.
+    "instructor>=1.6.0",
+    # v0.4.24: VADER sentiment scoring (Hutto & Gilbert 2014). Tiny lexicon,
+    # no model download. Default ON; opt out with MASF_SENTIMENT=0.
+    "vaderSentiment>=3.3.2",
+    # v0.4.25: Phoenix observability — ship LLM-call traces to a local
+    # Phoenix server so we can replay them in the UI. Off by default;
+    # turn on with PHOENIX_ENABLED=1. The two packages combine to:
+    #   - arize-phoenix-otel: OTLP exporter + register() helper
+    #   - openinference-instrumentation-openai: auto-instruments the
+    #     openai SDK that MASFactory's LegacyOpenAIModel uses under the hood
+    "arize-phoenix-otel>=0.6.0",
+    "openinference-instrumentation-openai>=0.1.18",
 ]
 
 [project.scripts]

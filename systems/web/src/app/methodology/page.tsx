@@ -19,7 +19,26 @@ export default async function Methodology() {
         lead="How every number is computed and which literature justifies each choice. The signalling-theory model is the same YAML the AI agents classify against — single source of truth."
       />
 
-      <Card>
+      <Card style={{ borderLeft: "3px solid var(--accent)" }}>
+        <h3 style={{ marginTop: 0 }}>Project goal</h3>
+        <p style={{ fontWeight: 600, fontSize: "1.1em", marginBottom: "0.4rem" }}>
+          Specify as little as possible. Get out as much as possible.
+        </p>
+        <p className="small muted" style={{ marginTop: 0 }}>
+          (German original: <em>&ldquo;Spezifiziere möglichst wenig, krieg möglichst viel heraus.&rdquo;</em>)
+        </p>
+        <p className="small">
+          The Ehrenthal four-signal scheme is given as the classification target; the actor list is
+          given as the input. Everything else — which sources to consult, which extraction strategies
+          to apply, which signals to drop as noise — is left to the two multi-agent systems. The
+          thesis evaluates the gap between the two architectures along that wide degree of freedom.
+          The signals an <a href="https://atlasti.com/de" target="_blank" rel="noreferrer">Atlas.ti</a>{" "}
+          researcher would manually code are the ones the systems should ideally produce
+          automatically; where they disagree is where the evaluation focuses.
+        </p>
+      </Card>
+
+      <Card style={{ marginTop: "1rem" }}>
         <h3 style={{ marginTop: 0 }}>The core proposition</h3>
         <p className="muted">{st.premise || "In markets with noncommensurable performance, actors and observers rely on observable signals."}</p>
         <p className="muted">{st.cost_principle}</p>

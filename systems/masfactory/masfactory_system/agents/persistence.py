@@ -26,6 +26,12 @@ from masfactory import CustomNode, NodeTemplate
 from ..classification import normalise_dimension, signal_type_for_dimension
 from ..embedding import compose_signal_text, embed_text, is_enabled as embeddings_enabled
 from ..persistence import SignalRow
+from ..sentiment import score_signal as score_sentiment
+from ..structured_output import (
+    instructor_repair,
+    instructor_repair_available,
+    validate_classified_batch,
+)
 
 
 def _semantic_dedup_config() -> tuple[bool, float, int]:
@@ -157,11 +163,44 @@ def _persist(_input: dict, attrs: dict) -> dict:
         cross_dropped = attrs.get("dropped_cross_actor") or []
         if cross_dropped:
             audit.write_json("dropped_cross_actor.json", cross_dropped)
+        # v0.4.23: reranker pre-filter drops, accumulated across actors.
+        rerank_dropped = attrs.get("dropped_reranker") or []
+        if rerank_dropped:
+            audit.write_json("dropped_reranker.json", rerank_dropped)
         brief = attrs.get("brief_md")
         if brief:
             audit.write_text("brief.md", brief if isinstance(brief, str) else str(brief))
 
     surviving = validated
+
+    # v0.4.22: schema-level validation pass. The Critic + actor-attribution
+    # gates only check signal CONTENT; this gate enforces the Classifier's
+    # output SHAPE (ClassifiedSignal pydantic model). Invalid rows get
+    # dropped to dropped_validation.json so we can see what went wrong.
+    # Repair path (MASF_INSTRUCTOR_REPAIR=1) re-prompts OpenRouter to emit
+    # a valid version — off by default because it costs tokens.
+    schema_valid, schema_invalid = validate_classified_batch(surviving)
+    repaired_count = 0
+    if instructor_repair_available() and schema_invalid:
+        for record in schema_invalid:
+            repaired = instructor_repair(record["raw"])
+            if repaired is not None:
+                schema_valid.append(repaired)
+                record["repaired"] = True
+                repaired_count += 1
+            else:
+                record["repaired"] = False
+    if audit is not None and schema_invalid:
+        audit.write_json("dropped_validation.json", schema_invalid)
+    if audit is not None:
+        audit.write_json("validation_summary.json", {
+            "validated_in": len(surviving),
+            "validated_out": len(schema_valid),
+            "invalid": len(schema_invalid),
+            "repaired": repaired_count,
+            "instructor_repair_enabled": instructor_repair_available(),
+        })
+    surviving = schema_valid
 
     inserted = 0
     embed_on = embeddings_enabled()
@@ -226,6 +265,12 @@ def _persist(_input: dict, attrs: dict) -> dict:
             # derived value otherwise.
             new_dim = normalise_dimension(s.get("dimension", "") or "")
             sig_type = s.get("signal_type") or signal_type_for_dimension().get(new_dim)
+
+            # v0.4.24 — VADER sentiment (cheap, no LLM call). Both columns
+            # remain NULL if disabled / analyzer can't load. Default ON.
+            sentiment = score_sentiment(s)
+            sentiment_score, sentiment_label = (sentiment if sentiment else (None, None))
+
             rows.append(
                 SignalRow(
                     run_id=run_id,
@@ -241,6 +286,8 @@ def _persist(_input: dict, attrs: dict) -> dict:
                     content_hash=content_hash,
                     embedding=emb,
                     signal_type=sig_type,
+                    sentiment_score=sentiment_score,
+                    sentiment_label=sentiment_label,
                 )
             )
         inserted = store.insert_signals(rows)

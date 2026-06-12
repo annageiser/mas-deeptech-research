@@ -66,6 +66,22 @@ The v0.4.0 Critic (commit `f8399af`) introduced explicit DROP RULES. Signals pre
 
 Both systems run within 3 hours of each other (System A 02:00 CET, System B 05:00 CET). A breaking quantum news story between 02:00 and 05:00 will be visible to System B but not System A on the same date. Per-actor Jaccard absorbs this naturally (it's symmetric over the union), but raw signal counts are mildly asymmetric.
 
+### 2.6 — System B identity transition (pattern → real CLI) on 2026-06-10
+
+Through v0.4.3, `system='hermes'` rows in `public.signals` came from a *pattern implementation* of the Hermes architecture (single AIAgent loop + SKILL.md + SQLite in pure Python). On 2026-06-10 we replaced that with the upstream NousResearch hermes-agent CLI v0.16.0 driven by a domain-specific skill. Both systems write to the same `system='hermes'` namespace, so existing API/UI/evaluation code did not need changes — but the **signals before and after 2026-06-10 come from different software**.
+
+**Mitigation:** The thesis Chapter 3.5 "real Hermes" empirical window is restricted to `signals.inserted_at >= 2026-06-10`. Earlier rows are retained for historical comparison only and tagged as such in `dimension_legacy` interpretation. Documented in [`docs/iterations/v0.4.4-real-hermes-agent.md`](iterations/v0.4.4-real-hermes-agent.md).
+
+### 2.7 — Search-backend transition within the System B empirical window
+
+System B's web-search backend changed *within* the post-2026-06-10 window:
+- **2026-06-10 to ~2026-06-11**: Firecrawl (paid SaaS; LLM-based page extraction).
+- **From ~2026-06-12 onward**: DuckDuckGo via `ddgs` (free, unlimited; snippet-only — no deep page reads).
+
+Firecrawl gives the agent multi-paragraph page extracts; ddgs gives ~200-character snippets. Signal-quality metrics (especially `evidence_quote` length and inferred `confidence`) may differ between sub-windows. The transition was driven by Firecrawl's free-tier credit exhaustion + a `free-tier only` policy commitment.
+
+**Mitigation:** Per-day signal-density and per-day `mean(confidence)` are reported as time series in the evaluation, with the transition date marked. If the post-transition slope differs significantly from pre-transition, the thesis discusses Firecrawl vs ddgs as a confound. See [`docs/iterations/v0.4.14-...`](iterations/) for the technical change.
+
 **Mitigation:** Reported as a footnote in §3.5.1. The headline metric (Jaccard) is unaffected.
 
 ---
@@ -136,7 +152,7 @@ Two threats stack and deserve their own discussion:
 
 ### 5.1 — The two systems were designed for different *kinds* of tasks
 
-System B (Hermes pattern) is canonically a *long-running personal-assistant* agent. System A (MASFactory) is a *cron-driven batch graph*. Running both on the same batch-cron task may underweight Hermes's design strengths. The comparison is therefore *"how well does each architecture survive being forced into a batch task it wasn't natively designed for"* — not *"which is the better architecture in general."*
+System B (Hermes Agent) is canonically a *long-running personal-assistant* agent. System A (MASFactory) is a *cron-driven batch graph*. Running both on the same batch-cron task may underweight Hermes's design strengths. The comparison is therefore *"how well does each architecture survive being forced into a batch task it wasn't natively designed for"* — not *"which is the better architecture in general."*
 
 **Reported as:** Section 4.1.2 (Comparative Evaluation) opens with this framing. The headline finding is task-conditional.
 

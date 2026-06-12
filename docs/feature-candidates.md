@@ -75,7 +75,7 @@ Updated whenever Anna or the assistant discovers a relevant project during resea
 - **Source:** https://github.com/langchain-ai/langchain
 - **Function:** Broad agent framework with tool / memory / RAG plumbing.
 - **Considered for:** Hermes-style System B before MASFactory was chosen.
-- **Status:** **rejected** in favour of MASFactory (System A) for orchestration and a hand-rolled Hermes-pattern AIAgent (System B). LangChain's abstractions felt too heavy for the comparative-evaluation goal — we wanted the two systems' code to be readable end-to-end for the thesis audit.
+- **Status:** **rejected** in favour of MASFactory (System A) for orchestration and a hand-rolled Hermes Agent AIAgent (System B). LangChain's abstractions felt too heavy for the comparative-evaluation goal — we wanted the two systems' code to be readable end-to-end for the thesis audit.
 
 ### `instructor` (candidate)
 - **Source:** https://github.com/jxnl/instructor

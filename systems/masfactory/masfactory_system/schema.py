@@ -26,14 +26,14 @@ SourceKind = Literal["arxiv", "website", "swissreg", "manual", "news"]
 
 
 # Ehrenthal et al. (2026) four-signal scheme — the top-level taxonomy.
-# v0.4.2 adds a 5th type 'defense_signals' as an extension into the
-# negative-signalling space (silence / ambivalence around defense topics).
+# v0.4.19: defense moved from a 5th signal_type to two boolean flags
+# (defense_engagement, defense_ambivalence) on the Signal row, layered
+# on top of the Ehrenthal four. See docs/iterations/v0.4.19-...
 SignalType = Literal[
     "legitimacy",
     "customer_cocreation",
     "community_ecosystem",
     "future_trajectory",
-    "defense_signals",
 ]
 
 
@@ -71,10 +71,12 @@ SignalDimension = Literal[
     "milestones",
     "technological_advances",
     "long_horizon_claims",
-    # Defense signals (v0.4.2 — thesis-novel 5th signal_type extending
-    # Ehrenthal's positive-signal frame into negative/ambivalent space)
-    "defense_engagement",
-    "defense_ambivalence",
+    # v0.4.19: 'defense_engagement' and 'defense_ambivalence' are no longer
+    # dimension keys. They are two boolean flag fields on the Signal row.
+    # Pre-v0.4.19 rows that still carry them as `dimension` get migrated
+    # to (community_ecosystem, consortium_membership) | (community_ecosystem,
+    # strategic_positioning) by the v0.4.19 SQL migration, with the original
+    # value preserved in `dimension_legacy`.
 ]
 
 
@@ -135,6 +137,11 @@ class ClassifiedSignal(SignalCandidate):
     signal_type: Optional[SignalType] = None
     is_technical: bool
     confidence: float = Field(ge=0.0, le=1.0)
+    # v0.4.19: defense flags overlaid on the Ehrenthal four. Both default
+    # to False; Classifier sets them based on explicit evidence (DARPA /
+    # NATO / ITAR / national-security / classified).
+    defense_engagement: bool = False
+    defense_ambivalence: bool = False
 
 
 class CritiqueDecision(BaseModel):

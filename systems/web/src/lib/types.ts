@@ -34,6 +34,10 @@ export interface Signal {
   is_technical: boolean;
   confidence: number;
   inserted_at: string;
+  // v0.4.24 — VADER compound sentiment. Both fields are null on legacy rows
+  // (anything before the v0.4.24 migration); newer rows always have both.
+  sentiment_score?: number | null;
+  sentiment_label?: "positive" | "neutral" | "negative" | null;
 }
 
 export interface ActorScore {
@@ -165,6 +169,38 @@ export interface CompareResponse {
     status: "both" | "only_a" | "only_b";
   }[];
   agreement_counts: { both: number; only_a: number; only_b: number };
+}
+
+// B.3 — collection-breadth metric (signals/actor/week per source_kind).
+export interface CoverageActor {
+  actor_slug: string;
+  name: string;
+  category?: string | null;
+  category_label?: string | null;
+  total: number;
+  weeks_active: number;
+  source_kinds: number;
+  by_source_kind: Record<string, number>;
+}
+
+export interface CoverageWeek {
+  iso_week: string;
+  total: number;
+  by_source_kind: Record<string, number>;
+}
+
+export interface CoverageResponse {
+  summary: {
+    total_signals: number;
+    actors_with_signals: number;
+    actors_total: number;
+    coverage_pct: number;
+    weeks: number;
+    source_kinds: number;
+  };
+  per_source_kind: { source_kind: string; label: string; count: number; pct: number }[];
+  per_actor: CoverageActor[];
+  weekly: CoverageWeek[];
 }
 
 export interface KnowledgeGraphNode {

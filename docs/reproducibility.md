@@ -1,6 +1,6 @@
 # Hostinger VPS runbook — both systems
 
-Phase 0 ➜ Phase 5 below take a fresh Hostinger Ubuntu VPS to a state where both **System A (MASFactory)** and **System B (Hermes-pattern)** are running on cron and writing to the same Supabase.
+Phase 0 ➜ Phase 5 below take a fresh Hostinger Ubuntu VPS to a state where both **System A (MASFactory)** and **System B (Hermes Agent)** are running on cron and writing to the same Supabase.
 
 > **Estimated time end-to-end:** ~60 minutes. Most of it is the two `docker compose build` steps (~15 min each) and Supabase provisioning (~10 min).
 
@@ -183,6 +183,78 @@ MASF_LIMIT_PATENTS=10  # was 5 (only active if EPO_OPS keys set)
 HRM_LIMIT_ACTORS=40
 HRM_MAX_ITERATIONS=6
 ```
+
+## Hermes web tools (Tavily / alternates)
+
+System B's agent needs an external search-provider API key to actually use `web_search` + `web_extract`. Without one, the tools register but fail their availability check at call-time, the agent ends up with `Tools: 0`, and every actor returns 0 signals.
+
+Upstream tries six backends in priority order. The simplest free-tier setup is **Tavily** (1,000 credits/month, covers both search and extract on one key).
+
+```bash
+# 1. Register: https://app.tavily.com/sign-in → Researcher plan → API Keys → copy tvly-…
+
+# 2. Add to .env on the VPS
+echo "TAVILY_API_KEY=tvly-YOUR-KEY-HERE" >> /opt/mas-deeptech-research/.env
+
+# 3. Recreate the hermes container so the new env var lands
+cd /opt/mas-deeptech-research
+docker compose build hermes      # only needed if image version bumped
+HERMES_LIMIT_ACTORS=3 HERMES_LOOKBACK_DAYS=60 docker compose run --rm hermes
+
+# 4. Verify in a fresh hermes shell
+docker compose run --rm --entrypoint sh hermes -c \
+  'hermes tools list 2>&1 | grep -E "web|✓|✗"'
+# expect: ✓ enabled  web  🔍 Web Search & Scraping  (with no "unavailable" debug lines)
+```
+
+| Backend | Env var | Free tier | Covers |
+| --- | --- | --- | --- |
+| **Tavily** (recommended) | `TAVILY_API_KEY` | 1,000/mo | search + extract |
+| Exa | `EXA_API_KEY` | 1,000/mo | search + extract |
+| Brave (free) | `BRAVE_SEARCH_API_KEY` | 2,000/mo | search only |
+| Firecrawl | `FIRECRAWL_API_KEY` | 500/mo | search + extract |
+| Parallel | `PARALLEL_API_KEY` | paid | search + extract |
+| DuckDuckGo (ddgs) | none — needs `ddgs` Python pkg | unlimited | search only — pkg not in upstream image |
+
+All env vars are wired through `docker-compose.yml`'s `hermes.environment` block; you only need to set the one(s) you have keys for in `.env`.
+
+**Capacity math for cron**: 40 actors × ~6 searches/actor × 4 weekly runs = ~960 searches/month → fits inside Tavily's 1k/mo. Daily cron (~7,200/mo) exceeds every free tier — schedule **weekly** unless you upgrade. The shipped crontab.sample is daily-cron; flip the cron expression to `0 5 * * 1` (Mondays 05:00 Europe/Zurich) for weekly.
+
+## Site auth (basic)
+
+The public site lives behind Caddy basic auth — see [`caddy/Caddyfile`](../caddy/Caddyfile).
+
+The shipped Caddyfile has a clearly-marked **placeholder hash** that must be replaced before the gate is meaningful. Rotate on first deploy:
+
+```bash
+# On the VPS — generate a fresh bcrypt hash
+docker run --rm caddy:2.10-alpine caddy hash-password --plaintext "<your-password>"
+# → prints  $2a$14$...
+
+# Paste the hash into caddy/Caddyfile, replacing the line containing
+# "PLACEHOLDER_HASH_REPLACE_BEFORE_DEPLOY". You can use sed:
+sed -i 's|\$2a\$14\$PLACEHOLDER_HASH_REPLACE_BEFORE_DEPLOY___________________|<paste-real-hash>|' caddy/Caddyfile
+
+# ━━━ CRITICAL: USE RESTART, NOT RELOAD ━━━
+docker compose restart caddy
+sleep 4
+
+# Verify
+curl -I https://mas-deeptech-research.cloud         # expect HTTP/2 401
+curl -I -u "anna:<your-password>" https://mas-deeptech-research.cloud   # expect HTTP/2 200
+```
+
+### Why `restart`, not `reload`?
+
+In a Caddy 2.10-alpine container behind docker-compose, `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile` returns success ("config loaded") but leaves the **running in-memory config untouched**. The Caddyfile parser produces JSON, but Caddy's admin API logs `"config is unchanged"` because it compares to a stale baseline. The result: edits to the Caddyfile silently never take effect via `reload`.
+
+This was discovered after 3+ hours of debugging Caddy's `basicauth` syntax on 2026-06-11. The Caddyfile syntax was correct the whole time. The fix is to use `docker compose restart caddy` after any edit to `caddy/Caddyfile`. Restart re-reads the file from scratch and the new config takes effect immediately.
+
+### Layout notes
+
+By default the auth gates **every** route, including `/api/*`. If you need the API to stay open (e.g. so an external evaluator script can hit it without credentials), move the `basicauth` directive INSIDE the `handle` block you want to gate, not at the site level — and `restart` afterwards.
+
+If you ever see `curl -I https://mas-deeptech-research.cloud` return `200` instead of `401`, the running Caddy has stale config. `docker compose restart caddy` fixes it.
 
 ## Troubleshooting
 

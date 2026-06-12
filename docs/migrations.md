@@ -387,6 +387,156 @@ ssh annageiser@187.127.87.208 'cd /opt/mas-deeptech-research && docker compose r
 
 ---
 
+## 2026-06-11 — v0.4.19: defense as boolean flags + Bug 1 backfill
+
+Anna's design decision: `defense_engagement` and `defense_ambivalence` are **flags layered on top of** an Ehrenthal signal_type, not a fifth signal_type. A defense-related signal is *also* a legitimacy / customer_cocreation / community_ecosystem / future_trajectory signal — the flag just says it has a defense dimension too.
+
+Also bundles **Bug 1 backfill**: rows with NULL `signal_type` (from pre-v0.4.0 data that the v0.4.0 dimension-rewrite map didn't cover) get reclassified to `community_ecosystem` with their original value preserved in `dimension_legacy`.
+
+**Paste this into the Supabase SQL editor and Run:**
+
+```sql
+-- Step 1 — add the two boolean flag columns. Default false; existing rows
+-- start as "not defense-related" and get flagged by step 2.
+alter table public.signals
+    add column if not exists defense_engagement boolean not null default false;
+alter table public.signals
+    add column if not exists defense_ambivalence boolean not null default false;
+
+-- Step 2 — backfill flags from v0.4.2 defense-related dimension values.
+-- v0.4.2 stored defense as signal_type='defense_signals' with
+-- dimension IN ('defense_engagement','defense_ambivalence'). We migrate
+-- those into the new flag columns.
+update public.signals
+   set defense_engagement = true
+ where signal_type = 'defense_signals' and dimension = 'defense_engagement';
+
+update public.signals
+   set defense_ambivalence = true
+ where signal_type = 'defense_signals' and dimension = 'defense_ambivalence';
+
+-- Step 3 — reclassify the now-flagged rows to one of the four Ehrenthal types.
+-- Conservative default: community_ecosystem (defense engagement is most often
+-- a consortium / joint-project signal; ambivalence is a strategic-positioning
+-- statement). The original dimension survives in dimension_legacy.
+update public.signals
+   set dimension_legacy = coalesce(dimension_legacy, dimension),
+       dimension = case
+           when dimension = 'defense_engagement'   then 'consortium_membership'
+           when dimension = 'defense_ambivalence'  then 'strategic_positioning'
+           else dimension
+       end,
+       signal_type = 'community_ecosystem'
+ where signal_type = 'defense_signals';
+
+-- Step 4 — Bug 1 backfill: rows with NULL signal_type get a default
+-- classification + dimension_legacy preserves whatever they had.
+update public.signals
+   set signal_type = 'community_ecosystem',
+       dimension_legacy = coalesce(dimension_legacy, dimension)
+ where signal_type is null;
+
+-- Step 5 — drop old CHECK constraints, add the v0.4.19 four-value-only one.
+alter table public.signals
+    drop constraint if exists signals_signal_type_check;
+alter table public.signals
+    drop constraint if exists signals_signal_type_check_v042;
+alter table public.signals
+    add constraint signals_signal_type_check_v0419
+    check (signal_type in (
+        'legitimacy', 'customer_cocreation',
+        'community_ecosystem', 'future_trajectory'
+    ));
+
+-- Step 6 — partial indexes for fast flag-filtering.
+create index if not exists signals_defense_engagement_idx
+    on public.signals (defense_engagement) where defense_engagement = true;
+create index if not exists signals_defense_ambivalence_idx
+    on public.signals (defense_ambivalence) where defense_ambivalence = true;
+```
+
+**Verify:**
+```sql
+-- expect 0
+select count(*) from public.signals where signal_type = 'defense_signals';
+
+-- expect 0
+select count(*) from public.signals where signal_type is null;
+
+-- the new flags work
+select signal_type, defense_engagement, defense_ambivalence, count(*)
+from public.signals
+group by 1, 2, 3
+order by 4 desc;
+```
+
+After applying on Supabase, rebuild both agents so they pick up the new prompts + persister:
+```bash
+docker compose build masfactory hermes
+```
+
+---
+
+## 2026-06-11 — v0.4.19d: actor-level defense_ambivalence marker (task D.2 / #106)
+
+Per-signal flags say "this signal is defense-flavoured." The actor-level marker says "this actor exhibits the defense-ambivalence pattern as a persistent behaviour" — a different claim. Worth having both.
+
+**Paste this into the Supabase SQL editor and Run:**
+
+```sql
+alter table public.actors
+    add column if not exists defense_ambivalence_marker boolean not null default false;
+
+alter table public.actors
+    add column if not exists defense_ambivalence_marker_notes text;
+```
+
+**Seed for known cases** (edit the slugs to match what's in your `actors` table):
+
+```sql
+-- Example seed — uncomment and run for actors you've confirmed exhibit the pattern.
+-- update public.actors
+--    set defense_ambivalence_marker = true,
+--        defense_ambivalence_marker_notes =
+--          'Anna 2026-06-11: known US defense ties; deliberately opaque about quantum-specific work.'
+--  where slug = 'd-wave';
+```
+
+The marker is hand-edited in the Supabase Table editor going forward. The systems do not auto-set it.
+
+---
+
+## 2026-06-12 — v0.4.24: sentiment columns on `signals` (task C.4 / #117)
+
+Adds two columns so both systems can persist a per-signal sentiment score.
+VADER lexicon (Hutto & Gilbert 2014) computed at persistence time on
+`evidence_quote + summary`. Cross-system parity invariant: both A and B
+use the same thresholds (±0.05) and composition.
+
+```sql
+alter table public.signals add column if not exists sentiment_score real;
+alter table public.signals add column if not exists sentiment_label text;
+create index if not exists signals_sentiment_label_idx
+    on public.signals (sentiment_label);
+```
+
+Verification — both systems should show non-null `scored` after one
+cron tick post-v0.4.24:
+
+```sql
+select system, count(*) total,
+       count(*) filter (where sentiment_label is not null) scored
+from public.signals
+where inserted_at > now() - interval '6 hours'
+group by system;
+```
+
+Pre-v0.4.24 rows remain NULL in both columns. The decision on whether
+to backfill (longitudinal consistency) vs. score-forward only (clean
+methodological cut) is left to the thesis evaluation chapter.
+
+---
+
 ## How to apply
 
 1. Open <https://supabase.com/dashboard> → your project → **SQL editor**

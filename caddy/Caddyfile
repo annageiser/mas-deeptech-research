@@ -3,12 +3,34 @@
 # Automatic HTTPS via Let's Encrypt for the domain below. Caddy obtains and
 # renews the certificate with zero config beyond this file.
 #
-# Routing (new FastAPI + Next.js stack):
+# Routing (FastAPI + Next.js stack):
 #   /api/*  → api  (FastAPI JSON service, container `api-container-f`)
 #   /*      → web  (Next.js frontend,     container `web-container-g`)
+#
+# Authentication (v0.4.4; cause of cascade clarified v0.4.17):
+#   The whole site is behind basic auth. The Caddyfile syntax has ALWAYS
+#   been correct — but `docker compose exec caddy caddy reload` was silently
+#   NOT applying config changes. Every "reload" returned "config is
+#   unchanged" because the running in-memory config was sticky from
+#   container start time.
+#
+#   ★★★ ALWAYS use `docker compose restart caddy` after editing this file ★★★
+#   ★★★ DO NOT use `caddy reload`. It does not apply changes reliably. ★★★
+#
+#   Tested 2026-06-11: after `restart` the curl returns HTTP/2 401 without
+#   creds and HTTP/2 200 with `-u anna:<password>`.
 
 mas-deeptech-research.cloud {
     encode gzip
+
+    basicauth {
+        # username  bcrypt-hash
+        # PLACEHOLDER — generate a real hash on the VPS:
+        #   docker run --rm caddy:2.10-alpine caddy hash-password --plaintext "your-password"
+        # Paste the resulting $2a$14$... string and then:
+        #   docker compose restart caddy
+        anna $2a$14$PLACEHOLDER_HASH_REPLACE_BEFORE_DEPLOY___________________
+    }
 
     handle /api/* {
         reverse_proxy api-container-f:8000

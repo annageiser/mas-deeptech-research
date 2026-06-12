@@ -48,6 +48,10 @@ class SignalRow:
     # if the Classifier didn't emit it directly — so older code paths still
     # produce well-typed rows.
     signal_type: Optional[str] = None
+    # v0.4.24 — VADER compound sentiment (Hutto & Gilbert 2014). Both fields
+    # populated together or both None. Disabled with MASF_SENTIMENT=0.
+    sentiment_score: Optional[float] = None
+    sentiment_label: Optional[str] = None
 
 
 class SupabaseStore:
@@ -142,11 +146,18 @@ class SupabaseStore:
             "confidence": s.confidence,
             "content_hash": s.content_hash,
             "observed_at": s.observed_at.isoformat() if s.observed_at else None,
+            # v0.4.19: defense flags overlaid on the Ehrenthal four.
+            "defense_engagement": bool(getattr(s, "defense_engagement", False)),
+            "defense_ambivalence": bool(getattr(s, "defense_ambivalence", False)),
         }
         if s.embedding is not None:
             row["embedding"] = s.embedding
         if s.signal_type is not None:
             row["signal_type"] = s.signal_type
+        if s.sentiment_score is not None:
+            row["sentiment_score"] = s.sentiment_score
+        if s.sentiment_label is not None:
+            row["sentiment_label"] = s.sentiment_label
         return row
 
     # ---------- signal_flags (Workflow B) ----------

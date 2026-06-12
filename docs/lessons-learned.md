@@ -81,6 +81,50 @@ The `/signals` page client component used `useSearchParams` directly. Next.js 14
 
 Discovered when an empty-choices response came from a paid-tier model too. Defensive coding around LLM API responses (assume any field can be absent; assume any list can be empty) is good practice regardless of provider.
 
+### 2.7 — `caddy reload` returns success but doesn't apply changes
+
+On 2026-06-11, basic-auth setup on the public site burned 3+ hours of debugging that all traced to a single docker-runtime quirk: `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile` returned success and logged "config loaded", but the running in-memory config was untouched. Every edit to `caddy/Caddyfile` looked applied; none of them were. Six iteration docs (v0.4.4 → v0.4.16) chased phantom Caddyfile-syntax bugs that didn't exist.
+
+The diagnostic that finally exposed it was Caddy's admin-API log line `"config is unchanged"` printed on every reload — a benign-looking message that actually means "the parser produced JSON identical to what I already had", which in our case was the empty-auth start-time config. Without that log line surfacing, the parser-vs-runtime divergence is **invisible**.
+
+**Fix:** always use `docker compose restart caddy` after editing `caddy/Caddyfile`. Never use `caddy reload`. Verified with `curl -I` returning 401 immediately after `restart` but 200 after `reload`.
+
+**Generalisable lesson:** when a config-reload mechanism reports success silently, prove it actually applied changes by observing a behavioural difference — not by reading the reload's exit code. In our case the proof would have been `curl -I` returning 401, not `caddy reload` returning 0. Reload-vs-restart semantics in containerised reverse proxies are an unmarked footgun.
+
+### 2.8 — `:free` LLM models still pre-authorise credit holds
+
+Hermes Phase B's first surfaced failure (after v0.4.5's config wiring) was OpenRouter 402: "requested up to 128000 tokens, but can only afford 110819." The model in question was `nvidia/nemotron-nano-9b-v2:free` — supposed to be unconditionally free. But OpenRouter pre-authorises a credit hold equal to `max_tokens × per-token-rate` for every request, even free ones, and a near-empty balance can fail the pre-auth even though no actual charge will land.
+
+The further twist (v0.4.9) was that v0.4.5–v0.4.8's config-side fixes (cap max_tokens, pin auxiliary models to `:free`, etc.) were all silently overwritten on every container start by the upstream's default config — which routed to a *paid* Claude Opus 4.6. We were debugging a free-tier credit-hold issue while actually paying for Claude Opus calls. The credits Anna burned in the early days of Hermes Phase B all went to Opus.
+
+**Generalisable lesson:** "the agent is using model X" is a claim you must verify from inside the running process, not from the config file you edited. Print the active model name at startup; surface it in the stderr the agent emits per call.
+
+### 2.9 — Docker BuildKit's COPY-layer cache can lie
+
+On 2026-06-12, the v0.4.20e deploy hit a layer-cache bug twice. After `git pull` updated `systems/hermes/scripts/backfill_embeddings.py` on disk, `docker compose build hermes` showed `CACHED [6/9] COPY scripts/` — and the container ran the *previous* version of the script. The `--system masfactory` flag the new version added wasn't recognised; argparse erred out. A second `git pull` + identical build had the same result: layer "cached", contents stale.
+
+The exact mechanism is unclear (file-mtime preservation across the pull? BuildKit content-address collision? buildx provenance attestation reusing an old manifest?), but the *behaviour* is reproducible: BuildKit's COPY layer cache occasionally fails to invalidate when the source file changes.
+
+**Fix:** the surgical version is `git checkout origin/<branch> -- <single-file>` to grab the file directly from the latest commit (bypasses any pull/timestamp weirdness), then rebuild. The blunt version is `docker compose build --no-cache <service>` (~3-5 min penalty but guaranteed). For one-shot scripts, the bind-mount workaround (`-v /host/path/to/script.py:/tmp/script.py:ro` on `docker compose run`) bypasses the image entirely.
+
+**Generalisable lesson:** Treat "CACHED [X/N] COPY …" as a *claim*, not a proof. The cheapest verification is running the script with a flag that would fail loudly on a stale image (`grep -- '--new-flag' /opt/swiss-quantum/scripts/foo.py` to verify on disk; then a smoke command that uses the flag to verify in image). If the smoke fails after a green build, suspect the cache before suspecting the code.
+
+### 2.10 — VPS branch-state divergence is invisible at the file level
+
+Same 2026-06-12 deploy. The VPS at `/opt/mas-deeptech-research/` was on `main`; all my work was on `claude/exciting-beaver-11a6e4`. `git pull` fetched the remote-tracking branch and reported "Already up to date." for the local branch (which it was, vs. `origin/main`). The fetch line `claude/exciting-beaver-11a6e4 -> origin/claude/exciting-beaver-11a6e4` mentioned the branch — but ten lines above the "Already up to date." footer, easy to miss when you're skim-reading a deploy log. Result: the file on disk stayed at the wrong version after a green-looking `git pull`.
+
+**Fix:** for VPS deploys that don't want to switch branches, use `git fetch origin && git checkout origin/<feature-branch> -- <paths>` to surgically pull files. For deploys that should track a branch, run `git branch --show-current` as the first command of every deploy script — it's a single shell command that makes the branch state impossible to miss.
+
+**Generalisable lesson:** "I pulled the latest" is only true if both (a) the fetch updated the remote-tracking branch you wanted, AND (b) the local branch you're on tracks that branch AND fast-forwarded to it. Either half can silently break. The diagnostic is `git status -uno` immediately after pull — if it says "Your branch is up to date with 'origin/<branch>'" and `<branch>` isn't the one you expected, you have divergence.
+
+### 2.11 — Adding a key to a framework edge requires emitting it from the upstream node
+
+On 2026-06-12, the v0.4.23 reranker pre-filter shipped with the loopback edge from `accumulate-actor` declaring `dropped_reranker` as a key it carries — but `AccumulateActor`'s forward function never put `dropped_reranker` in its return dict. The mismatch is a build-time-invisible defect: `python -m masfactory_system.runner build-check` constructs the graph without executing it, so the edge's key-presence check (which happens during `node._message_dispatch_out`) never runs. The first actor loop iteration on the first cron tick crashed with `KeyError: "Missing keys ['dropped_reranker']"`. The defect would have been *silent* until the v0.4.25 Phoenix smoke surfaced it 22 hours after merge.
+
+**Fix:** AccumulateActor was patched to `dropped_reranker: list(attrs.get("dropped_reranker") or [])` so the key is always emitted (empty when disabled, populated when MASF_RERANKER=1). The actual architectural fix would be to extend `build-check` so it executes one synthetic iteration per loop body — enough to trip every edge.
+
+**Generalisable lesson:** Static graph validation (does the graph compile?) and dynamic execution validation (do edges receive the keys they declare?) are different checks. A framework that only does the static one will accept partially-wired changes. If your build-check passes but your first cron tick crashes, the build-check is the gap. Either tighten it, or treat every edge-key addition as requiring a hand-run smoke before it lands.
+
 ---
 
 ## 3 — Methodological lessons

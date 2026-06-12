@@ -2,6 +2,18 @@
 
 The thesis follows the **constructive research approach** (Kasanen, Lukka & Siitonen, 1993): build an artefact that addresses a real problem and evaluate how well it does so. This document records the design decisions that turn the disposition's plan into running code.
 
+## Project goal — the design principle
+
+**Specify as little as possible. Get out as much as possible.**
+
+(German original: *"Spezifiziere möglichst wenig, krieg möglichst viel heraus."*)
+
+This is the operative principle behind both multi-agent systems. The Ehrenthal four-signal scheme is given as the classification target; the actor list is given as the input; everything else — which sources to consult, which extraction strategies to apply, which signals to drop as noise, how to compose the per-actor brief — is left to the agents. The thesis evaluates the gap between the two agent architectures along that wide degree of freedom, not the gap between two human-written rule sets that happen to be wearing agent costumes.
+
+This is the explicit version of the constructive-research framing: the artefact's value comes from doing **more research-grade work per unit of human specification** than the baseline (a human analyst with Atlas.ti). The signals an Atlas.ti researcher would manually code are the ones the systems should ideally produce automatically. Where the systems and the human disagree is exactly where the thesis evaluation focuses.
+
+(Public version: live on `/methodology` at the public site.)
+
 > **For the substantive signal-theory grounding** — see the dedicated reference at [`docs/signal-taxonomy.md`](signal-taxonomy.md), which documents the **Ehrenthal et al. (2026) four-signal scheme** (`legitimacy` / `customer_cocreation` / `community_ecosystem` / `future_trajectory`), the 19 sub-dimensions, the two explicit extensions, the v0.3.0→v0.4.0 migration table, and the supporting literature (Suchman 1995, Connelly et al. 2011, Spence 1973, Rieger et al. 2025, Knight & Cavusgil 2004, Hilkamo & Granqvist 2022, Tomesh et al. 2022, Adner 2017, Mohr & Sarin 2009, Kolbe & Burnett 1991, Blomqvist et al. 2008, Song et al. 2025, Robinson & Veresiu 2025).
 >
 > The same content is rendered to the live **Methodology** page at [`https://mas-deeptech-research.cloud/methodology`](https://mas-deeptech-research.cloud/methodology) and the **Signalling theory** page at [`/signalling`](https://mas-deeptech-research.cloud/signalling) — both consume `/api/meta`, which loads [`classification/schema.yaml`](../systems/masfactory/masfactory_system/classification/schema.yaml) verbatim, so the rendered pages and the running agents cite identical sources.
@@ -15,19 +27,44 @@ The thesis follows the **constructive research approach** (Kasanen, Lukka & Siit
 | 1 — Theoretical validation | Derivation of an ideal reference architecture from a systematic literature review. Both candidate implementations are mapped onto this ideal to identify which choices each realises and which it omits. | Tracked in the thesis document; the *gap analysis* will reference specific nodes / loop iterations / skill files in [`docs/architecture.md`](architecture.md). |
 | 2 — Empirical validation | Two parallel artefacts run on the same task on the Swiss-quantum ecosystem; cross-system comparison on classification quality, output quality per token cost, reproducibility. | [`systems/masfactory/`](../systems/masfactory) (orchestration-centric graph) and [`systems/hermes/`](../systems/hermes) (memory + skill-centric loop). Shared evaluation in [`evaluation/`](../evaluation). |
 
-## Why System B is built rather than installed
+## System B: the real NousResearch Hermes Agent
 
-The disposition cites "Hermes Agent (Nous Research, 2025)" as the exemplar of the memory- and skill-centric philosophy. The literal `hermes-agent` CLI from Nous Research **does exist** (open-sourced February 2026, MIT licence, [hermes-agent.nousresearch.com](https://hermes-agent.nousresearch.com)) — but it is built for *interactive personal assistance*: ~3500 source files, chat gateways for Telegram / Discord / Slack / WhatsApp / Signal / Email / CLI, a Playwright browser, a Node.js TUI, MCP server mode, and a setup wizard that walks a human through configuration.
+System B is the **actual NousResearch `hermes-agent` CLI** (v0.16.0, MIT, pinned via git submodule at [`systems/hermes/upstream/`](../systems/hermes/upstream)), driven from cron by a thin wrapper.
 
-For a cron-driven batch task that maps an ecosystem on a regular cadence, that interactive shape is the wrong fit. Three concrete reasons:
+### History (why this section reads differently than v0.4.3)
 
-1. **No clean programmatic entry point.** The Hermes CLI is designed to be driven by chat messages arriving via its gateways. Triggering it from cron would mean simulating an inbound Telegram message — fragile and indirect.
-2. **The dependency surface dwarfs the task.** Installing Hermes inside Container B would mean shipping Node.js, npm, Playwright/Chromium, ripgrep, ffmpeg, and a Debian 13 base, for a system whose actual work is a few hundred LLM tokens and an arXiv call.
-3. **The comparison would no longer be fair.** System A is ~2,000 lines of focused Python. Embedding the full Hermes runtime in System B would make any cross-system cost / latency comparison meaningless: we'd really be comparing MASFactory + Python vs Hermes-the-platform.
+Through v0.4.3 (2026-06-09) this directory held a **pattern implementation** of the Hermes architecture — a single AIAgent loop in pure Python with SQLite memory and `SKILL.md` skill files. The rationale at the time: the real CLI is built for interactive personal assistance (chat gateways, Playwright browser, Node TUI, setup wizard); a cron-driven batch task would have to simulate inbound Telegram messages to trigger it, and the dependency surface (Node, Playwright, ffmpeg, Debian 13) dwarfed the task.
 
-So System B implements the **Hermes pattern** — single long-running AIAgent loop, procedural memory in SQLite, skills as `SKILL.md` files in the agentskills.io format that Hermes uses — without the heavy CLI. The component names in the code (Entry Points, Gateway, AIAgent, Tools Registry, Skills Loader, Memory Manager, Providers, Execution Environments) match the architecture diagram exactly so the thesis-side gap analysis can map them directly.
+The 2026-06-02 supervisor question — "läuft echter Hermes-Agent oder Nachbildung?" — pushed the decision back. Two findings tipped the answer:
 
-This is the constructive-research version of "exemplified by Hermes Agent" rather than "powered by Hermes Agent" — which is precisely the language the disposition uses.
+1. `hermes chat -q "<prompt>"` is documented and works as a non-interactive single-query entry point, so the cron-vs-gateway argument collapses.
+2. The supervisor (and the defence) cares more about answering "yes, the real one" than about a clean dependency footprint.
+
+On 2026-06-10 the pattern code in `systems/hermes/` was deleted; the upstream CLI was installed as a git submodule at `systems/hermes/upstream/`, with a Swiss-quantum collection skill at `systems/hermes/skills/collect-swiss-quantum-signals/SKILL.md` and a cron entrypoint at `systems/hermes/scripts/collect_all_actors.sh`.
+
+### How it now works
+
+| Component | Where |
+| --- | --- |
+| The agent itself | `systems/hermes/upstream/` — NousResearch/hermes-agent@ba44de06 (submodule, MIT) |
+| Methodology | `systems/hermes/skills/collect-swiss-quantum-signals/SKILL.md` — Ehrenthal four-signal scheme + defense extension, strict JSON output contract |
+| Per-cron-run loop | `systems/hermes/scripts/collect_all_actors.sh` — loops actors from `data/raw/actors.yaml`, invokes `hermes chat -q --skills collect-swiss-quantum-signals --toolsets web,skills "<prompt>"` per actor |
+| Persistence | `systems/hermes/scripts/persist_signals.py` — parses agent stdout JSON, validates, upserts to `public.signals` with `system='hermes'`. Zero Python imports from `systems/masfactory/` — comparison-validity invariant preserved. |
+| Memory across runs | `hermes_state` named volume (`/opt/data` in container) |
+
+### Continuity with pattern-era data
+
+Historical signals tagged `system='hermes'` from the pattern-era cron runs remain in Supabase untouched. The new agent writes to the **same** `system='hermes'` namespace, so:
+
+- The `/compare` page still works without code changes
+- The evaluation harness still aggregates "all Hermes-tagged signals"
+- The cross-system comparison gains a step-change at 2026-06-10 in `signals.collected_at`, which makes for an honest before/after methodology slice in the thesis
+
+The boundary date is recorded in [`docs/iterations/v0.4.4-real-hermes-agent.md`](iterations/v0.4.4-real-hermes-agent.md). The thesis Chapter 3.5 will use signals collected on or after 2026-06-10 as the "real Hermes" empirical window.
+
+### Disposition language re-checked
+
+The disposition says System B is "exemplified by Hermes Agent (Nous Research, 2025)." With the upstream CLI now in the repo, the literal reading is satisfied: the agent named in the disposition is the agent we run. The thesis Chapter 2 will note this language alignment.
 
 ## Reproducibility, designed in (not bolted on)
 
@@ -63,7 +100,7 @@ Triweekly supervisor reviews should bring at most two prompt/skill changes betwe
 - **Consensus Critic (Wang et al. 2023)** — `MASF_CRITIC_CONSENSUS_PASSES=3` swaps the single Critic node for 3 independent Critic Agents + a majority-vote CustomNode. Per-pass disagreement recorded for the thesis's inter-pass-agreement analysis.
 - **Multi-agent debate Critic (Du et al. 2023)** — `MASF_CRITIC_DEBATE_ROUNDS=1` (requires consensus) inserts 3 debate Agents + 3 snapshot nodes between the consensus snapshots and the vote. Each debate Agent gets a per-agent prompt labelling it "Critic #N" pointing at its own prior verdict so per-agent identity is preserved across rounds. Vote runs over the post-debate verdicts.
 - **Per-actor Loop in the System A graph** (was a "deliberate omission" in v1; now shipped) — `PrepareCurrentActor` → Extractor → Classifier → Critic → `AccumulateActor` wrapped in a MASFactory Loop, so each actor's documents are processed in isolation. Persistence also drops hallucinated `(actor_slug, source_url)` pairs to `dropped_hallucinations.json`.
-- **Press-release aggregator collector** (third broader-web channel beyond actor websites + Google News). Bing News RSS with a PR-flavoured query (`"<Actor>" quantum (announces OR launches OR partners OR funding OR breakthrough)`). Distinct ranker + source mix from Google News; together they triangulate the press signal channel (Kolbe & Burnett 1991). Lives at [`systems/masfactory/collection/press.py`](../systems/masfactory/masfactory_system/collection/press.py) and mirrored in [`systems/hermes/collectors.py`](../systems/hermes/hermes_system/collectors.py) for comparative-validity equivalence.
+- **Press-release aggregator collector** (third broader-web channel beyond actor websites + Google News). Bing News RSS with a PR-flavoured query (`"<Actor>" quantum (announces OR launches OR partners OR funding OR breakthrough)`). Distinct ranker + source mix from Google News; together they triangulate the press signal channel (Kolbe & Burnett 1991). Lives at [`systems/masfactory/collection/press.py`](../systems/masfactory/masfactory_system/collection/press.py). Pre-2026-06-10 there was a mirror at `systems/hermes/collectors.py` for comparative-validity equivalence; that mirror was retired when System B became the real upstream CLI — the agent now discovers press releases natively via `web_search` per the skill.
 - **Embeddings on `signals.embedding` (pgvector 768d)** — `BAAI/bge-base-en-v1.5` via `fastembed` (ONNX, no torch). Off by default; turn on per-system with `MASF_EMBEDDINGS=1` / `HRM_EMBEDDINGS=1`. Unlocks semantic dedup in the Critic and nearest-neighbour search via the auto-created `signals_embedding_ivfflat_idx`. Both systems use the same model + composition logic so cross-system signals about the same event embed to nearby points (required for cross-system semantic dedup).
 - **Optional consensus Critic (System A)** — `MASF_CRITIC_CONSENSUS_PASSES=3` swaps the single-pass Critic for three independent Critic Agents + a majority-vote CustomNode (self-consistency, Wang et al. 2023). The audit folder records per-pass disagreement so the thesis can report inter-pass agreement rates as a quality proxy. Triples the Critic's LLM cost when enabled (~20-30% to total tokens), so default is off; the evaluation will A/B with both settings to measure the quality lift.
 - **Optional multi-agent debate Critic (System A)** — `MASF_CRITIC_DEBATE_ROUNDS=1` extends the consensus Critic into Du, Li, Torralba, Tenenbaum & Mordatch (2023)'s multi-agent debate: after the three independent passes, three debate Agents each see all three prior verdicts and revise. Each debate agent's prompt labels it as Critic #N and points at its own prior verdict so per-agent identity is preserved across rounds. The vote then runs over the post-debate verdicts. Requires `MASF_CRITIC_CONSENSUS_PASSES=3` as a prerequisite. Doubles consensus Critic cost (6× baseline single-pass).

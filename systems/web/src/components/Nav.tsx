@@ -20,6 +20,7 @@ const GROUPS: { label: string; items: { href: string; icon: string; label: strin
       { href: "/actors", icon: "🔬", label: "Actors" },
       { href: "/compare", icon: "🆚", label: "System A vs B" },
       { href: "/signals", icon: "📊", label: "Signals" },
+      { href: "/coverage", icon: "📡", label: "Coverage" },
     ],
   },
   {

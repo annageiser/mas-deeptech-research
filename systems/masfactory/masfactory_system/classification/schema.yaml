@@ -145,24 +145,45 @@ signal_types:
       Ehrenthal et al. 2026 (future-trajectory signals — 76% roadmaps, 20%
       milestone sequences, 11% technological advances, 4% long-horizon claims).
 
-  # ---- 5th signal_type — extension beyond Ehrenthal's positive-signal frame ----
-  - key: defense_signals
-    label: Defense / national-security signals
+# v0.4.19: defense_signals removed as a signal_type. See the signal_flags
+# block below for the replacement model: defense is two boolean flags
+# overlaid on the Ehrenthal four, not a fifth category.
+
+# ----------------------------------------------------------------------------
+# Signal flags (v0.4.19) — boolean overlays that can be set independently
+# of the signal_type. A defense-related signal is ALSO one of the four
+# Ehrenthal types; the flag just records the defense dimension.
+# ----------------------------------------------------------------------------
+signal_flags:
+  - key: defense_engagement
+    label: Defense engagement
     short_label: Defense
     description: >-
-      Defense + national-security positioning — explicit defense contracts,
-      partnerships with defense ministries, dual-use programmes — and the
-      *absence* signals: visible silence on defense topics, deflections to
-      "national security" when asked, abruptly ended communication threads.
+      Set true when the signal explicitly mentions defense / national-security
+      customer wins, dual-use programmes, NATO / AFCEA mentions, ITAR / EAR
+      relevance, or other explicit defense-sector engagement. Layered ON TOP
+      OF a signal_type: a DARPA contract announcement is ALSO a
+      customer_cocreation signal (signal_type=customer_cocreation,
+      defense_engagement=true); a NATO consortium membership is ALSO a
+      community_ecosystem signal.
     grounding: >-
-      Extension beyond Ehrenthal et al. 2026 (which studies only *positive*
-      vendor communications). The ambivalence sub-category draws on the
-      negative-signalling / strategic-ambiguity literature (Connelly et al.
-      2011 §discontinuance signals; Eisenberg 1984 strategic ambiguity).
-      Concrete reference cases for the coding: D-Wave's defense-adjacent
-      pivot (2024-25 narrative), Anthropic Mythos defense partnership
-      announcements. Quantum is a dual-use technology, so the defense /
-      civilian boundary is itself a signal worth coding.
+      Extension beyond Ehrenthal et al. 2026 (which studies only positive
+      civilian vendor communications). Quantum is a dual-use technology, so
+      the defense / civilian boundary is itself a signal worth coding.
+
+  - key: defense_ambivalence
+    label: Defense ambivalence (info withheld)
+    short_label: Ambivalence
+    description: >-
+      Set true when the signal involves the actor publicly *withholding*
+      information citing "national security" / "classified" / "export
+      controls" / similar, OR explicitly distancing itself from defense uses
+      while accepting defense funding. The withholding itself is the signal.
+    grounding: >-
+      Connelly et al. 2011 §discontinuance signals + Eisenberg 1984
+      strategic ambiguity. Concrete reference cases: D-Wave's
+      defense-adjacent pivot (2024-25 narrative). The thesis treats this
+      as a thesis-novel marker beyond Ehrenthal's positive-signal frame.
 
 # ----------------------------------------------------------------------------
 # Dimensions: each signal is classified into exactly one.
@@ -489,50 +510,9 @@ dimensions:
       pattern across cheaper and costlier signals.
     legacy_dimensions: []
 
-  # ---- Defense signals (new in v0.4.2 — see signal_type defense_signals) ----
-
-  - key: defense_engagement
-    signal_type: defense_signals
-    channel: legitimacy
-    is_technical: false
-    weight: 1.3
-    signal_cost: high
-    observability: high
-    description: >-
-      Explicit defense / national-security engagements — named contracts
-      with defense ministries (DDPS, DARPA, DGA), dual-use technology
-      programmes, security-classified collaborations, export-control
-      certifications tied to defense end-use.
-    grounding: >-
-      Extension beyond Ehrenthal et al. 2026. Explicit defense engagement
-      is a costly + observable signal: typically announced via government
-      procurement portals and rarely fakeable. References: D-Wave's
-      2024-25 pivot toward U.S. defense contracts; Anthropic Mythos as
-      a precedent in adjacent AI for defense.
-    legacy_dimensions: []
-    extension: true
-
-  - key: defense_ambivalence
-    signal_type: defense_signals
-    channel: legitimacy
-    is_technical: false
-    weight: 0.4
-    signal_cost: low
-    observability: medium
-    description: >-
-      Ambivalence markers around defense / national-security topics —
-      visible silence in communications where peers comment publicly,
-      deflections to "national security" or "classified" when asked,
-      abruptly ended communication threads, removal of defense-related
-      content from public archives, refusal to confirm or deny named
-      partnerships. Itself a signal about positioning.
-    grounding: >-
-      Extension beyond Ehrenthal et al. 2026 (which codes only
-      *positive*, *visible* communications). Ambivalence-as-signal is
-      grounded in the negative-signalling literature (Connelly et al.
-      2011 §discontinuance signals; Eisenberg 1984 strategic ambiguity).
-      This is the *thesis-novel* sub-category — it makes a substantive
-      methodological contribution by extending the four-signal frame
-      into the negative space.
-    legacy_dimensions: []
-    extension: true
+  # NOTE — v0.4.19: `defense_engagement` and `defense_ambivalence` are
+  # no longer dimensions. They became boolean signal_flags layered on
+  # top of any of the four Ehrenthal signal_types. See the
+  # `signal_flags:` block earlier in this file for their definitions.
+  # The cost / weight / observability metadata that used to live here
+  # is moot — flags are present/absent, not weighted.

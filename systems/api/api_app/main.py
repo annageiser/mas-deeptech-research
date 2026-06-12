@@ -19,6 +19,7 @@ from . import data_access as da
 from . import labels as L
 from . import reports as R
 from .config import load_settings
+from .coverage import coverage_payload
 from .knowledge_graph import build_graph_json
 from .meta import meta_payload
 from .scoring import actor_impact_table, attach_actor_metadata, ecosystem_summary
@@ -263,6 +264,13 @@ def get_signalling(system: Optional[str] = None, days: int = Query(90, ge=1, le=
             "cheap_talk_ratio", "high_cost", "low_cost", "authority", "signal_count",
         ]]) if not scores.empty else [],
     }
+
+
+@app.get("/api/coverage")
+def get_coverage(system: Optional[str] = None, days: int = Query(90, ge=1, le=365)) -> dict:
+    """B.3 — collection-breadth metric: signals/actor/week per source_kind."""
+    sys = _norm_system(system)
+    return coverage_payload(sys, days)
 
 
 @app.get("/api/actor/{slug}")

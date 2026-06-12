@@ -45,6 +45,7 @@ from .agents import (
     PersistenceNode,
     PlannerNode,
     PrepareCurrentActorNode,
+    RerankerPreFilterNode,
     RetrieverNode,
     actor_loop_done,
     consensus_chain_edges,
@@ -94,6 +95,8 @@ WORKFLOW_ATTRIBUTES: dict[str, object] = {
     "all_critique": [],
     "all_surviving_signals": [],
     "dropped_cross_actor": [],
+    # v0.4.23 — reranker pre-filter drops. Empty when MASF_RERANKER=0.
+    "dropped_reranker": [],
     # ---- after-loop ----
     "surviving_signals_json": "",
     "brief_md": "",
@@ -120,22 +123,37 @@ def _build_critic_chain() -> tuple[list, list]:
     verdicts to debate over. If MASF_CRITIC_DEBATE_ROUNDS is set without
     MASF_CRITIC_CONSENSUS_PASSES=3, the debate flag is silently ignored
     (logged at runner.py via config_snapshot if you need to detect it).
+
+    v0.4.23: a `reranker-prefilter` CustomNode is ALWAYS inserted between
+    `classifier` and whichever node consumes `classified_json` first. When
+    MASF_RERANKER=0 (default) the node is a pure pass-through; when =1 it
+    drops below-threshold candidates before the Critic sees them.
     """
     n_passes = consensus_passes()
     n_debate = debate_rounds() if n_passes > 1 else 0  # see prereq above
 
+    # Common prefix: the rerank pre-filter sits between classifier and the
+    # first critic-side node. Pass-through when disabled.
+    prefix_nodes = [("reranker-prefilter", RerankerPreFilterNode)]
+    prefix_edges = [
+        ("classifier", "reranker-prefilter", {"classified_json": "Classified signals"}),
+    ]
+
     if n_passes <= 1:
         # Mode A
-        nodes = [("critic", CriticNode)]
-        edges = [
-            ("classifier", "critic", {"classified_json": "Classified signals"}),
+        nodes = prefix_nodes + [("critic", CriticNode)]
+        edges = prefix_edges + [
+            ("reranker-prefilter", "critic", {"classified_json": "Re-ranked classified signals"}),
             ("critic", "accumulate-actor", {"critique_json": "Critique decisions"}),
         ]
         return nodes, edges
 
-    # Mode B + maybe Mode C
-    nodes = list(consensus_chain_nodes())
-    edges = list(consensus_chain_edges(from_node="classifier", to_node="accumulate-actor"))
+    # Mode B + maybe Mode C — consensus chain starts at reranker-prefilter
+    # rather than classifier (one hop earlier).
+    nodes = prefix_nodes + list(consensus_chain_nodes())
+    edges = prefix_edges + list(consensus_chain_edges(
+        from_node="reranker-prefilter", to_node="accumulate-actor",
+    ))
 
     if n_debate >= 1:
         # Mode C: insert the debate chain between the last consensus snapshot
@@ -196,6 +214,8 @@ ActorLoopNode = NodeTemplate(
         "all_critique": "Accumulated critique decisions",
         "all_surviving_signals": "Accumulated surviving signals",
         "dropped_cross_actor": "Cross-actor attribution drops",
+        # v0.4.23 — reranker drops accumulated across iterations.
+        "dropped_reranker": "Reranker pre-filter drops",
         # MASFactory's Loop requires a key to be in pull_keys for it to be
         # tracked and pushed back out — even when only the inner accumulator
         # populates it. Default = empty string.
@@ -206,6 +226,7 @@ ActorLoopNode = NodeTemplate(
         "all_critique": "...",
         "all_surviving_signals": "...",
         "dropped_cross_actor": "...",
+        "dropped_reranker": "...",
         "actor_loop_index": "...",
         "surviving_signals_json": "Run-wide surviving signals as JSON (for Analyst)",
     },
@@ -245,6 +266,7 @@ ActorLoopNode = NodeTemplate(
             "all_surviving_signals": "Run-wide surviving signals list",
             "all_critique": "Run-wide critique decisions",
             "dropped_cross_actor": "Cross-actor attribution drops",
+            "dropped_reranker": "Reranker pre-filter drops",
             "actor_loop_index": "Next actor index",
         }),
     ],

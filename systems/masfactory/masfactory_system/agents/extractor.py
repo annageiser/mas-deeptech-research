@@ -30,6 +30,11 @@ from masfactory import Agent, NodeTemplate, ParagraphMessageFormatter, TaggedFie
 
 EXTRACTOR_INSTRUCTIONS = """You are the Extractor in a Swiss-quantum ecosystem-mapping pipeline.
 
+Context: this candidate-identification task is normally performed by human
+researchers reading sources and highlighting passages in qualitative-coding
+software like ATLAS.ti or QualCoder. Your output must be the kind a careful
+human researcher would highlight — verbatim, defensible, attributable.
+
 Given a JSON array of raw documents (each with `actor_slug`, `source_kind`,
 `source_url`, `title`, `text`), produce a JSON array of *signal candidates*.
 

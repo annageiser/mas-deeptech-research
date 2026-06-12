@@ -142,6 +142,9 @@ class SupabaseStore:
             "confidence": s.confidence,
             "content_hash": s.content_hash,
             "observed_at": s.observed_at.isoformat() if s.observed_at else None,
+            # v0.4.19: defense flags overlaid on the Ehrenthal four.
+            "defense_engagement": bool(getattr(s, "defense_engagement", False)),
+            "defense_ambivalence": bool(getattr(s, "defense_ambivalence", False)),
         }
         if s.embedding is not None:
             row["embedding"] = s.embedding

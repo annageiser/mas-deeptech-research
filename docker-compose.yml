@@ -161,8 +161,11 @@ services:
   # because it adds per-call overhead and the thesis evaluation chapter
   # only needs traces for a handful of representative runs.
   #
-  # To turn on for a single cron run:
-  #   docker compose up -d phoenix
+  # Behind a compose PROFILE so `docker compose up -d` skips it. To
+  # start it explicitly:
+  #   docker compose --profile observability up -d phoenix
+  #
+  # Then to capture traces for a single run:
   #   PHOENIX_ENABLED=1 docker compose run --rm masfactory run-once --limit-actors 3
   #
   # UI is on :6006 inside the compose network. NOT routed through Caddy
@@ -175,9 +178,10 @@ services:
   # (matched on a subdomain or sub-path with basicauth) — same pattern
   # as the main site.
   phoenix:
-    image: arizephoenix/phoenix:version-7
+    image: arizephoenix/phoenix:latest
     container_name: mas-phoenix
     restart: unless-stopped
+    profiles: ["observability"]
     environment:
       PHOENIX_WORKING_DIR: /mnt/data
       # Phoenix listens on 6006 (UI + OTLP) by default.

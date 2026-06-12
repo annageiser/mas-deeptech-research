@@ -60,7 +60,10 @@ def _embed_text(text: str) -> list[float] | None:
         _embedding_model = TextEmbedding(model_name=_EMBEDDING_MODEL_NAME)
     try:
         gen = _embedding_model.embed([text.strip()])
-        vec = list(next(gen))
+        # v0.4.20: fastembed returns numpy float32 arrays which httpx's
+        # JSON encoder rejects ("Object of type float32 is not JSON
+        # serializable"). Convert element-wise to native Python float.
+        vec = [float(x) for x in next(gen)]
         return vec if len(vec) == _EMBEDDING_DIM else None
     except Exception as exc:
         print(f"  embed failed: {exc}", file=sys.stderr)

@@ -52,7 +52,12 @@ from threading import Lock
 log = logging.getLogger(__name__)
 
 
-DEFAULT_ENDPOINT = "http://phoenix:6006"
+# Phoenix bundles the UI and the OTLP HTTP collector on the same port (6006).
+# The OTLP receiver lives at /v1/traces; older versions of
+# arize-phoenix-otel's register() auto-append that path, newer versions don't —
+# so we include it in the default and recommend including it in any override.
+# Symptom of forgetting: "Failed to export span batch code: 405".
+DEFAULT_ENDPOINT = "http://phoenix:6006/v1/traces"
 DEFAULT_PROJECT = "masfactory-swiss-quantum"
 
 

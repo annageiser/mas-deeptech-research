@@ -158,6 +158,12 @@ def _accumulate_actor(_input: dict, attrs: dict) -> dict:
         "all_critique": all_critique,
         "all_surviving_signals": all_surviving,
         "dropped_cross_actor": cross_dropped,
+        # v0.4.23: pass through the reranker prefilter's accumulator so the
+        # Loop's outer edge can carry it to Persistence (which writes it to
+        # dropped_reranker.json in the audit folder). The reranker node
+        # already accumulates ACROSS iterations on the attrs side; we just
+        # need to surface it on the edge here. Empty list when MASF_RERANKER=0.
+        "dropped_reranker": list(attrs.get("dropped_reranker") or []),
         "actor_loop_index": int(attrs.get("actor_loop_index") or 0) + 1,
         # Promote latest iteration's surviving signals to the standard key so
         # the Analyst (running outside the loop) can read the run-wide total

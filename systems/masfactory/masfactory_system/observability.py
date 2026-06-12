@@ -115,17 +115,14 @@ def init(run_id: str | None = None) -> bool:
             )
             return False
         try:
-            resource_attributes = {}
-            if run_id:
-                resource_attributes["masfactory.run_id"] = str(run_id)
+            # arize-phoenix-otel's register() signature shifted across
+            # versions. We pass only the two kwargs that are stable across
+            # 0.x → 1.x. run_id is recorded in the audit folder
+            # (phoenix.json) so the Phoenix UI's project-scoped grouping is
+            # all we need at the tracer-provider level.
             register(
                 project_name=project,
                 endpoint=endpoint,
-                # set_global_tracer_provider=True is the default; explicit for
-                # the reader's benefit since we rely on it for the
-                # OpenAIInstrumentor to find a provider.
-                set_global_tracer_provider=True,
-                resource_attributes=resource_attributes or None,
             )
             OpenAIInstrumentor().instrument()
         except Exception as exc:

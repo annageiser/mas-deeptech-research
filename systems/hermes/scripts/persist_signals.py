@@ -41,13 +41,13 @@ from typing import Any
 import httpx
 
 
-# Accepted signal_type values (Ehrenthal four + thesis-novel defense).
+# v0.4.19: signal_type is now the Ehrenthal FOUR only. Defense is two
+# boolean flags layered on top — see docs/migrations.md § v0.4.19.
 VALID_SIGNAL_TYPES = {
     "legitimacy",
     "customer_cocreation",
     "community_ecosystem",
     "future_trajectory",
-    "defense_signals",
 }
 
 
@@ -248,6 +248,10 @@ def _upsert_signals(
             "confidence": float(s.get("confidence", 0.5)),
             "observed_at": s.get("published_at"),
             "content_hash": _content_hash(actor_slug, s),
+            # v0.4.19: defense overlays on the Ehrenthal four. Both default
+            # to false; the agent only sets them true when evidence is explicit.
+            "defense_engagement": bool(s.get("defense_engagement", False)),
+            "defense_ambivalence": bool(s.get("defense_ambivalence", False)),
         })
     if not rows:
         return 0

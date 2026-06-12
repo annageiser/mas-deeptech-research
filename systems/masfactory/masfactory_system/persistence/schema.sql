@@ -147,6 +147,9 @@ end $$;
 -- value set so re-runs are no-ops once migrated.
 alter table public.signals add column if not exists signal_type      text;
 alter table public.signals add column if not exists dimension_legacy text;
+-- v0.4.19: defense as boolean flags overlaid on the Ehrenthal four
+alter table public.signals add column if not exists defense_engagement  boolean not null default false;
+alter table public.signals add column if not exists defense_ambivalence boolean not null default false;
 
 -- Preserve the original value before we rewrite `dimension`. Only fills
 -- rows that haven't been preserved yet so re-runs don't clobber.

@@ -49,13 +49,16 @@ def normalise_dimension(key: str) -> str:
 # Top-level signal types (Ehrenthal four-signal scheme)
 # ---------------------------------------------------------------------------
 
+# v0.4.19: defense_signals is no longer a signal_type — it's two boolean
+# flags (defense_engagement + defense_ambivalence) overlaid on the
+# Ehrenthal four. See docs/migrations.md § v0.4.19. defense_signals is
+# kept in the LEGACY map below so pre-migration rows still render with
+# a clear label until the SQL backfill is applied.
 SIGNAL_TYPE_LABEL = {
     "legitimacy":          "Legitimacy signals",
     "customer_cocreation": "Customer co-creation signals",
     "community_ecosystem": "Community-ecosystem signals",
     "future_trajectory":   "Future-trajectory signals",
-    # v0.4.2 — thesis-novel 5th type extending Ehrenthal's positive frame
-    "defense_signals":     "Defense / national-security signals",
 }
 
 SIGNAL_TYPE_SHORT = {
@@ -63,7 +66,20 @@ SIGNAL_TYPE_SHORT = {
     "customer_cocreation": "Customer co-creation",
     "community_ecosystem": "Community / ecosystem",
     "future_trajectory":   "Future trajectory",
-    "defense_signals":     "Defense",
+}
+
+# Pre-v0.4.19 values that may still exist in old rows. Bug 3 fix: the
+# label resolver falls back to this map, then a generic "(legacy: <key>)"
+# message — so a row never renders without a label.
+LEGACY_SIGNAL_TYPE_LABEL = {
+    "defense_signals":     "Defense / national-security (pre-v0.4.19)",
+}
+
+# v0.4.19 boolean-flag labels. Used by the UI to render badges on top of
+# the signal_type pill.
+SIGNAL_FLAG_LABEL = {
+    "defense_engagement":  "Defense engagement",
+    "defense_ambivalence": "Defense ambivalence (info withheld)",
 }
 
 SIGNAL_TYPE_DESCRIPTION = {
@@ -87,7 +103,17 @@ SIGNAL_TYPE_COLOR = {
     "customer_cocreation": "#2ca02c",   # green
     "community_ecosystem": "#9467bd",   # purple
     "future_trajectory":   "#ff7f0e",   # orange
-    "defense_signals":     "#8c564b",   # brown (signals the gravity / distinctness)
+}
+
+# v0.4.19 flag colours — used as badge backgrounds in the UI.
+SIGNAL_FLAG_COLOR = {
+    "defense_engagement":  "#8c564b",   # brown (gravity)
+    "defense_ambivalence": "#7f7f7f",   # grey  (withheld)
+}
+
+# Legacy colour fallback so pre-migration rows still render distinguishably.
+LEGACY_SIGNAL_TYPE_COLOR = {
+    "defense_signals":     "#8c564b",   # brown — same as defense_engagement now
 }
 
 
@@ -282,7 +308,35 @@ def signal_type_for(dimension_key: str) -> str:
 
 
 def signal_type_label(key: str) -> str:
-    return SIGNAL_TYPE_LABEL.get(key, key.replace("_", " ").title())
+    """v0.4.19 (Bug 3 fix): resolve a label for any signal_type value.
+
+    Resolution order:
+      1. Current v0.4.19 4-value map
+      2. Legacy pre-v0.4.19 map (defense_signals etc.)
+      3. Title-cased fallback with a "(legacy)" annotation so it's
+         visibly different from a current label.
+    """
+    if not key:
+        return "(legacy: unknown)"
+    if key in SIGNAL_TYPE_LABEL:
+        return SIGNAL_TYPE_LABEL[key]
+    if key in LEGACY_SIGNAL_TYPE_LABEL:
+        return LEGACY_SIGNAL_TYPE_LABEL[key]
+    return f"(legacy: {key.replace('_', ' ')})"
+
+
+def signal_type_color(key: str) -> str:
+    """Same fallback strategy for colour — grey if unknown."""
+    return (
+        SIGNAL_TYPE_COLOR.get(key)
+        or LEGACY_SIGNAL_TYPE_COLOR.get(key)
+        or "#999999"   # grey for legacy
+    )
+
+
+def signal_flag_label(key: str) -> str:
+    """Label for a boolean flag (defense_engagement etc.)."""
+    return SIGNAL_FLAG_LABEL.get(key, key.replace("_", " ").title())
 
 
 # ---------------------------------------------------------------------------

@@ -58,9 +58,10 @@ interpret as evidence about the actor's quantum capability, intent, or
 trajectory. If you only have a search snippet (no full page text), copy
 the snippet verbatim into `evidence_quote`.
 
-## Classification — Ehrenthal four-signal scheme
+## Classification — Ehrenthal four-signal scheme + defense flags (v0.4.19)
 
-Every accepted signal MUST carry one of these `signal_type` values:
+Every accepted signal MUST carry exactly one of these FOUR `signal_type`
+values (the Ehrenthal et al. 2026 scheme):
 
 - **`legitimacy`** — credentials, certifications, accreditation,
   third-party validation, leadership credentials, regulatory approval,
@@ -75,17 +76,27 @@ Every accepted signal MUST carry one of these `signal_type` values:
   events that change the funding runway, hires that signal strategic
   direction, M&A, new lab/site openings.
 
-A **fifth** `signal_type` is allowed only for defense-adjacent actors:
+In addition to the signal_type, each signal carries TWO boolean flags
+that can be set INDEPENDENTLY of the signal_type. A defense-related
+signal is ALSO one of the four above — the flag layers on top.
 
-- **`defense_signals`** — defense-engagement (defense customer wins,
-  dual-use programs, NATO/AFCEA mentions) AND
-  defense-ambivalence (public statements distancing from defense uses
-  while accepting defense funding — a thesis-novel marker grounded
-  in Connelly et al. 2011 + Eisenberg 1984 strategic ambiguity).
+- **`defense_engagement: true`** — the signal involves a defense
+  customer, dual-use program, NATO/AFCEA mention, ITAR/EAR-relevant
+  technology, or other explicit defense-sector engagement. *Examples
+  that should be flagged*: announcement of a DARPA contract (also
+  `customer_cocreation`); joining a NATO quantum consortium (also
+  `community_ecosystem`).
+- **`defense_ambivalence: true`** — the signal involves the actor
+  publicly **withholding** information citing "national security",
+  "classified", "export controls", or similar; OR explicitly distancing
+  itself from defense uses while accepting defense funding. Grounded
+  in Connelly et al. 2011 + Eisenberg 1984 strategic ambiguity.
+
+Default both flags to `false`. Only set `true` when evidence is explicit.
 
 Each signal also carries a `dimension` (free-text sub-category, e.g.
 `funding_event`, `leadership_appointment`, `publication`, `pilot_announcement`,
-`certification`).
+`certification`, `consortium_membership`, `strategic_positioning`).
 
 ## Output contract — STRICT
 
@@ -104,9 +115,11 @@ explanation before, no chatter after. The block must parse with
       "evidence_quote": "verbatim quote from the source — ≤500 chars",
       "source_url": "the actual URL you read",
       "source_name": "publication or domain",
-      "signal_type": "legitimacy | customer_cocreation | community_ecosystem | future_trajectory | defense_signals",
+      "signal_type": "legitimacy | customer_cocreation | community_ecosystem | future_trajectory",
       "dimension": "free-text sub-category",
       "stakeholder": "investor | customer | partner | talent | regulator | general_public",
+      "defense_engagement": false,
+      "defense_ambivalence": false,
       "published_at": "ISO-8601 date or null if unknown",
       "confidence": 0.0 - 1.0
     }
@@ -130,8 +143,10 @@ If you find no signals after honest effort, return:
    authoritative source.
 5. **Confidence ≥ 0.5**: if you cannot defend `confidence ≥ 0.5` from the
    evidence, drop the signal.
-6. **No defense_signals for non-defense actors**: only use it when the
-   evidence directly involves military / defense / dual-use context.
+6. **Defense flags only when explicit**: only set `defense_engagement=true`
+   or `defense_ambivalence=true` when the evidence directly mentions
+   military / defense / dual-use / national-security / classified /
+   export-control context. Don't infer from speculation.
 
 ## Time budget
 

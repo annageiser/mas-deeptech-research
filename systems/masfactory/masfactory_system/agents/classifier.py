@@ -34,10 +34,14 @@ produce — defensible against a second human coder reviewing your call.
 
 You receive a JSON array of signal *candidates*. For each candidate you must
 assign:
-- `signal_type`: one of {{legitimacy, customer_cocreation, community_ecosystem, future_trajectory, defense_signals}} (Ehrenthal et al. 2026 four-signal scheme, plus the v0.4.2 defense_signals extension for the dual-use quantum domain).
+- `signal_type`: one of {{legitimacy, customer_cocreation, community_ecosystem, future_trajectory}} (Ehrenthal et al. 2026 four-signal scheme).
 - `dimension`: one of the sub-category keys under that signal_type (taxonomy below).
 - `is_technical`: whether that dimension is a technical signal (taxonomy below).
 - `confidence`: float in [0, 1] for your label confidence.
+- `defense_engagement` (boolean, default false): set true if the evidence explicitly mentions military / defense / dual-use / DARPA / NATO / ITAR / EAR / national-security customer.
+- `defense_ambivalence` (boolean, default false): set true if the evidence shows the actor publicly withholding information citing "national security" or "classified", or distancing from defense uses while accepting defense funding (Eisenberg 1984 strategic ambiguity).
+
+The two defense flags layer ON TOP OF the four signal_types — a defense announcement is still ALSO one of legitimacy / customer_cocreation / community_ecosystem / future_trajectory.
 
 CRITICAL: PRESERVE every input field unchanged in your output — `actor_slug`,
 `source_kind`, `source_url`, `title`, `summary`, `evidence_quote` MUST be

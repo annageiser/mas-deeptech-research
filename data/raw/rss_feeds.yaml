@@ -16,9 +16,14 @@
 # scrape, so a new feed appears in the next cron tick.
 
 industry:
+  # The Quantum Insider is the canonical serious-industry-blog source.
+  # Reviewed 2026-06-11: daily cadence, named editors, accurate factual
+  # reporting. Anna verified the source for thesis use. v0.4.19 also
+  # enables the Hermes `blogwatcher` skill so the agent picks this feed
+  # up via the upstream's RSS tooling, not just MASFactory's rss.py.
   - name: "The Quantum Insider — Daily"
     url: "https://thequantuminsider.com/feed/"
-    tags: [news, daily, industry]
+    tags: [news, daily, industry, vetted-by-anna]
 
   - name: "Phys.org — Quantum Physics"
     url: "https://phys.org/rss-feed/physics-news/quantum-physics/"

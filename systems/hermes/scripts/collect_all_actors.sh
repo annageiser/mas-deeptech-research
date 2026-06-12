@@ -170,11 +170,18 @@ EOF
     # FREE-ONLY POLICY (v0.4.8): every model slug in this codebase ends
     # in `:free`. If you need a different model, override via $HERMES_MODEL.
     MODEL="${HERMES_MODEL:-nvidia/nemotron-3-super-120b-a12b:free}"
-    # --skills loads our methodology skill AND the bundled `arxiv` skill
-    # so the agent can use the upstream's structured arXiv API tool for
-    # publications instead of relying on noisy web_search results.
+    # v0.4.19: skill set widened. Beyond our methodology skill + arxiv,
+    # we also load `blogwatcher` (RSS monitoring), `company-research`
+    # (structured per-company dossier), and `scrapling` (page extraction
+    # fallback when ddgs snippets aren't enough). All are bundled in the
+    # upstream image (75 skills total — see Hermes Doctor at first boot).
+    #
+    # `research-paper-writing` and `searxng-search` are documented in
+    # the backlog but not loaded here — research-paper-writing fits the
+    # thesis-writing workflow more than per-actor cron; searxng-search
+    # needs a self-hosted SearXNG instance we don't run.
     if timeout 600 hermes chat \
-            --skills collect-swiss-quantum-signals,arxiv \
+            --skills collect-swiss-quantum-signals,arxiv,blogwatcher,company-research,scrapling \
             --toolsets web,skills \
             --model "${MODEL}" \
             --provider openrouter \

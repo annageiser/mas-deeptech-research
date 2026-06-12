@@ -2,6 +2,18 @@
 
 The thesis follows the **constructive research approach** (Kasanen, Lukka & Siitonen, 1993): build an artefact that addresses a real problem and evaluate how well it does so. This document records the design decisions that turn the disposition's plan into running code.
 
+## Project goal — the design principle
+
+**Specify as little as possible. Get out as much as possible.**
+
+(German original: *"Spezifiziere möglichst wenig, krieg möglichst viel heraus."*)
+
+This is the operative principle behind both multi-agent systems. The Ehrenthal four-signal scheme is given as the classification target; the actor list is given as the input; everything else — which sources to consult, which extraction strategies to apply, which signals to drop as noise, how to compose the per-actor brief — is left to the agents. The thesis evaluates the gap between the two agent architectures along that wide degree of freedom, not the gap between two human-written rule sets that happen to be wearing agent costumes.
+
+This is the explicit version of the constructive-research framing: the artefact's value comes from doing **more research-grade work per unit of human specification** than the baseline (a human analyst with Atlas.ti). The signals an Atlas.ti researcher would manually code are the ones the systems should ideally produce automatically. Where the systems and the human disagree is exactly where the thesis evaluation focuses.
+
+(Public version: live on `/methodology` at the public site.)
+
 > **For the substantive signal-theory grounding** — see the dedicated reference at [`docs/signal-taxonomy.md`](signal-taxonomy.md), which documents the **Ehrenthal et al. (2026) four-signal scheme** (`legitimacy` / `customer_cocreation` / `community_ecosystem` / `future_trajectory`), the 19 sub-dimensions, the two explicit extensions, the v0.3.0→v0.4.0 migration table, and the supporting literature (Suchman 1995, Connelly et al. 2011, Spence 1973, Rieger et al. 2025, Knight & Cavusgil 2004, Hilkamo & Granqvist 2022, Tomesh et al. 2022, Adner 2017, Mohr & Sarin 2009, Kolbe & Burnett 1991, Blomqvist et al. 2008, Song et al. 2025, Robinson & Veresiu 2025).
 >
 > The same content is rendered to the live **Methodology** page at [`https://mas-deeptech-research.cloud/methodology`](https://mas-deeptech-research.cloud/methodology) and the **Signalling theory** page at [`/signalling`](https://mas-deeptech-research.cloud/signalling) — both consume `/api/meta`, which loads [`classification/schema.yaml`](../systems/masfactory/masfactory_system/classification/schema.yaml) verbatim, so the rendered pages and the running agents cite identical sources.

@@ -259,7 +259,9 @@ def test_graph_builds_in_consensus_mode(monkeypatch: pytest.MonkeyPatch) -> None
     assert loop_node_template is not None
     # NodeTemplate stores kwargs in a private dict; the public way is to
     # check the rebuilt _critic_nodes module-level variable.
-    assert len(graph_mod._critic_nodes) == 7  # 3 passes + 3 snapshots + 1 vote
+    # v0.4.23 reranker-prefilter is always inserted (pass-through when off),
+    # so the chain is 1 + 3 passes + 3 snapshots + 1 vote = 8.
+    assert len(graph_mod._critic_nodes) == 8
 
 
 def test_graph_builds_in_single_pass_mode_by_default(
@@ -272,4 +274,5 @@ def test_graph_builds_in_single_pass_mode_by_default(
     monkeypatch.delenv("MASF_CRITIC_CONSENSUS_PASSES", raising=False)
     sys.modules.pop("masfactory_system.graph", None)
     graph_mod = importlib.import_module("masfactory_system.graph")
-    assert len(graph_mod._critic_nodes) == 1
+    # v0.4.23: 1 reranker-prefilter + 1 critic = 2.
+    assert len(graph_mod._critic_nodes) == 2

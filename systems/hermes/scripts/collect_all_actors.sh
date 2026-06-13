@@ -208,12 +208,19 @@ EOF
 done < "${ACTOR_LIST}"
 
 # ── close the run row ────────────────────────────────────────────────────
+# v0.4.26a: error message points at the per-actor *.stderr.txt files
+# instead of persist.log. persist.log is only written when at least one
+# actor's agent call succeeded enough to invoke the persister; when ALL
+# actors fail at the `hermes chat` step, persist.log never exists and the
+# old message ("see .../persist.log") sent operators looking at a file
+# that's not there. The .stderr.txt files are always present (created by
+# shell redirection at line ~190) so they're the right thing to point at.
 if [ "${FAIL}" -eq 0 ]; then
     STATUS=ok
     ERR_MSG=""
 else
     STATUS=error
-    ERR_MSG="${FAIL} of ${N} actors failed (see ${LOGDIR}/persist.log)"
+    ERR_MSG="${FAIL} of ${N} actors failed (see ${LOGDIR}/*.stderr.txt for per-actor diagnostics)"
 fi
 python3 "${PERSIST}" --close-run --run-id "${RUN_ID}" --status "${STATUS}" \
     ${ERR_MSG:+--error-message "${ERR_MSG}"} >/dev/null

@@ -29,8 +29,9 @@ jobs:
         include:
           - system: masfactory
             path: systems/masfactory
-          - system: hermes
-            path: systems/hermes
+          # hermes is a docker wrapper around upstream NousResearch hermes-agent,
+          # not a Python package — no pyproject.toml, no `pip install .` target.
+          # Hermes-side coverage lives in the Docker build-check job below.
           - system: reports
             path: systems/reports
           - system: api

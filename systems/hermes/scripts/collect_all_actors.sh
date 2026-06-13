@@ -170,18 +170,22 @@ EOF
     # FREE-ONLY POLICY (v0.4.8): every model slug in this codebase ends
     # in `:free`. If you need a different model, override via $HERMES_MODEL.
     MODEL="${HERMES_MODEL:-nvidia/nemotron-3-super-120b-a12b:free}"
-    # v0.4.19: skill set widened. Beyond our methodology skill + arxiv,
-    # we also load `blogwatcher` (RSS monitoring), `company-research`
-    # (structured per-company dossier), and `scrapling` (page extraction
-    # fallback when ddgs snippets aren't enough). All are bundled in the
-    # upstream image (75 skills total — see Hermes Doctor at first boot).
-    #
-    # `research-paper-writing` and `searxng-search` are documented in
-    # the backlog but not loaded here — research-paper-writing fits the
-    # thesis-writing workflow more than per-actor cron; searxng-search
-    # needs a self-hosted SearXNG instance we don't run.
+    # v0.4.26b: skill list pared back to those bundled in
+    # nousresearch/hermes-agent:v2026.6.5 (the official image v0.4.20
+    # switched to). `company-research` and `scrapling` were listed in
+    # the v0.4.19 widening (task #122) but the official image rejects
+    # them with `Error: Unknown skill(s): company-research, scrapling`,
+    # which 100%-failed every cron tick starting 2026-06-12. The
+    # currently-known-good set:
+    #   - collect-swiss-quantum-signals: our methodology skill
+    #   - arxiv: bundled, paper search
+    #   - blogwatcher: bundled, RSS monitoring
+    # To re-add scrapling-style page extraction or per-company dossier
+    # building, first run `docker compose run --rm hermes hermes doctor`
+    # against this image to enumerate available skills, then update this
+    # list with the verified names.
     if timeout 600 hermes chat \
-            --skills collect-swiss-quantum-signals,arxiv,blogwatcher,company-research,scrapling \
+            --skills collect-swiss-quantum-signals,arxiv,blogwatcher \
             --toolsets web,skills \
             --model "${MODEL}" \
             --provider openrouter \
@@ -208,12 +212,19 @@ EOF
 done < "${ACTOR_LIST}"
 
 # ── close the run row ────────────────────────────────────────────────────
+# v0.4.26a: error message points at the per-actor *.stderr.txt files
+# instead of persist.log. persist.log is only written when at least one
+# actor's agent call succeeded enough to invoke the persister; when ALL
+# actors fail at the `hermes chat` step, persist.log never exists and the
+# old message ("see .../persist.log") sent operators looking at a file
+# that's not there. The .stderr.txt files are always present (created by
+# shell redirection at line ~190) so they're the right thing to point at.
 if [ "${FAIL}" -eq 0 ]; then
     STATUS=ok
     ERR_MSG=""
 else
     STATUS=error
-    ERR_MSG="${FAIL} of ${N} actors failed (see ${LOGDIR}/persist.log)"
+    ERR_MSG="${FAIL} of ${N} actors failed (see ${LOGDIR}/*.stderr.txt for per-actor diagnostics)"
 fi
 python3 "${PERSIST}" --close-run --run-id "${RUN_ID}" --status "${STATUS}" \
     ${ERR_MSG:+--error-message "${ERR_MSG}"} >/dev/null

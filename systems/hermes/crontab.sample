@@ -24,5 +24,12 @@ CRON_TZ=Europe/Zurich
 # and the run fails before the agent starts). The `2>/dev/null || true`
 # guards make this a no-op when nothing stale exists.
 
+# v0.4.26 (Bug 2 / #119): the scrape→report chain uses `;` (not `&&`)
+# for the report step. Across Hermes Phase B (2026-06-10 → -11) every
+# scrape errored at least once and the `&&` swallowed every daily
+# report along with it — gaps on /reports for those days. With `;`,
+# the report fires regardless and summarises whatever made it into
+# Supabase ("0 new signals — scrape errored: …").
+
 # m h dom mon dow user  command
-0 5 * * *   root   cd /opt/mas-deeptech-research && (docker rm -f $(docker ps -aq --filter "name=mas-deeptech-research-hermes-run-") 2>/dev/null || true) && /usr/bin/docker compose run --rm hermes >> /var/log/hermes.log 2>&1 && /usr/bin/docker compose run --rm reports daily --system hermes >> /var/log/reports.log 2>&1
+0 5 * * *   root   cd /opt/mas-deeptech-research && (docker rm -f $(docker ps -aq --filter "name=mas-deeptech-research-hermes-run-") 2>/dev/null || true) && /usr/bin/docker compose run --rm hermes >> /var/log/hermes.log 2>&1 ; /usr/bin/docker compose run --rm reports daily --system hermes >> /var/log/reports.log 2>&1

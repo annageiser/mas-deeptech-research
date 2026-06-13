@@ -106,14 +106,18 @@ def test_debate_chain_edges_does_not_include_vote_bridge() -> None:
 
 # ---------- graph-level integration: all three modes build ----------
 
+# v0.4.23 bumped every chain by 1 because the reranker-prefilter
+# CustomNode is ALWAYS inserted between classifier and the critic
+# (pass-through when MASF_RERANKER=0). Counts here are
+# baseline-critic-nodes + 1.
 @pytest.mark.parametrize("consensus,debate,expected_critic_nodes,mode_label", [
-    (None, None, 1, "Mode A (single-pass)"),
-    ("3", None, 7, "Mode B (consensus only)"),  # 3 passes + 3 snapshots + 1 vote
-    ("3", "1", 13, "Mode C (consensus + debate)"),  # 7 + 6 debate
+    (None, None, 2, "Mode A (single-pass)"),
+    ("3", None, 8, "Mode B (consensus only)"),  # 1 reranker + 3 passes + 3 snapshots + 1 vote
+    ("3", "1", 14, "Mode C (consensus + debate)"),  # 8 + 6 debate
     # Debate without consensus → silently ignored (Mode A)
-    (None, "1", 1, "debate-without-consensus collapses to Mode A"),
+    (None, "1", 2, "debate-without-consensus collapses to Mode A"),
     # Consensus + debate=0 → Mode B
-    ("3", "0", 7, "explicit debate=0 stays Mode B"),
+    ("3", "0", 8, "explicit debate=0 stays Mode B"),
 ])
 def test_graph_builds_in_all_modes(
     monkeypatch: pytest.MonkeyPatch,

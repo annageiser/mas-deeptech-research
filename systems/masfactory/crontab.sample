@@ -6,8 +6,11 @@
 #   sudo systemctl restart cron
 #
 # Daily at 02:00 UTC: scrape all actors (MASF_LIMIT_ACTORS controls how
-# many), then write the daily report. Chained with `&&` so the report only
-# fires if the scrape didn't error.
+# many), then write the daily report. v0.4.26 (Bug 2 / #119) — the report
+# step uses `;` not `&&` so a scrape failure does NOT swallow the daily
+# report. Even when the scrape errored, the report fires + summarises
+# whatever made it into Supabase (often "0 new signals — scrape errored")
+# so the /reports page has an entry for every day rather than gaps.
 #
 # Environment variables (OPENROUTER_API_KEY, SUPABASE_URL, ...) are read
 # from the .env file referenced by docker-compose.yml — they are NOT
@@ -19,4 +22,4 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 CRON_TZ=Europe/Zurich
 
 # m h dom mon dow user  command
-0 2 * * *   root   cd /opt/mas-deeptech-research && /usr/bin/docker compose run --rm masfactory run-once >> /var/log/masfactory.log 2>&1 && /usr/bin/docker compose run --rm reports daily --system masfactory >> /var/log/reports.log 2>&1
+0 2 * * *   root   cd /opt/mas-deeptech-research && /usr/bin/docker compose run --rm masfactory run-once >> /var/log/masfactory.log 2>&1 ; /usr/bin/docker compose run --rm reports daily --system masfactory >> /var/log/reports.log 2>&1

@@ -45,7 +45,14 @@ class SupabaseReader:
             return []
         return (
             self._client.table("signals")
-            .select("run_id,actor_slug,source_kind,source_url,title,summary,evidence_quote,dimension,is_technical,confidence,inserted_at")
+            .select(
+                # v0.4.27 — added the v0.4.0 (signal_type) and v0.4.19 (defense
+                # flags) and v0.4.24 (sentiment) columns the report now uses.
+                "run_id,actor_slug,source_kind,source_url,title,summary,"
+                "evidence_quote,dimension,signal_type,is_technical,confidence,"
+                "inserted_at,stakeholder,defense_engagement,defense_ambivalence,"
+                "sentiment_score,sentiment_label"
+            )
             .in_("run_id", run_ids)
             .order("inserted_at", desc=False)
             .execute()
@@ -127,6 +134,24 @@ def _summarise(runs: list[dict], signals: list[dict], tokens: list[dict], actors
     tech_counter = Counter(("technical" if s["is_technical"] else "non-technical") for s in signals)
     actor_signal_counts = {slug: len(items) for slug, items in by_actor.items()}
 
+    # v0.4.27 — the four-Ehrenthal axis (signal_type), sentiment label,
+    # defense flags, source_kind distribution, and stakeholder lens.
+    # All NULL-safe: rows from pre-v0.4.0 may not have signal_type,
+    # pre-v0.4.24 rows have no sentiment, etc.
+    sig_type_counter = Counter(s.get("signal_type") or "unknown" for s in signals)
+    sentiment_counter = Counter(s.get("sentiment_label") or "n/a" for s in signals)
+    source_counter = Counter(s.get("source_kind") or "unknown" for s in signals)
+    stakeholder_counter = Counter(s.get("stakeholder") or "n/a" for s in signals)
+    defense_engagement = sum(1 for s in signals if s.get("defense_engagement"))
+    defense_ambivalence = sum(1 for s in signals if s.get("defense_ambivalence"))
+
+    # Actors with zero signals in this window — the coverage gap.
+    actors_with_signals_set = set(by_actor.keys())
+    actors_no_signals = [
+        slug for slug in actors_by_slug.keys()
+        if slug not in actors_with_signals_set
+    ]
+
     token_total_in = sum(int(t.get("input_tokens") or 0) for t in tokens)
     token_total_out = sum(int(t.get("output_tokens") or 0) for t in tokens)
     token_total_calls = sum(int(t.get("calls") or 0) for t in tokens)
@@ -137,9 +162,18 @@ def _summarise(runs: list[dict], signals: list[dict], tokens: list[dict], actors
         "run_error": sum(1 for r in runs if r.get("status") == "error"),
         "signal_count": len(signals),
         "by_dimension": dict(dim_counter),
+        "by_signal_type": dict(sig_type_counter),
+        "by_sentiment": dict(sentiment_counter),
+        "by_source_kind": dict(source_counter),
+        "by_stakeholder": dict(stakeholder_counter),
         "by_technical": dict(tech_counter),
+        "defense_engagement_count": defense_engagement,
+        "defense_ambivalence_count": defense_ambivalence,
         "actors_with_signals": len(by_actor),
         "actors_total": len(actors_by_slug),
+        # v0.4.27 — surface the coverage gap so the report can name it.
+        "actors_no_signals_count": len(actors_no_signals),
+        "actors_no_signals_sample": actors_no_signals[:15],
         "top_actors_by_signal_count": sorted(actor_signal_counts.items(), key=lambda kv: kv[1], reverse=True)[:10],
         "total_input_tokens": token_total_in,
         "total_output_tokens": token_total_out,

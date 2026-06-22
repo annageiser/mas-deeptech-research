@@ -282,6 +282,19 @@ def _validate_signal(s: dict[str, Any]) -> str | None:
     return None
 
 
+# v0.4.27 — agent can now set source_kind. The DB constraint
+# (see systems/masfactory/.../schema.sql signals_source_kind_check)
+# allows exactly these five values. Anything else falls back to "news"
+# so we never reject a signal purely for a source_kind classification miss.
+VALID_SOURCE_KINDS = {"arxiv", "website", "news", "swissreg", "manual"}
+
+
+def _normalise_source_kind(raw: Any) -> str:
+    if isinstance(raw, str) and raw.strip().lower() in VALID_SOURCE_KINDS:
+        return raw.strip().lower()
+    return "news"
+
+
 def _log(path: Path | None, msg: str) -> None:
     if path:
         with path.open("a", encoding="utf-8") as fh:
@@ -381,7 +394,11 @@ def _upsert_signals(
             "run_id": run_id,
             "actor_slug": actor_slug,
             "system": "hermes",
-            "source_kind": "news",
+            # v0.4.27: source_kind now comes from the agent (skill output
+            # contract). Invalid / missing values fall back to "news" via
+            # _normalise_source_kind so we never drop a signal because of
+            # a source_kind classification miss.
+            "source_kind": _normalise_source_kind(s.get("source_kind")),
             "source_url": s["source_url"],
             "title": s["title"][:500],
             "summary": (s.get("summary") or "")[:2000],

@@ -43,14 +43,21 @@ The cron-mode environment ships with these free, no-API-key sources:
 **Do NOT fabricate URLs, dates, or quoted text — every signal must trace
 to a real published source.**
 
-Search-query patterns to try (limit ~6 searches per run to stay efficient):
+Search-query patterns to try (aim for 6–9 searches per run, stop earlier
+once you have 5+ defensible signals):
 
 1. `"<name>" quantum 2026 news`
 2. `"<name>" quantum announcement OR launched OR partnership`
-3. `"<name>" site:linkedin.com 2026`
-4. `"<name>" "press release" quantum`
-5. For publications: prefer the bundled `arxiv` skill over a web search.
-6. One alias variant if `Aliases` is non-empty.
+3. `"<name>" "press release" quantum`
+4. `"<name>" quantum funding OR roadmap OR milestone`
+5. `"<name>" quantum collaboration OR pilot OR customer`
+6. `"<name>" quantum site:linkedin.com OR site:medium.com`
+7. For publications: ALWAYS try the bundled `arxiv` skill at least once
+   (search by `<name>` and recent date range). arXiv hits are the
+   highest-confidence legitimacy signals available to you.
+8. One alias variant if `Aliases` is non-empty (e.g. abbreviated name).
+9. One broader sector query if the actor is an ecosystem builder or
+   national initiative (e.g. `"<name>" Switzerland quantum hub`).
 
 For each candidate, decide if it is a **signal**: a public, dated event
 that another stakeholder (customer, investor, partner, talent) could
@@ -115,6 +122,7 @@ explanation before, no chatter after. The block must parse with
       "evidence_quote": "verbatim quote from the source — ≤500 chars",
       "source_url": "the actual URL you read",
       "source_name": "publication or domain",
+      "source_kind": "arxiv | website | news | swissreg | manual (v0.4.27 — pick the best match; if unsure, use 'news'. 'website' for the actor's own pages, 'arxiv' for arXiv hits, 'swissreg' for patent registries, 'news' for third-party press)",
       "signal_type": "legitimacy | customer_cocreation | community_ecosystem | future_trajectory",
       "dimension": "free-text sub-category",
       "stakeholder": "investor | customer | partner | talent | regulator | general_public",
@@ -141,8 +149,10 @@ If you find no signals after honest effort, return:
    the signal must be ABOUT the actor's behaviour, not a third party's.
 4. **De-duplicate**: if two URLs describe the same event, keep the most
    authoritative source.
-5. **Confidence ≥ 0.5**: if you cannot defend `confidence ≥ 0.5` from the
-   evidence, drop the signal.
+5. **Confidence ≥ 0.4**: if you cannot defend `confidence ≥ 0.4` from the
+   evidence, drop the signal. (Lowered from 0.5 in v0.4.27 — snippet-only
+   evidence rarely justifies higher confidence, and the prior bar was
+   suppressing real signals.)
 6. **Defense flags only when explicit**: only set `defense_engagement=true`
    or `defense_ambivalence=true` when the evidence directly mentions
    military / defense / dual-use / national-security / classified /

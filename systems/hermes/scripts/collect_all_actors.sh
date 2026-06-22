@@ -129,10 +129,26 @@ close_run() {
 trap close_run EXIT INT TERM
 
 # ── per-actor loop ───────────────────────────────────────────────────────
+# v0.4.28: switched from `IFS=TAB read -r slug name aliases website category`
+# to per-field `cut -f` extraction. The IFS-read approach collapses empty
+# middle fields under dash/sh and (on at least the production Hermes
+# container) under bash too — causing aliases/website/category to shift
+# left when an actor has no aliases. Symptom: the prompt named the
+# category as the "Website" field, the agent searched for
+# "national_initiative quantum 2026", got nothing, and returned
+# signals: [] every day. cut -f handles empty fields correctly under
+# every POSIX shell.
+
 OK=0
 FAIL=0
 SIGNALS=0
-while IFS="$(printf '\t')" read -r slug name aliases website category; do
+while IFS= read -r line; do
+    [ -z "${line}" ] && continue
+    slug=$(printf '%s' "${line}"     | cut -f1)
+    name=$(printf '%s' "${line}"     | cut -f2)
+    aliases=$(printf '%s' "${line}"  | cut -f3)
+    website=$(printf '%s' "${line}"  | cut -f4)
+    category=$(printf '%s' "${line}" | cut -f5)
     [ -z "${slug}" ] && continue
 
     PROMPT=$(cat <<EOF

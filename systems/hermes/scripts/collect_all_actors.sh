@@ -208,13 +208,21 @@ EOF
     # under us constantly.
     #
     # v0.4.33: switched to nousresearch/hermes-3-llama-3.1-405b:free.
-    # Rationale: same authors as the agent CLI we are running (Nous
-    # Research wrote Hermes 3 + the Hermes Agent), so it is trained
-    # specifically for tool-calling. 405B parameter class, 131k
-    # context, plain instruct (no <think> wrapper), and currently free
-    # on OpenRouter (verified via /api/v1/models live query). Less
-    # popular than Llama-3.3-70B so less rate-limit pressure from
-    # upstream providers.
+    # Failed in production with HTTP 404 "No endpoints found that
+    # support tool use" — the model itself supports tools, but the
+    # FREE-TIER providers serving it don't expose tool-calling.
+    #
+    # v0.4.34: switched to openai/gpt-oss-120b:free. OpenAI's open-
+    # source 120B model. OpenAI is the gold standard for tool-calling
+    # support, and gpt-oss is the strongest tool-caller in the
+    # currently-free list. 131k context, plain instruct (no <think>
+    # wrapper).
+    #
+    # The free-tier model selection problem has three constraints:
+    #   1. Must be free at all (price=0)
+    #   2. Must not be a reasoning model (no <think> wrapper)
+    #   3. Must support tool-calling on at least one free provider
+    # Constraint #3 is the newest and most restrictive.
     #
     # Live diagnostic — list currently-free models on OpenRouter:
     #   curl -s https://openrouter.ai/api/v1/models | python3 -c \
@@ -228,7 +236,7 @@ EOF
     #   google/gemma-4-31b-it:free
     #   qwen/qwen3-next-80b-a3b-instruct:free
     #   meta-llama/llama-3.2-3b-instruct:free  (small but reliable)
-    MODEL="${HERMES_MODEL:-nousresearch/hermes-3-llama-3.1-405b:free}"
+    MODEL="${HERMES_MODEL:-openai/gpt-oss-120b:free}"
     # v0.4.26b: skill list pared back to those bundled in
     # nousresearch/hermes-agent:v2026.6.5 (the official image v0.4.20
     # switched to). `company-research` and `scrapling` were listed in

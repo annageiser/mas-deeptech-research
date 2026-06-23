@@ -65,6 +65,15 @@ services:
       # before v0.4.5 (see docs/iterations/v0.4.5-...).
       HERMES_LIMIT_ACTORS: ${HERMES_LIMIT_ACTORS:-}
       HERMES_LOOKBACK_DAYS: ${HERMES_LOOKBACK_DAYS:-180}
+      # v0.4.30: model override now actually reaches the container.
+      # Without this passthrough, HERMES_MODEL=... on docker compose run
+      # was set in the HOST shell but never propagated into the wrapper —
+      # the container kept using the script default. The default itself
+      # changed in v0.4.30 from Nemotron-Super-120B (reasoning model whose
+      # <think> output Hermes can't unwrap → empty visible response →
+      # signals: [] every run) to Llama-3.3-70B-instruct (plain instruct
+      # model). To swap, set HERMES_MODEL in .env.
+      HERMES_MODEL: ${HERMES_MODEL:-}
       # ── Web-search backends — provision at least ONE in .env ─────────────
       # Upstream's web_tools.py tries them in priority order:
       #   firecrawl → parallel → tavily → exa → brave-free → ddgs

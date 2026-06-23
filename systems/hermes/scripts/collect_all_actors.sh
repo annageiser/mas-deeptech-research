@@ -185,7 +185,18 @@ EOF
     # belt-and-braces against config drift (see v0.4.9 trail).
     # FREE-ONLY POLICY (v0.4.8): every model slug in this codebase ends
     # in `:free`. If you need a different model, override via $HERMES_MODEL.
-    MODEL="${HERMES_MODEL:-nvidia/nemotron-3-super-120b-a12b:free}"
+    #
+    # v0.4.30: default changed from nvidia/nemotron-3-super-120b-a12b:free
+    # to meta-llama/llama-3.3-70b-instruct:free. Nemotron Super 120B is a
+    # REASONING model that emits everything inside <think> tokens; Hermes's
+    # response parser can't unwrap it, so the visible output is always
+    # empty and the persister sees signals:[] regardless of how many real
+    # search hits the tool calls returned. Interactive `hermes chat`
+    # confirmed this with the diagnostic chain "Thinking-only response —
+    # prefilling to continue → Empty response from model → Returning empty"
+    # for every actor for weeks. Llama 3.3 70B is a plain instruct model
+    # (no <think> wrapper) with the same 128k context.
+    MODEL="${HERMES_MODEL:-meta-llama/llama-3.3-70b-instruct:free}"
     # v0.4.26b: skill list pared back to those bundled in
     # nousresearch/hermes-agent:v2026.6.5 (the official image v0.4.20
     # switched to). `company-research` and `scrapling` were listed in

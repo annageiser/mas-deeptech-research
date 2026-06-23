@@ -32,7 +32,19 @@ Format: MoSCoW priorities first, then a Bugs list, then a long-form "strategic" 
 
 ### Will Not Have (for this thesis window)
 
-*(empty — add deferrals here as they come up so the supervisor sees what was consciously dropped)*
+**WN.1 — Multi-skill pipeline for Hermes (mirror System A's 7-agent graph inside System B).**
+
+Considered 2026-06-23 after Mistral Nemo solved the empty-signal issue. The idea: author separate Hermes skills (`planner.md`, `retriever.md`, `extractor.md`, `classifier.md`, `critic.md`, `analyst.md`) and orchestrate them sequentially from `collect_all_actors.sh`, replicating System A's explicit-graph decomposition inside System B's runtime.
+
+Technically feasible. Hermes supports multiple skills and the shell wrapper can chain invocations.
+
+**Why dropped:** doing this would erase the architectural contrast that the thesis's central research question depends on. The two-system design is built on the premise that A and B implement DIFFERENT architectures (explicit graph vs autonomous single-loop). If System B is rebuilt as a multi-step pipeline that mirrors A, the comparison in §4.1 collapses — both systems would have the same architecture, the "architecture matters" finding becomes trivially circular, and the four architecture-attributable differences documented in §4.1.2 (signal-yield, signal-mix, attribution-accuracy, parser-vs-model-robustness) lose their evidential weight.
+
+System B's lower signal yield is not a defect to engineer away — it is the empirical finding that an autonomous single-loop architecture makes different trade-offs than an explicit-graph architecture on the same task. Recording the gap is the contribution.
+
+If signal yield on System B needs to improve without breaking the architectural identity, the right levers are (a) richer single-skill prompt engineering — done in v0.4.27 and v0.4.29 — (b) a stronger underlying model — done in v0.4.36 with Mistral Nemo paid — and (c) a longer per-actor time budget. None of those changes the architecture.
+
+Revisit only if the thesis pivots to a different research question (e.g. "how do we engineer the highest-yielding multi-agent system?" rather than "how does architectural choice shape behaviour?").
 
 ---
 

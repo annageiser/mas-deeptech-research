@@ -212,17 +212,35 @@ EOF
     # support tool use" — the model itself supports tools, but the
     # FREE-TIER providers serving it don't expose tool-calling.
     #
-    # v0.4.34: switched to openai/gpt-oss-120b:free. OpenAI's open-
-    # source 120B model. OpenAI is the gold standard for tool-calling
-    # support, and gpt-oss is the strongest tool-caller in the
-    # currently-free list. 131k context, plain instruct (no <think>
-    # wrapper).
+    # v0.4.34: switched to openai/gpt-oss-120b:free. ALSO turned out
+    # to be a reasoning model — same "Thinking-only response —
+    # prefilling to continue → Empty response from model → Returning
+    # empty" symptom as Nemotron. gpt-oss is OpenAI's open-source
+    # release of a reasoning architecture; the slug doesn't contain
+    # the usual "thinking"/"r1" markers but the behaviour is the
+    # same.
     #
-    # The free-tier model selection problem has three constraints:
-    #   1. Must be free at all (price=0)
-    #   2. Must not be a reasoning model (no <think> wrapper)
-    #   3. Must support tool-calling on at least one free provider
-    # Constraint #3 is the newest and most restrictive.
+    # v0.4.35: switched to meta-llama/llama-3.2-3b-instruct:free.
+    # The free-tier model selection has FOUR constraints now:
+    #   1. Free (price=0)
+    #   2. Not a reasoning model — slug-name detection is unreliable
+    #      (gpt-oss-120b looked plain but wraps everything in <think>)
+    #   3. Tool-calling supported on at least one free provider
+    #   4. Not rate-limited into oblivion (Llama-3.3-70B :free is)
+    # Llama 3.2 3B is the smallest reliable Llama. Small enough to
+    # avoid the rate-limit pressure of the popular models, well-
+    # known to support tool calling, plain instruct (no thinking
+    # wrapper). Capability trade-off: classification quality is
+    # weaker than a 70B+ model would produce, but the alternative
+    # is signals: [] every run.
+    #
+    # If the 3B model classifies too coarsely, the right move is
+    # to add a paid model (OPENROUTER_API_KEY with credit) and
+    # override HERMES_MODEL in .env. The free-tier 70B+ models on
+    # OpenRouter are either reasoning (broken), rate-limited
+    # (Llama-3.3-70B), or lack tool support on free providers
+    # (Hermes-3-405B). ~$2/month of OpenRouter credit fixes this
+    # permanently.
     #
     # Live diagnostic — list currently-free models on OpenRouter:
     #   curl -s https://openrouter.ai/api/v1/models | python3 -c \
@@ -236,7 +254,7 @@ EOF
     #   google/gemma-4-31b-it:free
     #   qwen/qwen3-next-80b-a3b-instruct:free
     #   meta-llama/llama-3.2-3b-instruct:free  (small but reliable)
-    MODEL="${HERMES_MODEL:-openai/gpt-oss-120b:free}"
+    MODEL="${HERMES_MODEL:-meta-llama/llama-3.2-3b-instruct:free}"
     # v0.4.26b: skill list pared back to those bundled in
     # nousresearch/hermes-agent:v2026.6.5 (the official image v0.4.20
     # switched to). `company-research` and `scrapling` were listed in

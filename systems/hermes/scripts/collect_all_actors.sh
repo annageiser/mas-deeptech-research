@@ -199,16 +199,22 @@ EOF
     # v0.4.31: default changed from meta-llama/llama-3.3-70b-instruct:free
     # to qwen/qwen-2.5-72b-instruct:free. Llama-3.3-70B is the most-
     # popular free model on OpenRouter and gets rate-limited at the
-    # upstream provider (Venice) within seconds. Qwen 2.5 72B is the same
-    # parameter class and capability ceiling but routes through less-
-    # congested providers in the free tier. Confirmed working via smoke.
-    # Both are plain instruct models (no <think> wrapper).
+    # upstream provider (Venice) within seconds.
     #
-    # If Qwen also rate-limits in production, try in order:
-    #   mistralai/mistral-nemo:free         (12B, fast, low-traffic)
-    #   google/gemini-2.0-flash-exp:free    (Google's free experimental)
-    #   qwen/qwen-2.5-coder-32b-instruct:free
-    MODEL="${HERMES_MODEL:-qwen/qwen-2.5-72b-instruct:free}"
+    # v0.4.32: Qwen 2.5 72B was moved from free to paid by OpenRouter
+    # between v0.4.31 commit and the first smoke. Symptom:
+    #   HTTP 404: This model is unavailable for free.
+    # Switched to mistralai/mistral-nemo:free — 12B, plain instruct
+    # (no <think> wrapper), long-stable on the OpenRouter free tier, and
+    # less popular than Llama so less rate-limit pressure. Capability
+    # is sufficient for snippet classification + JSON output; we don't
+    # need a 70B+ model for this task.
+    #
+    # To verify what is FREE right now on OpenRouter, run the diagnostic
+    # one-liner documented in docs/iterations/v0.4.32-... — free-tier
+    # availability shifts and the safe override path is to check before
+    # bumping.
+    MODEL="${HERMES_MODEL:-mistralai/mistral-nemo:free}"
     # v0.4.26b: skill list pared back to those bundled in
     # nousresearch/hermes-agent:v2026.6.5 (the official image v0.4.20
     # switched to). `company-research` and `scrapling` were listed in

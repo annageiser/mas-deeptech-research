@@ -201,20 +201,34 @@ EOF
     # popular free model on OpenRouter and gets rate-limited at the
     # upstream provider (Venice) within seconds.
     #
-    # v0.4.32: Qwen 2.5 72B was moved from free to paid by OpenRouter
-    # between v0.4.31 commit and the first smoke. Symptom:
-    #   HTTP 404: This model is unavailable for free.
-    # Switched to mistralai/mistral-nemo:free — 12B, plain instruct
-    # (no <think> wrapper), long-stable on the OpenRouter free tier, and
-    # less popular than Llama so less rate-limit pressure. Capability
-    # is sufficient for snippet classification + JSON output; we don't
-    # need a 70B+ model for this task.
+    # v0.4.32: Qwen 2.5 72B was moved from free to paid by OpenRouter.
+    # Symptom: HTTP 404 "This model is unavailable for free."
+    # Switched to mistralai/mistral-nemo:free. Then mistral-nemo was
+    # ALSO moved to paid the same day. OpenRouter's free tier shifts
+    # under us constantly.
     #
-    # To verify what is FREE right now on OpenRouter, run the diagnostic
-    # one-liner documented in docs/iterations/v0.4.32-... — free-tier
-    # availability shifts and the safe override path is to check before
-    # bumping.
-    MODEL="${HERMES_MODEL:-mistralai/mistral-nemo:free}"
+    # v0.4.33: switched to nousresearch/hermes-3-llama-3.1-405b:free.
+    # Rationale: same authors as the agent CLI we are running (Nous
+    # Research wrote Hermes 3 + the Hermes Agent), so it is trained
+    # specifically for tool-calling. 405B parameter class, 131k
+    # context, plain instruct (no <think> wrapper), and currently free
+    # on OpenRouter (verified via /api/v1/models live query). Less
+    # popular than Llama-3.3-70B so less rate-limit pressure from
+    # upstream providers.
+    #
+    # Live diagnostic — list currently-free models on OpenRouter:
+    #   curl -s https://openrouter.ai/api/v1/models | python3 -c \
+    #     "import json,sys; d=json.load(sys.stdin); \
+    #      [print(m['id']) for m in d['data'] \
+    #       if m.get('pricing',{}).get('prompt') in ('0','0.0')]"
+    #
+    # Known-good alternatives if Hermes 3 405B becomes unavailable
+    # (verified free as of 2026-06-23):
+    #   openai/gpt-oss-120b:free
+    #   google/gemma-4-31b-it:free
+    #   qwen/qwen3-next-80b-a3b-instruct:free
+    #   meta-llama/llama-3.2-3b-instruct:free  (small but reliable)
+    MODEL="${HERMES_MODEL:-nousresearch/hermes-3-llama-3.1-405b:free}"
     # v0.4.26b: skill list pared back to those bundled in
     # nousresearch/hermes-agent:v2026.6.5 (the official image v0.4.20
     # switched to). `company-research` and `scrapling` were listed in

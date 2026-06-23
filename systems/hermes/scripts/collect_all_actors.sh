@@ -187,16 +187,28 @@ EOF
     # in `:free`. If you need a different model, override via $HERMES_MODEL.
     #
     # v0.4.30: default changed from nvidia/nemotron-3-super-120b-a12b:free
-    # to meta-llama/llama-3.3-70b-instruct:free. Nemotron Super 120B is a
-    # REASONING model that emits everything inside <think> tokens; Hermes's
-    # response parser can't unwrap it, so the visible output is always
-    # empty and the persister sees signals:[] regardless of how many real
-    # search hits the tool calls returned. Interactive `hermes chat`
-    # confirmed this with the diagnostic chain "Thinking-only response —
-    # prefilling to continue → Empty response from model → Returning empty"
-    # for every actor for weeks. Llama 3.3 70B is a plain instruct model
-    # (no <think> wrapper) with the same 128k context.
-    MODEL="${HERMES_MODEL:-meta-llama/llama-3.3-70b-instruct:free}"
+    # to a plain instruct model. Nemotron Super 120B is a REASONING model
+    # that emits everything inside <think> tokens; Hermes's response
+    # parser can't unwrap it, so the visible output is always empty and
+    # the persister sees signals:[] regardless of how many real search
+    # hits the tool calls returned. Interactive `hermes chat` confirmed
+    # this with the diagnostic chain "Thinking-only response — prefilling
+    # to continue → Empty response from model → Returning empty" for every
+    # actor for weeks.
+    #
+    # v0.4.31: default changed from meta-llama/llama-3.3-70b-instruct:free
+    # to qwen/qwen-2.5-72b-instruct:free. Llama-3.3-70B is the most-
+    # popular free model on OpenRouter and gets rate-limited at the
+    # upstream provider (Venice) within seconds. Qwen 2.5 72B is the same
+    # parameter class and capability ceiling but routes through less-
+    # congested providers in the free tier. Confirmed working via smoke.
+    # Both are plain instruct models (no <think> wrapper).
+    #
+    # If Qwen also rate-limits in production, try in order:
+    #   mistralai/mistral-nemo:free         (12B, fast, low-traffic)
+    #   google/gemini-2.0-flash-exp:free    (Google's free experimental)
+    #   qwen/qwen-2.5-coder-32b-instruct:free
+    MODEL="${HERMES_MODEL:-qwen/qwen-2.5-72b-instruct:free}"
     # v0.4.26b: skill list pared back to those bundled in
     # nousresearch/hermes-agent:v2026.6.5 (the official image v0.4.20
     # switched to). `company-research` and `scrapling` were listed in

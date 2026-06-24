@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from . import data_access as da
 from . import labels as L
 from . import reports as R
+from . import training as T
 from .config import load_settings
 from .coverage import coverage_payload
 from .knowledge_graph import build_graph_json
@@ -41,7 +42,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-VALID_SYSTEMS = {"masfactory", "hermes"}
+# v0.4.37: 'manual' added as a first-class producer alongside the two MAS.
+# Manual signals are propagated into public.signals by sync_manual_signals.py
+# (called nightly + after each manual-signals POST/PATCH) and appear in
+# /api/signals + /api/compare as their own slice. Pre-reg metrics (H1, H2,
+# H3, H4, H5) still compute on masfactory + hermes only — see
+# systems/evaluation/eval_app/runner.py for the explicit filter.
+VALID_SYSTEMS = {"masfactory", "hermes", "manual"}
 
 
 # ---------- helpers ----------
@@ -569,3 +576,4 @@ def get_signal_flags(
     except Exception:
         return {"flags": []}
     return {"flags": resp.data or []}
+

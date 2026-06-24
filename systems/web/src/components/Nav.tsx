@@ -30,6 +30,13 @@ const GROUPS: { label: string; items: { href: string; label: string }[] }[] = [
     ],
   },
   {
+    label: "Training",
+    items: [
+      { href: "/labels",  label: "Label signals" },
+      { href: "/sources", label: "Sources" },
+    ],
+  },
+  {
     label: "Reference",
     items: [
       { href: "/reports", label: "Reports" },

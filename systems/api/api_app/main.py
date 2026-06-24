@@ -577,3 +577,74 @@ def get_signal_flags(
         return {"flags": []}
     return {"flags": resp.data or []}
 
+
+# ---------------------------------------------------------------------------
+# v0.4.37 hotfix — editorial training layer route registration
+# This block was lost during the original v0.4.37 PR (linter race condition
+# clobbered the Edit). The /api/manual-signals and /api/sources CRUD
+# endpoints are implemented in api_app/training.py; this just registers
+# them with FastAPI. Same auth model as the rest of the API: trust Caddy
+# basic-auth — "Anna only" by deployment.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/manual-signals")
+def list_manual_signals_route(limit: int = Query(500, ge=1, le=5000)) -> dict:
+    return {"manual_signals": T.list_manual_signals(limit=limit)}
+
+
+@app.get("/api/manual-signals/{signal_id}")
+def get_manual_signal_route(signal_id: str) -> dict:
+    row = T.get_manual_signal(signal_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="manual_signal not found")
+    return {"manual_signal": row}
+
+
+@app.post("/api/manual-signals")
+def create_manual_signal_route(payload: T.ManualSignalIn) -> dict:
+    return {"manual_signal": T.create_manual_signal(payload), "ok": True}
+
+
+@app.patch("/api/manual-signals/{signal_id}")
+def patch_manual_signal_route(signal_id: str, payload: T.ManualSignalPatch) -> dict:
+    return {"manual_signal": T.patch_manual_signal(signal_id, payload), "ok": True}
+
+
+@app.delete("/api/manual-signals/{signal_id}")
+def delete_manual_signal_route(signal_id: str) -> dict:
+    T.delete_manual_signal(signal_id)
+    return {"ok": True}
+
+
+@app.get("/api/sources")
+def list_sources_route(
+    enabled: Optional[bool] = None,
+    limit: int = Query(500, ge=1, le=5000),
+) -> dict:
+    return {"sources": T.list_sources(enabled=enabled, limit=limit)}
+
+
+@app.get("/api/sources/{source_id}")
+def get_source_route(source_id: str) -> dict:
+    row = T.get_source(source_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="signal_source not found")
+    return {"source": row}
+
+
+@app.post("/api/sources")
+def create_source_route(payload: T.SignalSourceIn) -> dict:
+    return {"source": T.create_source(payload), "ok": True}
+
+
+@app.patch("/api/sources/{source_id}")
+def patch_source_route(source_id: str, payload: T.SignalSourcePatch) -> dict:
+    return {"source": T.patch_source(source_id, payload), "ok": True}
+
+
+@app.delete("/api/sources/{source_id}")
+def delete_source_route(source_id: str) -> dict:
+    T.delete_source(source_id)
+    return {"ok": True}
+

@@ -70,8 +70,18 @@ def generate_daily(*, settings: Settings, system: str) -> dict:
 
 
 def _trim_signals(signals: list[dict], max_signals: int = 50) -> list[dict]:
-    """Cap signals shipped to the LLM so daily reports stay bounded."""
-    return [
-        {k: s.get(k) for k in ("actor_slug", "dimension", "is_technical", "confidence", "title", "summary", "evidence_quote", "source_url", "source_kind")}
-        for s in signals[:max_signals]
-    ]
+    """Cap signals shipped to the LLM so daily reports stay bounded.
+
+    v0.4.27: includes the v0.4.0 Ehrenthal signal_type, v0.4.19 defense
+    flags, v0.4.24 sentiment_label, and the stakeholder lens. Without
+    these, the LLM writing the report has no idea what categories the
+    classification scheme even uses — which made every prior daily report
+    silent on the four-signal mix the thesis is built on.
+    """
+    keys = (
+        "actor_slug", "dimension", "signal_type", "is_technical", "confidence",
+        "title", "summary", "evidence_quote", "source_url", "source_kind",
+        "stakeholder", "sentiment_label", "sentiment_score",
+        "defense_engagement", "defense_ambivalence",
+    )
+    return [{k: s.get(k) for k in keys} for s in signals[:max_signals]]

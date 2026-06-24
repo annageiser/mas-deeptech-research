@@ -38,19 +38,43 @@ The cron-mode environment ships with these free, no-API-key sources:
 | `web_extract` | full page text via LLM summarisation | only if a paid backend is configured — may be unavailable |
 
 **If `web_extract` is unavailable**, use the search SNIPPETS from
-`web_search` as your evidence — they are short but real and verifiable.
+`web_search` as your evidence. Snippets are short but they ARE real
+evidence — the title plus the URL plus the snippet together constitute
+a citable source. **Default to inclusion when a search hit shows a
+dated, actor-relevant event from the last 180 days.** A title like
+"Swiss Quantum Call 2026" with URL https://snf.ch/... IS a legitimate
+funding-event signal; do not reject it just because you cannot read
+the full page. Copy the title or snippet verbatim into
+`evidence_quote`.
 
 **Do NOT fabricate URLs, dates, or quoted text — every signal must trace
-to a real published source.**
+to a real published source returned by `web_search` or the bundled
+`arxiv` skill.**
 
-Search-query patterns to try (limit ~6 searches per run to stay efficient):
+### Worked snippet→signal examples (v0.4.29)
+
+| Search hit (title | URL) | Signal you should emit |
+|---|---|
+| Swiss Quantum Call 2026 — snf.ch | https://www.snf.ch/.../swiss-quantum-call-2026 | signal_type=legitimacy, dimension=funding_event, evidence_quote="Swiss Quantum Call 2026", confidence 0.55 |
+| Swiss Quantum Strategy Released — Swissnex | https://swissnex.org/news/swiss-quantum-strategy-released/ | signal_type=community_ecosystem, dimension=strategic_positioning, evidence_quote="Swiss Quantum Strategy Released", confidence 0.5 |
+| IDQ among those receiving EU funding for OPENQKD | https://www.idquantique.com/.../id-quantique-receive-eu-funding-openqkd/ | signal_type=customer_cocreation, dimension=consortium_funding, evidence_quote="IDQ among those receiving EU funding for OPENQKD", confidence 0.55 |
+| ETH Zurich Researchers Achieve "Surgery" On Qubits | https://quantumzeitgeist.com/eth-zurich-quantum-computing-qubit-surgery/ | signal_type=future_trajectory, dimension=technological_advances, evidence_quote="ETH Zurich Researchers Achieve 'Surgery' On Qubits", confidence 0.45 |
+
+Search-query patterns to try (aim for 6–9 searches per run, stop earlier
+once you have 5+ defensible signals):
 
 1. `"<name>" quantum 2026 news`
 2. `"<name>" quantum announcement OR launched OR partnership`
-3. `"<name>" site:linkedin.com 2026`
-4. `"<name>" "press release" quantum`
-5. For publications: prefer the bundled `arxiv` skill over a web search.
-6. One alias variant if `Aliases` is non-empty.
+3. `"<name>" "press release" quantum`
+4. `"<name>" quantum funding OR roadmap OR milestone`
+5. `"<name>" quantum collaboration OR pilot OR customer`
+6. `"<name>" quantum site:linkedin.com OR site:medium.com`
+7. For publications: ALWAYS try the bundled `arxiv` skill at least once
+   (search by `<name>` and recent date range). arXiv hits are the
+   highest-confidence legitimacy signals available to you.
+8. One alias variant if `Aliases` is non-empty (e.g. abbreviated name).
+9. One broader sector query if the actor is an ecosystem builder or
+   national initiative (e.g. `"<name>" Switzerland quantum hub`).
 
 For each candidate, decide if it is a **signal**: a public, dated event
 that another stakeholder (customer, investor, partner, talent) could
@@ -115,6 +139,7 @@ explanation before, no chatter after. The block must parse with
       "evidence_quote": "verbatim quote from the source — ≤500 chars",
       "source_url": "the actual URL you read",
       "source_name": "publication or domain",
+      "source_kind": "arxiv | website | news | swissreg | manual (v0.4.27 — pick the best match; if unsure, use 'news'. 'website' for the actor's own pages, 'arxiv' for arXiv hits, 'swissreg' for patent registries, 'news' for third-party press)",
       "signal_type": "legitimacy | customer_cocreation | community_ecosystem | future_trajectory",
       "dimension": "free-text sub-category",
       "stakeholder": "investor | customer | partner | talent | regulator | general_public",
@@ -137,12 +162,23 @@ If you find no signals after honest effort, return:
 
 1. **Never fabricate**. If you cannot find a source, output `signals: []`.
 2. **Never include signals older than the lookback window** (default 180 days).
-3. **Never include signals where the actor is only mentioned in passing** —
-   the signal must be ABOUT the actor's behaviour, not a third party's.
+3. **Never include signals where the actor is only mentioned in passing.**
+   The signal must be ABOUT the actor's behaviour, not a third party's.
+   Borderline-case rule (v0.4.29): if a snippet lists the actor as a
+   recipient, partner, member, or collaborator in a dated event (e.g.
+   "IDQ among those receiving EU funding for OPENQKD"), that IS about
+   the actor and should be kept. Only drop when the actor is a
+   tangential mention in unrelated coverage.
 4. **De-duplicate**: if two URLs describe the same event, keep the most
    authoritative source.
-5. **Confidence ≥ 0.5**: if you cannot defend `confidence ≥ 0.5` from the
-   evidence, drop the signal.
+5. **Confidence ≥ 0.3**: if you cannot defend `confidence ≥ 0.3` from
+   the evidence, drop the signal. (Lowered from 0.4 → 0.3 in v0.4.29
+   after the production agent kept returning `signals: []` despite
+   ddgs returning obviously relevant hits. Snippet-only evidence
+   rarely justifies higher confidence even when the underlying event
+   is real. A confidence of 0.3-0.4 means "the snippet shows a real
+   event but I cannot confirm details without reading the full page";
+   that IS a legitimate signal to record.)
 6. **Defense flags only when explicit**: only set `defense_engagement=true`
    or `defense_ambivalence=true` when the evidence directly mentions
    military / defense / dual-use / national-security / classified /

@@ -129,10 +129,26 @@ close_run() {
 trap close_run EXIT INT TERM
 
 # ── per-actor loop ───────────────────────────────────────────────────────
+# v0.4.28: switched from `IFS=TAB read -r slug name aliases website category`
+# to per-field `cut -f` extraction. The IFS-read approach collapses empty
+# middle fields under dash/sh and (on at least the production Hermes
+# container) under bash too — causing aliases/website/category to shift
+# left when an actor has no aliases. Symptom: the prompt named the
+# category as the "Website" field, the agent searched for
+# "national_initiative quantum 2026", got nothing, and returned
+# signals: [] every day. cut -f handles empty fields correctly under
+# every POSIX shell.
+
 OK=0
 FAIL=0
 SIGNALS=0
-while IFS="$(printf '\t')" read -r slug name aliases website category; do
+while IFS= read -r line; do
+    [ -z "${line}" ] && continue
+    slug=$(printf '%s' "${line}"     | cut -f1)
+    name=$(printf '%s' "${line}"     | cut -f2)
+    aliases=$(printf '%s' "${line}"  | cut -f3)
+    website=$(printf '%s' "${line}"  | cut -f4)
+    category=$(printf '%s' "${line}" | cut -f5)
     [ -z "${slug}" ] && continue
 
     PROMPT=$(cat <<EOF
@@ -169,7 +185,76 @@ EOF
     # belt-and-braces against config drift (see v0.4.9 trail).
     # FREE-ONLY POLICY (v0.4.8): every model slug in this codebase ends
     # in `:free`. If you need a different model, override via $HERMES_MODEL.
-    MODEL="${HERMES_MODEL:-nvidia/nemotron-3-super-120b-a12b:free}"
+    #
+    # v0.4.30: default changed from nvidia/nemotron-3-super-120b-a12b:free
+    # to a plain instruct model. Nemotron Super 120B is a REASONING model
+    # that emits everything inside <think> tokens; Hermes's response
+    # parser can't unwrap it, so the visible output is always empty and
+    # the persister sees signals:[] regardless of how many real search
+    # hits the tool calls returned. Interactive `hermes chat` confirmed
+    # this with the diagnostic chain "Thinking-only response — prefilling
+    # to continue → Empty response from model → Returning empty" for every
+    # actor for weeks.
+    #
+    # v0.4.31: default changed from meta-llama/llama-3.3-70b-instruct:free
+    # to qwen/qwen-2.5-72b-instruct:free. Llama-3.3-70B is the most-
+    # popular free model on OpenRouter and gets rate-limited at the
+    # upstream provider (Venice) within seconds.
+    #
+    # v0.4.32: Qwen 2.5 72B was moved from free to paid by OpenRouter.
+    # Symptom: HTTP 404 "This model is unavailable for free."
+    # Switched to mistralai/mistral-nemo:free. Then mistral-nemo was
+    # ALSO moved to paid the same day. OpenRouter's free tier shifts
+    # under us constantly.
+    #
+    # v0.4.33: switched to nousresearch/hermes-3-llama-3.1-405b:free.
+    # Failed in production with HTTP 404 "No endpoints found that
+    # support tool use" — the model itself supports tools, but the
+    # FREE-TIER providers serving it don't expose tool-calling.
+    #
+    # v0.4.34: switched to openai/gpt-oss-120b:free. ALSO turned out
+    # to be a reasoning model — same "Thinking-only response —
+    # prefilling to continue → Empty response from model → Returning
+    # empty" symptom as Nemotron. gpt-oss is OpenAI's open-source
+    # release of a reasoning architecture; the slug doesn't contain
+    # the usual "thinking"/"r1" markers but the behaviour is the
+    # same.
+    #
+    # v0.4.35: switched to meta-llama/llama-3.2-3b-instruct:free.
+    # The free-tier model selection has FOUR constraints now:
+    #   1. Free (price=0)
+    #   2. Not a reasoning model — slug-name detection is unreliable
+    #      (gpt-oss-120b looked plain but wraps everything in <think>)
+    #   3. Tool-calling supported on at least one free provider
+    #   4. Not rate-limited into oblivion (Llama-3.3-70B :free is)
+    # Llama 3.2 3B is the smallest reliable Llama. Small enough to
+    # avoid the rate-limit pressure of the popular models, well-
+    # known to support tool calling, plain instruct (no thinking
+    # wrapper). Capability trade-off: classification quality is
+    # weaker than a 70B+ model would produce, but the alternative
+    # is signals: [] every run.
+    #
+    # If the 3B model classifies too coarsely, the right move is
+    # to add a paid model (OPENROUTER_API_KEY with credit) and
+    # override HERMES_MODEL in .env. The free-tier 70B+ models on
+    # OpenRouter are either reasoning (broken), rate-limited
+    # (Llama-3.3-70B), or lack tool support on free providers
+    # (Hermes-3-405B). ~$2/month of OpenRouter credit fixes this
+    # permanently.
+    #
+    # Live diagnostic — list currently-free models on OpenRouter:
+    #   curl -s https://openrouter.ai/api/v1/models | python3 -c \
+    #     "import json,sys; d=json.load(sys.stdin); \
+    #      [print(m['id']) for m in d['data'] \
+    #       if m.get('pricing',{}).get('prompt') in ('0','0.0')]"
+    #
+    # Known-good alternatives if Hermes 3 405B becomes unavailable
+    # (verified free as of 2026-06-23):
+    #   openai/gpt-oss-120b:free
+    #   google/gemma-4-31b-it:free
+    #   qwen/qwen3-next-80b-a3b-instruct:free
+    #   meta-llama/llama-3.2-3b-instruct:free  (small but reliable)
+    MODEL="${HERMES_MODEL:-meta-llama/llama-3.2-3b-instruct:free}"
     # v0.4.26b: skill list pared back to those bundled in
     # nousresearch/hermes-agent:v2026.6.5 (the official image v0.4.20
     # switched to). `company-research` and `scrapling` were listed in

@@ -362,6 +362,143 @@ as $$
     limit greatest(1, least(20, p_limit));
 $$;
 
+-- ---------- v0.4.37 manual signal training + source management ----------
+-- Two editorial layers Anna manages through the dashboard:
+--   1. public.manual_signals  — hand-curated signals (URL + labels +
+--      notes + related actors). Used by BOTH systems as few-shot
+--      examples in their LLM prompts, and propagated into
+--      public.signals as system='manual' for visibility on /signals.
+--   2. public.signal_sources  — RSS / Atom / URL sources managed via
+--      CRUD instead of data/raw/rss_feeds.yaml. Per-source enable
+--      flag, crawl frequency hint, and label/actor attachments. Both
+--      systems' collectors read enabled sources and skip those whose
+--      last_fetched_at is newer than crawl_frequency_hours.
+--   3. public.signal_source_runs — per-source ingestion history for
+--      dedup + audit.
+
+-- Extend signals.system CHECK to allow 'manual' (was {masfactory, hermes}).
+-- Idempotent — guarded against re-running and against not having the
+-- old constraint at all.
+do $$
+begin
+    if exists (
+        select 1 from pg_constraint
+        where conname = 'signals_system_check'
+          and conrelid = 'public.signals'::regclass
+          and not pg_get_constraintdef(oid) ilike '%manual%'
+    ) then
+        alter table public.signals drop constraint signals_system_check;
+        alter table public.signals add constraint signals_system_check
+            check (system in ('masfactory', 'hermes', 'manual'));
+    end if;
+end $$;
+
+create table if not exists public.manual_signals (
+    id              uuid primary key default gen_random_uuid(),
+    source_url      text not null,
+    title           text,
+    notes           text,
+    -- Free-form label set. Used by the dashboard for grouping AND by
+    -- both producer systems as few-shot examples. Common values:
+    -- the four signal_types (legitimacy / customer_cocreation /
+    -- community_ecosystem / future_trajectory), the 19 dimensions
+    -- (funding_event / publications / …), plus any custom tags.
+    labels          text[] not null default '{}',
+    -- Optional signal_type explicit value (one of the Ehrenthal four).
+    -- If set, takes precedence over inference from labels.
+    signal_type     text,
+    -- Optional dimension (one of the 19) — same precedence.
+    dimension       text,
+    -- Related actors (slug references — not a hard FK because we
+    -- want manual signals to survive an actor being removed from
+    -- actors.yaml mid-evaluation).
+    actor_slugs     text[] not null default '{}',
+    created_by      text not null default 'anna',
+    created_at      timestamptz not null default now(),
+    updated_at      timestamptz not null default now(),
+    -- Tracks which producer runs have already ingested this manual
+    -- signal as a few-shot example (set of run UUIDs). Lets both
+    -- systems skip already-seen examples on subsequent runs without
+    -- re-reading the LLM prompt for them.
+    ingested_run_ids uuid[] not null default '{}',
+    -- Has this been propagated into public.signals as system='manual'?
+    propagated_signal_id uuid references public.signals(id) on delete set null,
+    propagated_at   timestamptz,
+    unique (source_url)
+);
+
+create index if not exists manual_signals_labels_idx
+    on public.manual_signals using gin (labels);
+create index if not exists manual_signals_actors_idx
+    on public.manual_signals using gin (actor_slugs);
+create index if not exists manual_signals_updated_idx
+    on public.manual_signals (updated_at desc);
+
+create table if not exists public.signal_sources (
+    id                    uuid primary key default gen_random_uuid(),
+    url                   text not null,
+    kind                  text not null
+        check (kind in ('rss', 'atom', 'url')),
+    label                 text,        -- human-readable name
+    notes                 text,
+    labels                text[] not null default '{}',
+    actor_slugs           text[] not null default '{}',
+    enabled               boolean not null default true,
+    -- Minimum hours between fetches. Daily cron treats this as a
+    -- floor: it skips sources whose last_fetched_at is newer than
+    -- (now() - crawl_frequency_hours). 0 = fetch every cron tick.
+    crawl_frequency_hours integer not null default 24
+        check (crawl_frequency_hours between 0 and 720),
+    last_fetched_at       timestamptz,
+    last_status           text,        -- 'ok' / 'error' / null
+    last_error            text,
+    last_item_count       integer not null default 0,
+    created_at            timestamptz not null default now(),
+    updated_at            timestamptz not null default now(),
+    unique (url)
+);
+
+create index if not exists signal_sources_enabled_idx
+    on public.signal_sources (enabled);
+create index if not exists signal_sources_labels_idx
+    on public.signal_sources using gin (labels);
+create index if not exists signal_sources_actors_idx
+    on public.signal_sources using gin (actor_slugs);
+
+create table if not exists public.signal_source_runs (
+    id              uuid primary key default gen_random_uuid(),
+    source_id       uuid not null references public.signal_sources(id) on delete cascade,
+    system          text check (system in ('masfactory', 'hermes', 'manual')),
+    started_at      timestamptz not null default now(),
+    finished_at     timestamptz,
+    status          text check (status in ('ok', 'error')),
+    items_fetched   integer not null default 0,
+    items_new       integer not null default 0,
+    error_message   text
+);
+
+create index if not exists signal_source_runs_source_idx
+    on public.signal_source_runs (source_id, started_at desc);
+
+-- updated_at triggers for both editorial tables.
+create or replace function public._touch_updated_at()
+returns trigger language plpgsql as $$
+begin
+    new.updated_at = now();
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_manual_signals_touch on public.manual_signals;
+create trigger trg_manual_signals_touch
+    before update on public.manual_signals
+    for each row execute function public._touch_updated_at();
+
+drop trigger if exists trg_signal_sources_touch on public.signal_sources;
+create trigger trg_signal_sources_touch
+    before update on public.signal_sources
+    for each row execute function public._touch_updated_at();
+
 -- ---------- grants ----------
 -- Supabase newer projects do not auto-grant service_role on user-created
 -- tables in `public`. Both systems use the service_role key (not the anon

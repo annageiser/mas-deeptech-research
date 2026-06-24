@@ -1,6 +1,43 @@
 // Shapes returned by systems/api (FastAPI). Kept loose where the API enriches.
 
-export type SystemKey = "masfactory" | "hermes";
+// v0.4.37: 'manual' is now a first-class producer alongside the two MAS.
+export type SystemKey = "masfactory" | "hermes" | "manual";
+
+// v0.4.37 — editorial training layer.
+export interface ManualSignal {
+  id: string;
+  source_url: string;
+  title?: string | null;
+  notes?: string | null;
+  labels: string[];
+  signal_type?: string | null;
+  dimension?: string | null;
+  actor_slugs: string[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  ingested_run_ids?: string[];
+  propagated_signal_id?: string | null;
+  propagated_at?: string | null;
+}
+
+export interface SignalSource {
+  id: string;
+  url: string;
+  kind: "rss" | "atom" | "url";
+  label?: string | null;
+  notes?: string | null;
+  labels: string[];
+  actor_slugs: string[];
+  enabled: boolean;
+  crawl_frequency_hours: number;
+  last_fetched_at?: string | null;
+  last_status?: string | null;
+  last_error?: string | null;
+  last_item_count: number;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface Actor {
   slug: string;

@@ -244,3 +244,127 @@ def test_signal_flags_post_unknown_reason_rejected():
     """Reason must be one of the 6 enum values; anything else → 422."""
     r = client.post("/api/signal-flags", json={"signal_id": "s1", "reason": "purple"})
     assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# v0.4.37 — editorial training layer
+# ---------------------------------------------------------------------------
+
+
+def test_manual_signal_rejects_bad_url():
+    """URL must be http:// or https:// — anything else → 422."""
+    r = client.post("/api/manual-signals", json={
+        "source_url": "not-a-url",
+        "labels": ["test"],
+        "actor_slugs": [],
+    })
+    assert r.status_code == 422
+
+
+def test_manual_signal_rejects_unknown_signal_type():
+    """signal_type must be one of the Ehrenthal four or null."""
+    r = client.post("/api/manual-signals", json={
+        "source_url": "https://example.org/x",
+        "signal_type": "marketing_fluff",
+        "actor_slugs": [],
+    })
+    assert r.status_code == 422
+
+
+def test_manual_signal_accepts_minimal_payload(monkeypatch):
+    """The only required field is source_url. Other fields default."""
+    from api_app import training as T
+
+    captured: dict = {}
+
+    def _fake_create(payload):
+        captured["payload"] = payload
+        return {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "source_url": payload.source_url,
+            "title": payload.title,
+            "notes": payload.notes,
+            "labels": payload.labels,
+            "signal_type": payload.signal_type,
+            "dimension": payload.dimension,
+            "actor_slugs": payload.actor_slugs,
+            "created_by": "anna",
+            "created_at": _now_iso(0),
+            "updated_at": _now_iso(0),
+            "ingested_run_ids": [],
+        }
+
+    monkeypatch.setattr(T, "create_manual_signal", _fake_create)
+    r = client.post(
+        "/api/manual-signals",
+        json={"source_url": "https://example.org/x"},
+    )
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    assert r.json()["manual_signal"]["source_url"] == "https://example.org/x"
+    # signal_type defaulted to None, labels to []
+    assert r.json()["manual_signal"]["signal_type"] is None
+    assert r.json()["manual_signal"]["labels"] == []
+
+
+def test_source_rejects_unknown_kind():
+    """kind must be rss | atom | url — anything else → 422."""
+    r = client.post("/api/sources", json={
+        "url": "https://example.org/feed.xml",
+        "kind": "magic",
+    })
+    assert r.status_code == 422
+
+
+def test_source_rejects_negative_crawl_frequency():
+    """crawl_frequency_hours must be in [0, 720]."""
+    r = client.post("/api/sources", json={
+        "url": "https://example.org/feed.xml",
+        "kind": "rss",
+        "crawl_frequency_hours": -1,
+    })
+    assert r.status_code == 422
+
+
+def test_source_accepts_typical_rss(monkeypatch):
+    from api_app import training as T
+
+    def _fake_create(payload):
+        return {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "url": payload.url,
+            "kind": payload.kind,
+            "label": payload.label,
+            "labels": payload.labels,
+            "actor_slugs": payload.actor_slugs,
+            "enabled": payload.enabled,
+            "crawl_frequency_hours": payload.crawl_frequency_hours,
+            "last_fetched_at": None,
+            "last_status": None,
+            "last_error": None,
+            "last_item_count": 0,
+            "created_at": _now_iso(0),
+            "updated_at": _now_iso(0),
+        }
+
+    monkeypatch.setattr(T, "create_source", _fake_create)
+    r = client.post("/api/sources", json={
+        "url": "https://thequantuminsider.com/feed/",
+        "kind": "rss",
+        "label": "Quantum Insider Daily",
+        "labels": ["news", "daily"],
+        "actor_slugs": [],
+        "enabled": True,
+        "crawl_frequency_hours": 24,
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert body["source"]["kind"] == "rss"
+    assert body["source"]["crawl_frequency_hours"] == 24
+
+
+def test_signals_filter_accepts_manual_system():
+    """v0.4.37 — 'manual' is now a valid system filter."""
+    r = client.get("/api/signals?system=manual")
+    assert r.status_code == 200

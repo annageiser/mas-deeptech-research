@@ -7,7 +7,9 @@ predictable.
 
 from __future__ import annotations
 
+import hashlib
 import json
+from datetime import datetime, timezone
 
 from masfactory import CustomNode, NodeTemplate
 
@@ -19,7 +21,8 @@ from ..collection import (
     collect_rss_for_actors,
     collect_website,
 )
-from ..schema import Actor
+from ..schema import Actor, Document
+from ..training_layer import load_training_layer, mark_source_fetched
 
 
 def _retrieve(_input: dict, attrs: dict) -> dict:
@@ -48,6 +51,17 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
 
     documents: list[dict] = []
     errors: list[dict] = list(attrs.get("retriever_errors", []) or [])
+
+    # v0.4.37 — editorial training layer. Read once per run; expose to
+    # downstream nodes via attrs so the Classifier prompt builder can
+    # also pull few-shot examples without re-fetching. Best-effort:
+    # load_training_layer returns an empty layer on any error.
+    training = load_training_layer()
+    training_meta = {
+        "manual_signals_total": len(training.manual),
+        "sources_enabled_total": len(training.sources),
+        "per_actor": {},
+    }
 
     # v0.4.2 — RSS feed-discovery layer. Runs ONCE per actor pool (not per
     # actor) because RSS feeds are feed-first, not actor-first: one fetch
@@ -137,6 +151,61 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
             except Exception as exc:
                 errors.append({"slug": slug, "source": "patents", "error": str(exc)})
 
+        # v0.4.37 — editorial training layer per-actor injection.
+        #   1. Recommended URLs from manual signals (curated by Anna via
+        #      /labels) → treated as additional "manual" documents so the
+        #      Extractor / Classifier process them through the normal pipe.
+        #   2. URLs from due signal_sources (CRUD via /sources) → same
+        #      treatment. crawl_frequency_hours acts as a floor: the
+        #      training layer filters to sources whose last_fetched_at is
+        #      older than (now - crawl_frequency_hours).
+        # We mark each fetched source via mark_source_fetched so the
+        # crawl-frequency hint actually advances. Manual signals stay in
+        # the manual_signals table; their propagation into public.signals
+        # as system='manual' happens separately via
+        # systems/masfactory/masfactory_system/scripts/sync_manual_signals.py
+        # (chained from cron) rather than this Retriever.
+        actor_training_urls: list[str] = []
+        _now = datetime.now(timezone.utc)
+        for url in training.recommended_urls_for_actor(slug):
+            actor_training_urls.append(url)
+            documents.append(
+                Document(
+                    actor_slug=slug,
+                    source_kind="manual",
+                    source_url=url,
+                    title=f"Manual recommendation for {slug}",
+                    text="(URL contributed by /labels — body fetched downstream)",
+                    fetched_at=_now,
+                    content_hash=hashlib.sha256(
+                        f"manual|{slug}|{url}".encode("utf-8")
+                    ).hexdigest(),
+                ).model_dump(mode="json")
+            )
+
+        for src in training.sources_due(actor_slug=slug):
+            actor_training_urls.append(src.url)
+            documents.append(
+                Document(
+                    actor_slug=slug,
+                    source_kind="website" if src.kind == "url" else "news",
+                    source_url=src.url,
+                    title=src.label or src.url,
+                    text="(URL contributed by /sources — body fetched downstream)",
+                    fetched_at=_now,
+                    content_hash=hashlib.sha256(
+                        f"source|{slug}|{src.url}".encode("utf-8")
+                    ).hexdigest(),
+                ).model_dump(mode="json")
+            )
+            try:
+                mark_source_fetched(src.id, status="ok", item_count=1)
+            except Exception:
+                pass  # best-effort bookkeeping
+
+        if actor_training_urls:
+            training_meta["per_actor"][slug] = actor_training_urls
+
     # Group documents by actor_slug so the per-actor Loop downstream can
     # process one actor at a time (smaller Extractor prompts → cleaner
     # attribution + lower context-window risk). Order preserved by plan.
@@ -162,6 +231,28 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
         "all_critique": [],
         "all_surviving_signals": [],
         "retriever_errors": errors,
+        # v0.4.37 — surfaces the editorial layer to downstream nodes
+        # (and to the audit folder via Persistence). Classifier prompt
+        # builders can read training_few_shot from here when wiring
+        # few-shot examples into their prompts (follow-up).
+        "training_meta": training_meta,
+        "training_few_shot": [
+            {
+                "actor_slug": slug,
+                "examples": [
+                    {
+                        "source_url": ex.source_url,
+                        "title": ex.title,
+                        "notes": ex.notes,
+                        "labels": ex.labels,
+                        "signal_type": ex.signal_type,
+                        "dimension": ex.dimension,
+                    }
+                    for ex in training.few_shot_for_actor(slug, max_examples=4)
+                ],
+            }
+            for slug in {e.get("slug") for e in plan.get("selected", []) if e.get("slug")}
+        ],
     }
 
 

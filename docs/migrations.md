@@ -555,3 +555,119 @@ Append a new section to this file with:
 - a verification query
 
 Then update `systems/masfactory/masfactory_system/persistence/schema.sql` to make the change canonical for fresh deployments.
+
+---
+
+## 2026-06-24 — v0.4.37 manual signals + signal sources
+
+Source: [`systems/masfactory/masfactory_system/persistence/schema.sql`](../systems/masfactory/masfactory_system/persistence/schema.sql) at the v0.4.37 block.
+
+Three new tables + one CHECK extension. Idempotent — safe to re-run.
+
+**Paste this into the Supabase SQL editor and Run:**
+
+```sql
+-- 1. Allow 'manual' as a producer alongside masfactory + hermes.
+do $$
+begin
+    if exists (
+        select 1 from pg_constraint
+        where conname = 'signals_system_check'
+          and conrelid = 'public.signals'::regclass
+          and not pg_get_constraintdef(oid) ilike '%manual%'
+    ) then
+        alter table public.signals drop constraint signals_system_check;
+        alter table public.signals add constraint signals_system_check
+            check (system in ('masfactory', 'hermes', 'manual'));
+    end if;
+end $$;
+
+-- 2. Editorial signal layer (curated through /labels).
+create table if not exists public.manual_signals (
+    id              uuid primary key default gen_random_uuid(),
+    source_url      text not null,
+    title           text,
+    notes           text,
+    labels          text[] not null default '{}',
+    signal_type     text,
+    dimension       text,
+    actor_slugs     text[] not null default '{}',
+    created_by      text not null default 'anna',
+    created_at      timestamptz not null default now(),
+    updated_at      timestamptz not null default now(),
+    ingested_run_ids uuid[] not null default '{}',
+    propagated_signal_id uuid references public.signals(id) on delete set null,
+    propagated_at   timestamptz,
+    unique (source_url)
+);
+create index if not exists manual_signals_labels_idx
+    on public.manual_signals using gin (labels);
+create index if not exists manual_signals_actors_idx
+    on public.manual_signals using gin (actor_slugs);
+create index if not exists manual_signals_updated_idx
+    on public.manual_signals (updated_at desc);
+
+-- 3. Source management (CRUD through /sources).
+create table if not exists public.signal_sources (
+    id                    uuid primary key default gen_random_uuid(),
+    url                   text not null,
+    kind                  text not null
+        check (kind in ('rss', 'atom', 'url')),
+    label                 text,
+    notes                 text,
+    labels                text[] not null default '{}',
+    actor_slugs           text[] not null default '{}',
+    enabled               boolean not null default true,
+    crawl_frequency_hours integer not null default 24
+        check (crawl_frequency_hours between 0 and 720),
+    last_fetched_at       timestamptz,
+    last_status           text,
+    last_error            text,
+    last_item_count       integer not null default 0,
+    created_at            timestamptz not null default now(),
+    updated_at            timestamptz not null default now(),
+    unique (url)
+);
+create index if not exists signal_sources_enabled_idx
+    on public.signal_sources (enabled);
+create index if not exists signal_sources_labels_idx
+    on public.signal_sources using gin (labels);
+create index if not exists signal_sources_actors_idx
+    on public.signal_sources using gin (actor_slugs);
+
+-- 4. Ingestion-history audit.
+create table if not exists public.signal_source_runs (
+    id              uuid primary key default gen_random_uuid(),
+    source_id       uuid not null references public.signal_sources(id) on delete cascade,
+    system          text check (system in ('masfactory', 'hermes', 'manual')),
+    started_at      timestamptz not null default now(),
+    finished_at     timestamptz,
+    status          text check (status in ('ok', 'error')),
+    items_fetched   integer not null default 0,
+    items_new       integer not null default 0,
+    error_message   text
+);
+create index if not exists signal_source_runs_source_idx
+    on public.signal_source_runs (source_id, started_at desc);
+
+-- 5. updated_at trigger for both editorial tables.
+create or replace function public._touch_updated_at()
+returns trigger language plpgsql as $$
+begin
+    new.updated_at = now();
+    return new;
+end;
+$$;
+drop trigger if exists trg_manual_signals_touch on public.manual_signals;
+create trigger trg_manual_signals_touch
+    before update on public.manual_signals
+    for each row execute function public._touch_updated_at();
+drop trigger if exists trg_signal_sources_touch on public.signal_sources;
+create trigger trg_signal_sources_touch
+    before update on public.signal_sources
+    for each row execute function public._touch_updated_at();
+```
+
+The grants block at the bottom of `schema.sql` covers these new
+tables via `alter default privileges`, so service_role can read +
+write them without an extra grant.

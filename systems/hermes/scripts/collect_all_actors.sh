@@ -118,6 +118,15 @@ PY
 N=$(wc -l < "${ACTOR_LIST}" | tr -d ' ')
 echo "[collect_all_actors] ${N} actors to process"
 
+# v0.4.37 — editorial training-layer preflight. Materialises per-actor
+# context blocks (manual signals + due RSS sources) into ${LOGDIR}/training/
+# so each per-actor prompt can splice them in. Best-effort: failures
+# leave empty files behind and the prompts proceed without the block.
+python3 /opt/swiss-quantum/scripts/training_context_preflight.py \
+    --log-dir "${LOGDIR}" \
+    --actors-tsv "${ACTOR_LIST}" \
+    >> "${LOGDIR}/training_preflight.log" 2>&1 || true
+
 # ── create the runs row (must exist before any signals are inserted) ────
 RUN_ID=$(python3 "${PERSIST}" --create-run)
 if [ -z "${RUN_ID}" ]; then
@@ -161,6 +170,14 @@ while IFS= read -r line; do
     category=$(printf '%s' "${line}" | cut -f5)
     [ -z "${slug}" ] && continue
 
+    # v0.4.37 — splice the editorial training-layer block if the preflight
+    # produced one for this actor.
+    TRAINING_BLOCK_FILE="${LOGDIR}/training/${slug}.txt"
+    TRAINING_BLOCK=""
+    if [ -s "${TRAINING_BLOCK_FILE}" ]; then
+        TRAINING_BLOCK="$(cat "${TRAINING_BLOCK_FILE}")"
+    fi
+
     PROMPT=$(cat <<EOF
 Use the collect-swiss-quantum-signals skill to find signals for this actor.
 
@@ -171,7 +188,7 @@ Website: ${website}
 Category: ${category}
 
 Lookback: ${LOOKBACK} days.
-
+${TRAINING_BLOCK}
 Output the JSON block as specified by the skill. Nothing else.
 EOF
 )

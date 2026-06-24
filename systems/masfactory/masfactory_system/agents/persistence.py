@@ -24,6 +24,7 @@ import os
 from masfactory import CustomNode, NodeTemplate
 
 from ..classification import normalise_dimension, signal_type_for_dimension
+from ..defense_keywords import detect_defense_flags
 from ..embedding import compose_signal_text, embed_text, is_enabled as embeddings_enabled
 from ..persistence import SignalRow
 from ..sentiment import score_signal as score_sentiment
@@ -141,14 +142,18 @@ def _persist(_input: dict, attrs: dict) -> dict:
         if (a, u) in flagged_tuples:
             dropped_flagged.append({"signal": s, "reason": "user-flagged tuple"})
             continue
-        # Second gate: strict (actor, url) must match exactly. Fallback if
-        # URL drifted: at minimum the actor_slug must be one we fed in this run.
-        if (a, u) in doc_pairs or (a in doc_actors and u and any(
-            d.get("source_url") == u for d in documents
-        )):
+        # v0.4.36: strict gate only — the old fallback accepted any URL
+        # that appeared in any input document regardless of which actor
+        # the document was fetched for, which let cross-actor URL borrow
+        # through and weakened the §4.1.2 precision-advantage claim. The
+        # fix is to require the (actor_slug, source_url) pair to be in
+        # doc_pairs exactly. If this drops too many real signals in
+        # practice, the audit folder's dropped_hallucinations.json
+        # surfaces the count for a measured §4.1.4 acknowledgement.
+        if (a, u) in doc_pairs:
             validated.append(s)
         else:
-            dropped.append({"signal": s, "reason": "actor_slug/source_url not in input documents"})
+            dropped.append({"signal": s, "reason": "actor_slug/source_url not in input documents (strict gate, v0.4.36)"})
 
     if audit is not None:
         audit.write_json("classifications.json", classified)
@@ -216,8 +221,19 @@ def _persist(_input: dict, attrs: dict) -> dict:
         rows: list[SignalRow] = []
         for s in surviving:
             evidence = s.get("evidence_quote") or ""
+            # v0.4.36: content_hash formula unified with System B
+            # (systems/hermes/scripts/persist_signals.py:_content_hash).
+            # Was SHA256(actor_slug | source_url | evidence_quote); is now
+            # SHA256(strip_lower(actor_slug) | strip_lower(source_url) |
+            # strip_lower(title)). title is more stable than evidence_quote
+            # (LLM output) and matching across systems lets cross-system
+            # semantic dedup work as intended.
             content_hash = hashlib.sha256(
-                f"{s.get('actor_slug')}|{s.get('source_url')}|{evidence}".encode("utf-8")
+                "|".join([
+                    (s.get("actor_slug") or "").strip().lower(),
+                    (s.get("source_url") or "").strip().lower(),
+                    (s.get("title") or "").strip().lower(),
+                ]).encode("utf-8")
             ).hexdigest()
             # Compute embedding if MASF_EMBEDDINGS=1. embed_text returns None
             # if disabled or if model load failed — row insert still works
@@ -271,6 +287,17 @@ def _persist(_input: dict, attrs: dict) -> dict:
             sentiment = score_sentiment(s)
             sentiment_score, sentiment_label = (sentiment if sentiment else (None, None))
 
+            # v0.4.36 — defense flags: LLM judgement OR deterministic
+            # keyword backstop, identical formula to System B. Without
+            # the backstop, System A relied on the Classifier LLM alone
+            # while System B was OR'ing LLM with keywords — an asymmetry
+            # that confounded cross-system defense-flag rate comparisons.
+            llm_engagement = bool(s.get("defense_engagement", False))
+            llm_ambivalence = bool(s.get("defense_ambivalence", False))
+            kw_engagement, kw_ambivalence = detect_defense_flags(s)
+            defense_engagement = llm_engagement or kw_engagement
+            defense_ambivalence = llm_ambivalence or kw_ambivalence
+
             rows.append(
                 SignalRow(
                     run_id=run_id,
@@ -288,6 +315,8 @@ def _persist(_input: dict, attrs: dict) -> dict:
                     signal_type=sig_type,
                     sentiment_score=sentiment_score,
                     sentiment_label=sentiment_label,
+                    defense_engagement=defense_engagement,
+                    defense_ambivalence=defense_ambivalence,
                 )
             )
         inserted = store.insert_signals(rows)

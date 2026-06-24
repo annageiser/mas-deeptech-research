@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -10,6 +11,29 @@ from openai import OpenAI
 from openai._exceptions import APIStatusError, RateLimitError
 
 from .config import Settings
+
+
+# v0.4.36 — reasoning-token strip. Reasoning models (Nemotron Super 120B,
+# gpt-oss-120b, Qwen3 reasoning variants) emit their chain of thought
+# inside <think>...</think> tags inside the visible message content. Until
+# v0.4.36 the reports default was Nemotron and the raw content (including
+# the <think> block) ended up in every daily-report markdown file — the
+# user-reported "report output not readable" bug. Defaults are now plain
+# instruct models but this regex is the belt-and-braces defence: if any
+# future model swap reintroduces reasoning-token wrapping, the visible
+# content is still clean.
+_REASONING_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL | re.IGNORECASE)
+
+
+def _strip_reasoning_tags(text: str) -> str:
+    """Remove <think>...</think> blocks emitted by reasoning models.
+
+    Conservative — only strips paired tags. Leaves any unpaired stray
+    tag alone so it surfaces in the report as a diagnostic.
+    """
+    if not text or "<think>" not in text.lower():
+        return text
+    return _REASONING_RE.sub("", text).strip()
 
 
 @dataclass
@@ -73,6 +97,8 @@ class OpenRouterClient:
                     f"both models failed: primary({primary})={err}; fallback({self.settings.model_fallback})={err2}"
                 )
         content = resp.choices[0].message.content or ""
+        # v0.4.36 — strip reasoning-token wrappers (see _strip_reasoning_tags).
+        content = _strip_reasoning_tags(content)
         usage = getattr(resp, "usage", None)
         if usage is not None:
             self.tally.input_tokens += int(getattr(usage, "prompt_tokens", 0) or 0)

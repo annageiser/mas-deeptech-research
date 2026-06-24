@@ -50,6 +50,12 @@ services:
     env_file: [.env]
     environment:
       HERMES_HOME: /opt/data
+      # v0.4.36: pass the actual built image tag into the persister so
+      # runs.config_snapshot.image records reality instead of the v0.2.1
+      # placeholder that persist_signals.py used to hardcode. Reproducibility
+      # leg of §3.5.4 depends on this — audit-row replay needs to know which
+      # image actually ran.
+      HERMES_IMAGE_TAG: mas-deeptech-research/hermes:0.4.0
       # v0.4.20: HRM_EMBEDDINGS=1 enables the 768d BGE embedding pass in
       # persist_signals.py (same model + composition as MASFactory's
       # MASF_EMBEDDINGS, so cross-system signals embed to nearby points).

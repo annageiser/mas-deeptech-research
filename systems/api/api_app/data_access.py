@@ -64,7 +64,12 @@ def actors() -> pd.DataFrame:
 def runs(system: Optional[str] = None, days: int = 90) -> pd.DataFrame:
     def _p():
         q = (client().table("runs")
-             .select("id,system,status,started_at,finished_at,actor_slugs,error_message")
+             # v0.4.36: include config_snapshot so /api/compare can split
+             # per-system aggregates by model + tool_status. Hermes
+             # records both into config_snapshot in v0.4.36+, so we can
+             # tell "agent ran with tools and found nothing" apart from
+             # "agent had no extraction tools available" days.
+             .select("id,system,status,started_at,finished_at,actor_slugs,error_message,config_snapshot")
              .gte("started_at", _since_iso(days))
              .order("started_at", desc=True))
         if system:

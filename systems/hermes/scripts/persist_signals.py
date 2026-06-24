@@ -326,7 +326,19 @@ def _create_run() -> str:
         "system": "hermes",
         "status": "running",
         "config_snapshot": {
-            "image": "mas-deeptech-research/hermes:0.2.1",
+            # v0.4.36: image tag now comes from HERMES_IMAGE_TAG env var
+            # (set in docker-compose.yml hermes service). Was hardcoded to
+            # "mas-deeptech-research/hermes:0.2.1" for months while compose
+            # actually shipped 0.4.0, breaking audit-row replay.
+            "image": os.environ.get(
+                "HERMES_IMAGE_TAG", "mas-deeptech-research/hermes:unknown"
+            ),
+            # v0.4.36: also persist the model + tool_status so the eval
+            # harness can exclude tool-less runs and the §3.5 numbers can
+            # be split by model. tool_status is set by collect_all_actors.sh
+            # preflight; defaults to "unknown" if the script didn't probe.
+            "model": os.environ.get("HERMES_MODEL") or "unknown",
+            "tool_status": os.environ.get("HERMES_TOOL_STATUS") or "unknown",
             "lookback_days": int(os.environ.get("HERMES_LOOKBACK_DAYS", "180")),
             "limit_actors": int(os.environ.get("HERMES_LIMIT_ACTORS", "0") or 0),
         },

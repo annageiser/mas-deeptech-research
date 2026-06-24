@@ -7,7 +7,15 @@ from dataclasses import dataclass
 
 
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL_MAIN = "nvidia/nemotron-3-super-120b-a12b:free"
+# v0.4.36 — unified with both systems. Was Nemotron-Super-120B which is a
+# REASONING model: openrouter.py:81 took choices[0].message.content raw,
+# so the entire <think>...</think> block appeared as visible text in every
+# daily report (unreadable output flagged by user). Switching to Qwen3 Next
+# (plain instruct, see docs/iterations/v0.4.36-model-unification.md)
+# removes the bleed at the source. The _strip_reasoning_tags helper in
+# openrouter.py is the belt-and-braces defence in case a future reports
+# model is silently swapped to a reasoning variant.
+DEFAULT_MODEL_MAIN = "qwen/qwen3-next-80b-a3b-instruct:free"
 DEFAULT_MODEL_FALLBACK = "meta-llama/llama-3.3-70b-instruct:free"
 DEFAULT_REPORTS_DIR = "/data/reports"
 DEFAULT_REPO_DIR = "/repo"

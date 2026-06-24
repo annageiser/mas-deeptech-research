@@ -84,7 +84,7 @@ export default async function Overview({ searchParams }: SP) {
 
       <div className="grid cols-2" style={{ marginTop: "1rem" }}>
         <Card>
-          <h3 style={{ marginTop: 0 }}>🏆 Top actors by impact</h3>
+          <h3 style={{ marginTop: 0 }}>Top actors by impact</h3>
           <table>
             <thead>
               <tr>

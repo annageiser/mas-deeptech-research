@@ -671,3 +671,45 @@ create trigger trg_signal_sources_touch
 The grants block at the bottom of `schema.sql` covers these new
 tables via `alter default privileges`, so service_role can read +
 write them without an extra grant.
+
+---
+
+## 2026-06-24 (later) — v0.4.37 hotfix: runs.system CHECK forgotten
+
+The original v0.4.37 migration extended `signals.system` to allow `'manual'`
+but missed `runs.system`. Symptom: `sync_manual_signals.py` fails with
+HTTP 400 from Supabase when trying to insert the synthetic manual-producer
+runs row. Idempotent — safe to re-run.
+
+**Paste into the Supabase SQL editor and Run:**
+
+```sql
+do $$
+declare
+    cname text;
+begin
+    select conname into cname
+    from pg_constraint
+    where conrelid = 'public.runs'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%system%'
+      and pg_get_constraintdef(oid) ilike '%masfactory%'
+      and not pg_get_constraintdef(oid) ilike '%manual%'
+    limit 1;
+
+    if cname is not null then
+        execute format('alter table public.runs drop constraint %I', cname);
+        alter table public.runs add constraint runs_system_check
+            check (system in ('masfactory', 'hermes', 'manual'));
+    end if;
+end $$;
+```
+
+After running this in Supabase, re-execute the manual sync to verify:
+
+```bash
+docker compose run --rm --entrypoint python masfactory \
+    -m masfactory_system.scripts.sync_manual_signals
+```
+
+Expected: `[sync_manual_signals] propagated <id> (N actor rows → N inserted)`.

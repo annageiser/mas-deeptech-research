@@ -60,7 +60,6 @@ export default function ThemeToggle() {
     }
   }
 
-  const icon = !mounted ? "·" : theme === "dark" ? "◐" : theme === "light" ? "☀" : "⌂";
   const label = !mounted ? "" : theme === "auto" ? "Auto" : theme === "light" ? "Light" : "Dark";
 
   return (
@@ -71,7 +70,6 @@ export default function ThemeToggle() {
       title={`Theme: ${label} (click to cycle: auto → light → dark)`}
       aria-label={`Theme: ${label}, click to change`}
     >
-      <span className="ico" aria-hidden>{icon}</span>
       <span>{label}</span>
     </button>
   );

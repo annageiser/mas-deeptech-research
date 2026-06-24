@@ -334,6 +334,16 @@ def get_compare(days: int = Query(90, ge=1, le=365)) -> dict:
     actors_df = da.actors()
     actor_name = dict(zip(actors_df["slug"], actors_df["name"])) if not actors_df.empty else {}
 
+    # v0.4.36 — extract tool_status + model from config_snapshot so we
+    # can present a tool-status breakdown alongside the comparison.
+    # Hermes records both in v0.4.36+; older runs without the keys count
+    # as "unknown" and are surfaced separately so §3.5 can exclude them.
+    def _cfg(row: dict, key: str, default: str = "unknown") -> str:
+        cfg = row.get("config_snapshot") if isinstance(row, dict) else None
+        if isinstance(cfg, dict) and cfg.get(key):
+            return str(cfg.get(key))
+        return default
+
     per_system = {}
     for sys_ in ("masfactory", "hermes"):
         s_runs = runs_all[runs_all["system"] == sys_] if not runs_all.empty else pd.DataFrame()
@@ -342,6 +352,16 @@ def get_compare(days: int = Query(90, ge=1, le=365)) -> dict:
         in_tok = int(s_tok["input_tokens"].sum()) if not s_tok.empty else 0
         out_tok = int(s_tok["output_tokens"].sum()) if not s_tok.empty else 0
         n_sig = int(len(s_sig))
+
+        tool_status_counts: dict[str, int] = {}
+        model_counts: dict[str, int] = {}
+        if not s_runs.empty and "config_snapshot" in s_runs.columns:
+            for _, r in s_runs.iterrows():
+                ts = _cfg(r.to_dict(), "tool_status")
+                mdl = _cfg(r.to_dict(), "model")
+                tool_status_counts[ts] = tool_status_counts.get(ts, 0) + 1
+                model_counts[mdl] = model_counts.get(mdl, 0) + 1
+
         per_system[sys_] = {
             "label": L.system_label(sys_),
             "runs": int(len(s_runs)),
@@ -352,6 +372,9 @@ def get_compare(days: int = Query(90, ge=1, le=365)) -> dict:
             "input_tokens": in_tok,
             "output_tokens": out_tok,
             "signals_per_1k_tokens": round(n_sig / max(1, (in_tok + out_tok) / 1000), 2) if (in_tok + out_tok) else None,
+            # v0.4.36 transparency surfaces:
+            "tool_status_counts": tool_status_counts,
+            "model_counts": model_counts,
         }
 
     # per-actor impact agreement

@@ -74,3 +74,8 @@ python -m pytest systems/masfactory/tests/ -v
 # Note: System B is now the real upstream CLI — there are no Python unit tests
 # in systems/hermes/ (the wrapper logic is exercised end-to-end on the VPS).
 ```
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
+

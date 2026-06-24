@@ -57,10 +57,20 @@ done
 # priority order. Without any paid key, ddgs serves web_search and
 # web_extract is unavailable; the agent falls back to using search
 # snippets as evidence (see the skill).
+#
+# v0.4.36: also persist HERMES_TOOL_STATUS so the eval harness can
+# distinguish "agent ran with tools and found nothing" from "agent
+# had no extraction tools available — signals: [] is mechanical not
+# substantive." Without this, days where every backend key was unset
+# look identical to substantive zero-yield days in §3.5 metrics,
+# silently inflating System A's apparent yield advantage (Phase 4
+# finding G-15).
 if [ -n "${TAVILY_API_KEY:-}${EXA_API_KEY:-}${BRAVE_SEARCH_API_KEY:-}${FIRECRAWL_API_KEY:-}${PARALLEL_API_KEY:-}${FIRECRAWL_API_URL:-}" ]; then
     echo "[collect_all_actors] paid search backend detected (web_extract enabled)"
+    export HERMES_TOOL_STATUS="paid"
 else
     echo "[collect_all_actors] using ddgs (DuckDuckGo, free unlimited); web_extract unavailable, agent uses snippets"
+    export HERMES_TOOL_STATUS="ddgs"
 fi
 
 if [ ! -f "${ACTORS_FILE}" ]; then
@@ -234,13 +244,14 @@ EOF
     # weaker than a 70B+ model would produce, but the alternative
     # is signals: [] every run.
     #
-    # If the 3B model classifies too coarsely, the right move is
-    # to add a paid model (OPENROUTER_API_KEY with credit) and
-    # override HERMES_MODEL in .env. The free-tier 70B+ models on
-    # OpenRouter are either reasoning (broken), rate-limited
-    # (Llama-3.3-70B), or lack tool support on free providers
-    # (Hermes-3-405B). ~$2/month of OpenRouter credit fixes this
-    # permanently.
+    # v0.4.36: unified with System A. Both systems now default to
+    # qwen/qwen3-next-80b-a3b-instruct:free — an 80B-class instruct
+    # model (no <think> wrapper) with tool-calling on free providers.
+    # See docs/iterations/v0.4.36-model-unification.md for the decision
+    # log. Llama 3.2 3B (the previous v0.4.35 default) was too small for
+    # nuanced four-signal classification and produced a 40× parameter
+    # asymmetry vs System A's Nemotron 120B that would have invalidated
+    # the architecture comparison.
     #
     # Live diagnostic — list currently-free models on OpenRouter:
     #   curl -s https://openrouter.ai/api/v1/models | python3 -c \
@@ -248,13 +259,16 @@ EOF
     #      [print(m['id']) for m in d['data'] \
     #       if m.get('pricing',{}).get('prompt') in ('0','0.0')]"
     #
-    # Known-good alternatives if Hermes 3 405B becomes unavailable
-    # (verified free as of 2026-06-23):
-    #   openai/gpt-oss-120b:free
+    # Known-good alternatives if Qwen3 Next becomes unavailable
+    # (verified free as of 2026-06-23 — must be plain instruct, not
+    # reasoning, with free-tier tool support):
     #   google/gemma-4-31b-it:free
-    #   qwen/qwen3-next-80b-a3b-instruct:free
-    #   meta-llama/llama-3.2-3b-instruct:free  (small but reliable)
-    MODEL="${HERMES_MODEL:-meta-llama/llama-3.2-3b-instruct:free}"
+    #   meta-llama/llama-3.2-3b-instruct:free  (fallback, small but reliable)
+    #
+    # AVOID (reasoning models — Hermes parser breaks):
+    #   nvidia/nemotron-3-super-120b-a12b:free
+    #   openai/gpt-oss-120b:free
+    MODEL="${HERMES_MODEL:-qwen/qwen3-next-80b-a3b-instruct:free}"
     # v0.4.26b: skill list pared back to those bundled in
     # nousresearch/hermes-agent:v2026.6.5 (the official image v0.4.20
     # switched to). `company-research` and `scrapling` were listed in

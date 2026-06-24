@@ -210,12 +210,12 @@ function SentimentBadge({ label, score }: { label: string | null; score: number 
 // ---------------------------------------------------------------------------
 // FlagButton — quick wrong-signal-report UI. Hits POST /api/signal-flags
 // (Workflow B from docs/wrong-signals-strategy.md). Six reason buckets;
-// once flagged, the row's button locks to a "✓ Flagged" pill.
+// once flagged, the row's button locks to a "Flagged" pill.
 // ---------------------------------------------------------------------------
 
 const FLAG_REASONS: { key: string; label: string; positive?: boolean }[] = [
   // v0.4.2: positive label — Anna marks a signal as a gold example
-  { key: "correct_example", label: "✓ Mark as correct example (teach the system)", positive: true },
+  { key: "correct_example", label: "Mark as correct example (teach the system)", positive: true },
   // ---- separator ----
   { key: "wrong_actor",     label: "Wrong actor" },
   { key: "off_topic",       label: "Not about quantum" },
@@ -263,7 +263,7 @@ function FlagButton({ signalId }: { signalId: string }) {
         }}
         title={`Flagged: ${submitted}`}
       >
-        ✓ Flagged
+        Flagged
       </span>
     );
   }
@@ -285,7 +285,7 @@ function FlagButton({ signalId }: { signalId: string }) {
           cursor: "pointer",
         }}
       >
-        ⚑
+        Flag
       </button>
       {open && (
         <div

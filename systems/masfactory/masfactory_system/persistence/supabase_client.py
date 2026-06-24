@@ -52,6 +52,12 @@ class SignalRow:
     # populated together or both None. Disabled with MASF_SENTIMENT=0.
     sentiment_score: Optional[float] = None
     sentiment_label: Optional[str] = None
+    # v0.4.36 — defense flags now first-class on SignalRow so the persister
+    # writes the computed value rather than defaulting to False via getattr.
+    # Computed in agents/persistence.py as (LLM-judgement OR keyword-backstop),
+    # symmetric with System B (see masfactory_system/defense_keywords.py).
+    defense_engagement: bool = False
+    defense_ambivalence: bool = False
 
 
 class SupabaseStore:

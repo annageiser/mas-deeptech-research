@@ -9,6 +9,13 @@ export const metadata: Metadata = {
   title: "Swiss Quantum Ecosystem · Signal Intelligence",
   description:
     "Who has impact in Swiss quantum computing, what signals they send, and how their position shifts — harvested daily from public sources. BSc thesis, Anna Geiser, FHNW.",
+  icons: {
+    icon: [
+      { url: "/icons/quantum-favicon.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/icons/quantum-favicon.png",
+    apple: "/icons/quantum-favicon.png",
+  },
 };
 
 /**

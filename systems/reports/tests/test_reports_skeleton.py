@@ -31,9 +31,17 @@ def test_settings_minimum(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test")
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     monkeypatch.delenv("SUPABASE_SERVICE_KEY", raising=False)
+    # Clear any operator overrides so we test the actual DEFAULT.
+    monkeypatch.delenv("RPT_MODEL_MAIN", raising=False)
+    monkeypatch.delenv("MASF_MODEL_MAIN", raising=False)
     s = load_settings(require_supabase=False)
     assert s.openrouter_api_key == "test"
-    assert s.model_main.startswith("nvidia/nemotron")
+    # v0.4.36 unified default: was nvidia/nemotron-3-super-120b-a12b:free
+    # (reasoning model — broke Hermes parser + reports unreadability), now
+    # qwen/qwen3-next-80b-a3b-instruct:free (plain instruct, 80B-class,
+    # free-tier verified 2026-06-24). See
+    # docs/iterations/v0.4.36-model-unification.md.
+    assert s.model_main.startswith("qwen/qwen3")
     assert s.reports_dir.endswith("reports")
 
 

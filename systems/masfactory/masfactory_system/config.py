@@ -10,7 +10,15 @@ from dataclasses import dataclass
 
 
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL_MAIN = "nvidia/nemotron-3-super-120b-a12b:free"
+# v0.4.37 hotfix — unified default with reports/config.py + .env.example.
+# v0.4.36 changed everything else to qwen/qwen3-next-80b-a3b-instruct:free
+# (plain instruct, 80B-class, tool-calling on free providers) but THIS
+# default was missed. A fresh checkout without MASF_MODEL_MAIN override
+# in .env would silently fall back to nvidia/nemotron-3-super-120b-a12b:free
+# — a reasoning model whose <think> wrappers confound the comparison
+# with System B (which can never use reasoning models because Hermes's
+# parser can't unwrap them). See docs/iterations/v0.4.36-model-unification.md.
+DEFAULT_MODEL_MAIN = "qwen/qwen3-next-80b-a3b-instruct:free"
 DEFAULT_MODEL_FALLBACK = "meta-llama/llama-3.3-70b-instruct:free"
 DEFAULT_HTTP_REFERER = "https://github.com/anna-geiser/mas-deeptech-research"
 DEFAULT_APP_TITLE = "MASFactory System A (BSc thesis)"

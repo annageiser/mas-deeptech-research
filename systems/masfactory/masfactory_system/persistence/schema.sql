@@ -19,9 +19,12 @@ create table if not exists public.actors (
 );
 
 -- ---------- runs (one per g.invoke()) ----------
+-- v0.4.37 — system CHECK now allows 'manual' alongside the two MAS so
+-- the manual-signal sync (scripts/sync_manual_signals.py) can attach
+-- propagated signals to a synthetic run row tagged system='manual'.
 create table if not exists public.runs (
     id              uuid primary key default gen_random_uuid(),
-    system          text not null check (system in ('masfactory', 'hermes')),
+    system          text not null check (system in ('masfactory', 'hermes', 'manual')),
     started_at      timestamptz not null default now(),
     finished_at     timestamptz,
     status          text not null default 'running' check (status in ('running', 'ok', 'error')),
@@ -389,6 +392,32 @@ begin
     ) then
         alter table public.signals drop constraint signals_system_check;
         alter table public.signals add constraint signals_system_check
+            check (system in ('masfactory', 'hermes', 'manual'));
+    end if;
+end $$;
+
+-- v0.4.37 hotfix — also extend runs.system CHECK to allow 'manual'.
+-- The original v0.4.37 migration only updated signals.system; runs.system
+-- was forgotten, which meant sync_manual_signals.py crashed with a
+-- 400 Bad Request from Supabase when trying to insert the synthetic
+-- manual-producer runs row. Idempotent — finds the constraint by name
+-- (which postgres auto-derives from the table+column).
+do $$
+declare
+    cname text;
+begin
+    select conname into cname
+    from pg_constraint
+    where conrelid = 'public.runs'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%system%'
+      and pg_get_constraintdef(oid) ilike '%masfactory%'
+      and not pg_get_constraintdef(oid) ilike '%manual%'
+    limit 1;
+
+    if cname is not null then
+        execute format('alter table public.runs drop constraint %I', cname);
+        alter table public.runs add constraint runs_system_check
             check (system in ('masfactory', 'hermes', 'manual'));
     end if;
 end $$;

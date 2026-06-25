@@ -13,27 +13,55 @@ from openai._exceptions import APIStatusError, RateLimitError
 from .config import Settings
 
 
-# v0.4.36 — reasoning-token strip. Reasoning models (Nemotron Super 120B,
-# gpt-oss-120b, Qwen3 reasoning variants) emit their chain of thought
-# inside <think>...</think> tags inside the visible message content. Until
-# v0.4.36 the reports default was Nemotron and the raw content (including
-# the <think> block) ended up in every daily-report markdown file — the
-# user-reported "report output not readable" bug. Defaults are now plain
-# instruct models but this regex is the belt-and-braces defence: if any
-# future model swap reintroduces reasoning-token wrapping, the visible
-# content is still clean.
-_REASONING_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL | re.IGNORECASE)
+# v0.4.36 / v0.4.38 — reasoning-token strip. Reasoning models (Nemotron 3
+# Ultra 550B, Nemotron Super 120B, gpt-oss-120b, Qwen3 reasoning variants)
+# emit their chain of thought inside <think>...</think> tags inside the
+# visible message content. Until v0.4.36 the reports default was Nemotron
+# and the raw content ended up in every daily-report markdown file — the
+# "report output not readable" bug.
+#
+# v0.4.38 hardens the strip: it now matches <think|thinking|reasoning|
+# thought|analysis|scratchpad> tag families AND also strips a dangling
+# opener with no closer (some providers truncate mid-reasoning when the
+# answer hits max_tokens). Server-side suppression via
+# extra_body={"reasoning": {"exclude": true}} is the primary defence;
+# this regex is the belt-and-braces catch for the residual case.
+_REASONING_TAGS = ("think", "thinking", "reasoning", "thought", "analysis", "scratchpad")
+_REASONING_BALANCED_RE = re.compile(
+    r"<(?:" + "|".join(_REASONING_TAGS) + r")>.*?</(?:" + "|".join(_REASONING_TAGS) + r")>\s*",
+    re.DOTALL | re.IGNORECASE,
+)
+_REASONING_DANGLING_RE = re.compile(
+    r"^.*?<(?:" + "|".join(_REASONING_TAGS) + r")>.*?(?=\{|\[|#|\n\n|$)",
+    re.DOTALL | re.IGNORECASE,
+)
 
 
 def _strip_reasoning_tags(text: str) -> str:
-    """Remove <think>...</think> blocks emitted by reasoning models.
+    """Remove reasoning-tag blocks emitted by reasoning models.
 
-    Conservative — only strips paired tags. Leaves any unpaired stray
-    tag alone so it surfaces in the report as a diagnostic.
+    Two passes:
+      1. Balanced <think>...</think> (and siblings) — safe everywhere.
+      2. Dangling opener with no closer — only applied when the text
+         starts with one. Stops at the first JSON, markdown heading,
+         or paragraph break so legitimate prose is never eaten.
     """
-    if not text or "<think>" not in text.lower():
+    if not text:
         return text
-    return _REASONING_RE.sub("", text).strip()
+    lower = text.lower()
+    if not any(f"<{t}>" in lower for t in _REASONING_TAGS):
+        return text
+    out = _REASONING_BALANCED_RE.sub("", text).strip()
+    # Dangling-opener case — only if the text still leads with a tag.
+    if out and any(out.lstrip().lower().startswith(f"<{t}>") for t in _REASONING_TAGS):
+        out = _REASONING_DANGLING_RE.sub("", out, count=1).strip()
+    return out
+
+
+# v0.4.38 — body field OpenRouter recognises to drop reasoning tokens
+# server-side. Applied on every chat call when settings.reasoning_exclude
+# is true (the default).
+_REASONING_EXCLUDE_BODY: dict[str, dict[str, bool]] = {"reasoning": {"exclude": True}}
 
 
 @dataclass
@@ -88,7 +116,10 @@ class OpenRouterClient:
         temperature: float = 0.4,
     ) -> str:
         primary = model or self.settings.model_main
-        kwargs = {"max_tokens": max_tokens, "temperature": temperature}
+        kwargs: dict[str, Any] = {"max_tokens": max_tokens, "temperature": temperature}
+        # v0.4.38 — server-side reasoning-token suppression.
+        if getattr(self.settings, "reasoning_exclude", True):
+            kwargs["extra_body"] = dict(_REASONING_EXCLUDE_BODY)
         resp, err = self._try_model(primary, messages, **kwargs)
         if resp is None:
             resp, err2 = self._try_model(self.settings.model_fallback, messages, **kwargs)

@@ -160,6 +160,65 @@ VALID_SIGNAL_TYPES = {
 }
 
 
+# v0.4.38 — Layer 2 of the three-layer reasoning-token defence (see
+# docs/iterations/v0.4.38-nemotron-3-ultra-migration.md). The upstream
+# Hermes Agent CLI does not reliably unwrap reasoning-token blocks
+# emitted by frontier-reasoning models (Nemotron Super 120B, gpt-oss-
+# 120b, Nemotron 3 Ultra 550B). When the LLM wraps its answer in
+# <think>...</think> tags, the upstream parser sees an empty visible
+# body and ends up returning "Thinking-only response → Empty response".
+#
+# This helper runs BEFORE _extract_json_block on agent stdout. It
+# removes balanced reasoning-tag blocks across the six observed tag
+# families (think, thinking, reasoning, thought, analysis, scratchpad);
+# in case the model truncated mid-reasoning and left an unclosed
+# opener, it also strips a single dangling opener that prefixes the
+# real content (stopping at the first '{' / '[' so the JSON block
+# stays intact).
+#
+# Pure post-processing — never raises, never logs to Supabase, never
+# rejects valid output. If the agent emitted a clean answer with no
+# reasoning leak, the helper is a no-op.
+_REASONING_TAGS_RE = "|".join(
+    ("think", "thinking", "reasoning", "thought", "analysis", "scratchpad")
+)
+_REASONING_BALANCED_RE = re.compile(
+    rf"<(?:{_REASONING_TAGS_RE})>.*?</(?:{_REASONING_TAGS_RE})>\s*",
+    re.DOTALL | re.IGNORECASE,
+)
+_REASONING_DANGLING_RE = re.compile(
+    rf"^\s*<(?:{_REASONING_TAGS_RE})>.*?(?=\{{|\[|```)",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _strip_reasoning_artefacts(text: str) -> str:
+    """Remove reasoning-tag blocks from agent stdout.
+
+    Two passes:
+      1. Balanced <think>...</think> (and the five sibling families).
+         Safe everywhere — only removes paired tags.
+      2. Dangling opener at the start of the text with no matching
+         close. Stops at the first JSON-block start ('{' / '[') or
+         markdown fence ('```') so legitimate prose / JSON is never
+         eaten.
+    Returns the text unchanged when no reasoning tags appear.
+    """
+    if not text:
+        return text
+    lower = text.lower()
+    tags = ("think", "thinking", "reasoning", "thought", "analysis", "scratchpad")
+    if not any(f"<{t}>" in lower for t in tags):
+        return text
+    out = _REASONING_BALANCED_RE.sub("", text)
+    # Only apply the dangling-opener strip when the cleaned text still
+    # starts (after optional whitespace) with one of the openers.
+    stripped = out.lstrip()
+    if any(stripped.lower().startswith(f"<{t}>") for t in tags):
+        out = _REASONING_DANGLING_RE.sub("", out, count=1)
+    return out
+
+
 def _extract_json_block(text: str) -> dict[str, Any] | None:
     """Find the agent's signal-list JSON object in stdout.
 
@@ -338,9 +397,14 @@ def _create_run() -> str:
             # be split by model. tool_status is set by collect_all_actors.sh
             # preflight; defaults to "unknown" if the script didn't probe.
             "model": os.environ.get("HERMES_MODEL") or "unknown",
+            "model_fallback": os.environ.get("HERMES_MODEL_FALLBACK") or "unknown",
             "tool_status": os.environ.get("HERMES_TOOL_STATUS") or "unknown",
             "lookback_days": int(os.environ.get("HERMES_LOOKBACK_DAYS", "180")),
             "limit_actors": int(os.environ.get("HERMES_LIMIT_ACTORS", "0") or 0),
+            # v0.4.38 — reasoning-token suppression knob. Default ON.
+            "reasoning_exclude": os.environ.get(
+                "HERMES_REASONING_EXCLUDE", "1"
+            ).strip().lower() in ("1", "true", "yes", "on"),
         },
     }
     with httpx.Client(timeout=15.0) as client:
@@ -475,7 +539,15 @@ def _cmd_persist(args: argparse.Namespace) -> int:
         return 1
 
     text = stdin_path.read_text(encoding="utf-8", errors="replace")
-    block = _extract_json_block(text)
+    # v0.4.38 — L2: strip reasoning-token blocks before JSON extraction.
+    sanitised = _strip_reasoning_artefacts(text)
+    if sanitised != text:
+        _log(
+            log_path,
+            f"[{args.actor_slug}] stripped reasoning artefacts "
+            f"({len(text) - len(sanitised)} chars removed)",
+        )
+    block = _extract_json_block(sanitised)
     if block is None:
         _log(log_path, f"[{args.actor_slug}] no JSON block found in agent stdout")
         print("0")

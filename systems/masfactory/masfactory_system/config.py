@@ -10,16 +10,15 @@ from dataclasses import dataclass
 
 
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-# v0.4.37 hotfix — unified default with reports/config.py + .env.example.
-# v0.4.36 changed everything else to qwen/qwen3-next-80b-a3b-instruct:free
-# (plain instruct, 80B-class, tool-calling on free providers) but THIS
-# default was missed. A fresh checkout without MASF_MODEL_MAIN override
-# in .env would silently fall back to nvidia/nemotron-3-super-120b-a12b:free
-# — a reasoning model whose <think> wrappers confound the comparison
-# with System B (which can never use reasoning models because Hermes's
-# parser can't unwrap them). See docs/iterations/v0.4.36-model-unification.md.
-DEFAULT_MODEL_MAIN = "qwen/qwen3-next-80b-a3b-instruct:free"
-DEFAULT_MODEL_FALLBACK = "meta-llama/llama-3.3-70b-instruct:free"
+# v0.4.38 — both systems migrated to nvidia/nemotron-3-ultra-550b-a55b:free
+# (a reasoning model on OpenRouter's free tier). System A handles the
+# <think> wrapper via the OpenRouter `reasoning: {exclude: true}` body
+# field (see model.py); the Instructor-backed structured-output layer
+# also tolerates leading non-JSON content. Fallback is a plain-instruct
+# free model so a rate-limit or provider outage cannot blank a run.
+# See docs/iterations/v0.4.38-nemotron-3-ultra-migration.md.
+DEFAULT_MODEL_MAIN = "nvidia/nemotron-3-ultra-550b-a55b:free"
+DEFAULT_MODEL_FALLBACK = "qwen/qwen3-next-80b-a3b-instruct:free"
 DEFAULT_HTTP_REFERER = "https://github.com/anna-geiser/mas-deeptech-research"
 DEFAULT_APP_TITLE = "MASFactory System A (BSc thesis)"
 
@@ -43,6 +42,11 @@ class Settings:
     audit_dir: str
     http_referer: str
     app_title: str
+    # v0.4.38 — when true, every chat-completion request to OpenRouter
+    # carries `extra_body={"reasoning": {"exclude": true}}` so reasoning
+    # models (Nemotron 3 Ultra) return their answer outside the <think>
+    # wrapper. Forwarded into the run's config_snapshot for replay.
+    reasoning_exclude: bool
 
     @property
     def has_supabase(self) -> bool:
@@ -64,6 +68,13 @@ def _int(name: str, default: int) -> int:
         return int(raw)
     except ValueError as exc:
         raise ConfigError(f"environment variable {name} must be an integer, got {raw!r}") from exc
+
+
+def _bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in ("1", "true", "yes", "on")
 
 
 def load_settings(*, require_supabase: bool = True) -> Settings:
@@ -98,4 +109,5 @@ def load_settings(*, require_supabase: bool = True) -> Settings:
         http_referer=os.environ.get("OPENROUTER_HTTP_REFERER", DEFAULT_HTTP_REFERER).strip()
         or DEFAULT_HTTP_REFERER,
         app_title=os.environ.get("OPENROUTER_APP_TITLE", DEFAULT_APP_TITLE).strip() or DEFAULT_APP_TITLE,
+        reasoning_exclude=_bool("MASF_REASONING_EXCLUDE", True),
     )

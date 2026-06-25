@@ -261,31 +261,24 @@ EOF
     # weaker than a 70B+ model would produce, but the alternative
     # is signals: [] every run.
     #
-    # v0.4.36: unified with System A. Both systems now default to
-    # qwen/qwen3-next-80b-a3b-instruct:free — an 80B-class instruct
-    # model (no <think> wrapper) with tool-calling on free providers.
-    # See docs/iterations/v0.4.36-model-unification.md for the decision
-    # log. Llama 3.2 3B (the previous v0.4.35 default) was too small for
-    # nuanced four-signal classification and produced a 40× parameter
-    # asymmetry vs System A's Nemotron 120B that would have invalidated
-    # the architecture comparison.
+    # v0.4.38: both systems migrated to nvidia/nemotron-3-ultra-550b-a55b:free
+    # (frontier-class reasoning model, PAID). The historical "Hermes
+    # parser cannot unwrap <think>" issue is handled by a three-layer
+    # defence — see docs/iterations/v0.4.38-nemotron-3-ultra-migration.md.
+    # L1 server-side reasoning-exclude in cli-config.yaml; L2 client-side
+    # <think>-strip in persist_signals.py; L3 fallback retry below.
     #
-    # Live diagnostic — list currently-free models on OpenRouter:
+    # If the primary errors or returns signals: [] for a single actor,
+    # we retry that actor once with $HERMES_MODEL_FALLBACK (default
+    # qwen/qwen3-next-80b-a3b-instruct:free — a free plain-instruct
+    # model so a paid-credit outage cannot blank an entire run).
+    #
+    # Live diagnostic — list currently-available models on OpenRouter:
     #   curl -s https://openrouter.ai/api/v1/models | python3 -c \
     #     "import json,sys; d=json.load(sys.stdin); \
-    #      [print(m['id']) for m in d['data'] \
-    #       if m.get('pricing',{}).get('prompt') in ('0','0.0')]"
-    #
-    # Known-good alternatives if Qwen3 Next becomes unavailable
-    # (verified free as of 2026-06-23 — must be plain instruct, not
-    # reasoning, with free-tier tool support):
-    #   google/gemma-4-31b-it:free
-    #   meta-llama/llama-3.2-3b-instruct:free  (fallback, small but reliable)
-    #
-    # AVOID (reasoning models — Hermes parser breaks):
-    #   nvidia/nemotron-3-super-120b-a12b:free
-    #   openai/gpt-oss-120b:free
-    MODEL="${HERMES_MODEL:-qwen/qwen3-next-80b-a3b-instruct:free}"
+    #      [print(m['id']) for m in d['data']]"
+    MODEL="${HERMES_MODEL:-nvidia/nemotron-3-ultra-550b-a55b:free}"
+    MODEL_FALLBACK="${HERMES_MODEL_FALLBACK:-qwen/qwen3-next-80b-a3b-instruct:free}"
     # v0.4.26b: skill list pared back to those bundled in
     # nousresearch/hermes-agent:v2026.6.5 (the official image v0.4.20
     # switched to). `company-research` and `scrapling` were listed in
@@ -300,30 +293,74 @@ EOF
     # building, first run `docker compose run --rm hermes hermes doctor`
     # against this image to enumerate available skills, then update this
     # list with the verified names.
-    if timeout 600 hermes chat \
+    # v0.4.38 — L3 fallback. Try primary first; if it errors OR returns
+    # zero signals (a strong indicator the agent's parser dropped the
+    # answer because the model emitted reasoning-only content the
+    # persister's L2 strip could not recover), retry the actor once
+    # with $HERMES_MODEL_FALLBACK. Records which model produced the
+    # accepted signals into the per-actor stderr for audit.
+    _run_agent_for_actor() {
+        local model_id="${1}"
+        local out_file="${2}"
+        local err_file="${3}"
+        timeout 600 hermes chat \
             --skills collect-swiss-quantum-signals,arxiv,blogwatcher \
             --toolsets web,skills \
-            --model "${MODEL}" \
+            --model "${model_id}" \
             --provider openrouter \
             -q "${PROMPT}" \
             < /dev/null \
-            > "${AGENT_OUT}" 2> "${AGENT_ERR}"; then
-        # Parse + persist; the persister returns the number of NEW signals inserted.
+            > "${out_file}" 2> "${err_file}"
+    }
+
+    USED_MODEL="${MODEL}"
+    NEW=0
+    AGENT_OK=0
+    if _run_agent_for_actor "${MODEL}" "${AGENT_OUT}" "${AGENT_ERR}"; then
+        AGENT_OK=1
+    fi
+
+    if [ "${AGENT_OK}" = "1" ]; then
         if NEW=$(python3 "${PERSIST}" \
                     --actor-slug "${slug}" \
                     --stdin-file "${AGENT_OUT}" \
                     --run-id "${RUN_ID}" \
                     --run-log "${LOGDIR}/persist.log"); then
-            SIGNALS=$((SIGNALS + NEW))
-            OK=$((OK + 1))
-            echo "[collect_all_actors] ✓ ${slug} — ${NEW} new signals"
+            : # persisted fine
         else
-            FAIL=$((FAIL + 1))
-            echo "[collect_all_actors] ✗ ${slug} — persist failed (see ${LOGDIR}/persist.log)"
+            NEW=""
         fi
+    fi
+
+    # Retry path: primary errored OR returned zero parseable signals.
+    if [ "${AGENT_OK}" = "0" ] || [ -z "${NEW}" ] || [ "${NEW}" = "0" ]; then
+        if [ -n "${MODEL_FALLBACK}" ] && [ "${MODEL_FALLBACK}" != "${MODEL}" ]; then
+            echo "[collect_all_actors] ↻ ${slug} — retry with fallback (${MODEL_FALLBACK})"
+            FALLBACK_OUT="${LOGDIR}/${slug}.fallback.stdout.txt"
+            FALLBACK_ERR="${LOGDIR}/${slug}.fallback.stderr.txt"
+            if _run_agent_for_actor "${MODEL_FALLBACK}" "${FALLBACK_OUT}" "${FALLBACK_ERR}"; then
+                if FB_NEW=$(python3 "${PERSIST}" \
+                            --actor-slug "${slug}" \
+                            --stdin-file "${FALLBACK_OUT}" \
+                            --run-id "${RUN_ID}" \
+                            --run-log "${LOGDIR}/persist.log"); then
+                    if [ -n "${FB_NEW}" ] && [ "${FB_NEW}" != "0" ]; then
+                        NEW="${FB_NEW}"
+                        AGENT_OK=1
+                        USED_MODEL="${MODEL_FALLBACK}"
+                    fi
+                fi
+            fi
+        fi
+    fi
+
+    if [ "${AGENT_OK}" = "1" ] && [ -n "${NEW}" ]; then
+        SIGNALS=$((SIGNALS + NEW))
+        OK=$((OK + 1))
+        echo "[collect_all_actors] ✓ ${slug} — ${NEW} new signals (model=${USED_MODEL})"
     else
         FAIL=$((FAIL + 1))
-        echo "[collect_all_actors] ✗ ${slug} — agent timed out or errored"
+        echo "[collect_all_actors] ✗ ${slug} — agent errored or returned no parseable signals (see ${LOGDIR}/${slug}.stderr.txt)"
     fi
 done < "${ACTOR_LIST}"
 

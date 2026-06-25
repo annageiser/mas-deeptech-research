@@ -55,14 +55,18 @@ def test_settings_load_with_minimum(monkeypatch):
     monkeypatch.delenv("SUPABASE_SERVICE_KEY", raising=False)
     # Clear any operator overrides so we test the actual DEFAULT.
     monkeypatch.delenv("MASF_MODEL_MAIN", raising=False)
+    monkeypatch.delenv("MASF_REASONING_EXCLUDE", raising=False)
     settings = load_settings(require_supabase=False)
     assert settings.openrouter_api_key == "test-key"
-    # v0.4.36 unified default: was nvidia/nemotron-3-super-120b-a12b:free
-    # (reasoning model — broke comparison-validity once Hermes settled on a
-    # 3B fallback), now qwen/qwen3-next-80b-a3b-instruct:free (plain
-    # instruct, 80B-class, free). See
-    # docs/iterations/v0.4.36-model-unification.md.
-    assert settings.model_main.startswith("qwen/qwen3")
+    # v0.4.38 unified default: nvidia/nemotron-3-ultra-550b-a55b:free. A
+    # reasoning model — the <think>-wrapper issue is handled by the
+    # extra_body={"reasoning":{"exclude":true}} pass-through in
+    # model.py and (for Hermes) by persist_signals.py's L2 strip.
+    # See docs/iterations/v0.4.38-nemotron-3-ultra-migration.md.
+    assert settings.model_main.startswith("nvidia/nemotron-3-ultra")
+    # reasoning_exclude defaults to True so the OpenRouter body field
+    # is set on every chat call from masfactory.
+    assert settings.reasoning_exclude is True
     assert not settings.has_supabase
 
 

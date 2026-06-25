@@ -34,14 +34,16 @@ def test_settings_minimum(monkeypatch):
     # Clear any operator overrides so we test the actual DEFAULT.
     monkeypatch.delenv("RPT_MODEL_MAIN", raising=False)
     monkeypatch.delenv("MASF_MODEL_MAIN", raising=False)
+    monkeypatch.delenv("RPT_REASONING_EXCLUDE", raising=False)
+    monkeypatch.delenv("MASF_REASONING_EXCLUDE", raising=False)
     s = load_settings(require_supabase=False)
     assert s.openrouter_api_key == "test"
-    # v0.4.36 unified default: was nvidia/nemotron-3-super-120b-a12b:free
-    # (reasoning model — broke Hermes parser + reports unreadability), now
-    # qwen/qwen3-next-80b-a3b-instruct:free (plain instruct, 80B-class,
-    # free-tier verified 2026-06-24). See
-    # docs/iterations/v0.4.36-model-unification.md.
-    assert s.model_main.startswith("qwen/qwen3")
+    # v0.4.38 unified default: nvidia/nemotron-3-ultra-550b-a55b:free. The
+    # OpenRouter reasoning-exclude body field is applied in
+    # openrouter.py's chat() to suppress <think> wrappers server-side.
+    # See docs/iterations/v0.4.38-nemotron-3-ultra-migration.md.
+    assert s.model_main.startswith("nvidia/nemotron-3-ultra")
+    assert s.reasoning_exclude is True
     assert s.reports_dir.endswith("reports")
 
 

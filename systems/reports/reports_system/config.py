@@ -7,16 +7,15 @@ from dataclasses import dataclass
 
 
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-# v0.4.36 — unified with both systems. Was Nemotron-Super-120B which is a
-# REASONING model: openrouter.py:81 took choices[0].message.content raw,
-# so the entire <think>...</think> block appeared as visible text in every
-# daily report (unreadable output flagged by user). Switching to Qwen3 Next
-# (plain instruct, see docs/iterations/v0.4.36-model-unification.md)
-# removes the bleed at the source. The _strip_reasoning_tags helper in
-# openrouter.py is the belt-and-braces defence in case a future reports
-# model is silently swapped to a reasoning variant.
-DEFAULT_MODEL_MAIN = "qwen/qwen3-next-80b-a3b-instruct:free"
-DEFAULT_MODEL_FALLBACK = "meta-llama/llama-3.3-70b-instruct:free"
+# v0.4.38 — unified with both systems on Nemotron 3 Ultra 550B (:free).
+# A reasoning model: the openrouter.py wrapper applies
+# extra_body={"reasoning": {"exclude": true}} (server-side strip) AND
+# the _strip_reasoning_tags helper in openrouter.py is the client-side
+# belt-and-braces against any residual <think> wrapper. Fallback is a
+# plain-instruct free model so a rate-limit or provider outage cannot
+# break the daily report.
+DEFAULT_MODEL_MAIN = "nvidia/nemotron-3-ultra-550b-a55b:free"
+DEFAULT_MODEL_FALLBACK = "qwen/qwen3-next-80b-a3b-instruct:free"
 DEFAULT_REPORTS_DIR = "/data/reports"
 DEFAULT_REPO_DIR = "/repo"
 DEFAULT_THESIS_NOTES_PATH = "/data/raw/thesis_notes.md"
@@ -41,6 +40,9 @@ class Settings:
     thesis_notes_path: str
     http_referer: str
     app_title: str
+    # v0.4.38 — server-side reasoning suppression for the report-synth model.
+    # Honoured by OpenRouterClient.chat() via extra_body.
+    reasoning_exclude: bool = True
 
     @property
     def has_supabase(self) -> bool:
@@ -82,4 +84,8 @@ def load_settings(*, require_supabase: bool = True) -> Settings:
         http_referer=os.environ.get("OPENROUTER_HTTP_REFERER", DEFAULT_HTTP_REFERER).strip()
         or DEFAULT_HTTP_REFERER,
         app_title=os.environ.get("OPENROUTER_APP_TITLE", DEFAULT_APP_TITLE).strip() or DEFAULT_APP_TITLE,
+        reasoning_exclude=os.environ.get(
+            "RPT_REASONING_EXCLUDE",
+            os.environ.get("MASF_REASONING_EXCLUDE", "1"),
+        ).strip().lower() in ("1", "true", "yes", "on"),
     )

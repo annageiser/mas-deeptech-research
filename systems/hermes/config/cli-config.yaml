@@ -9,27 +9,47 @@
 # Why these knobs were chosen — see docs/iterations/v0.4.4-real-hermes-agent.md
 
 model:
-  # OpenRouter free tier — same model MASFactory uses, so the cross-system
-  # comparison is apples-to-apples. Override with $HERMES_MODEL at runtime.
+  # v0.4.38 — both systems migrated to Nemotron 3 Ultra 550B (:free).
+  # Frontier-class MoE reasoning model on OpenRouter's free tier (550 B
+  # total / 55 B active per token). Free-only policy from v0.4.8 is
+  # preserved. Override with $HERMES_MODEL at runtime;
+  # collect_all_actors.sh also reads $HERMES_MODEL_FALLBACK for an L3
+  # per-actor retry when this returns signals: [] or errors.
   #
-  # v0.4.10: was nvidia/nemotron-nano-9b-v2:free (32k context). Hermes
-  # Agent has a hard 64k context floor and refused to initialise. Nemotron
-  # Super 120B is free, has 128k context, supports tool calls, and matches
-  # MASFactory's primary model exactly.
-  default: "nvidia/nemotron-3-super-120b-a12b:free"
+  # Reasoning-token handling: this CLI's upstream may or may not forward
+  # an arbitrary `reasoning` / `extra_body` field to OpenRouter (the
+  # schema is opaque to us). We rely on the THREE-LAYER defence:
+  #   L1 — server-side, configured here best-effort below (`reasoning:
+  #        exclude: true`) AND via the agent.reasoning_effort knob.
+  #   L2 — client-side, persist_signals.py strips <think|thinking|
+  #        reasoning|thought|analysis|scratchpad> blocks from agent
+  #        stdout before JSON extraction. Always runs.
+  #   L3 — model-level, collect_all_actors.sh retries with
+  #        $HERMES_MODEL_FALLBACK on empty / error.
+  default: "nvidia/nemotron-3-ultra-550b-a55b:free"
   provider: "openrouter"
   base_url: "https://openrouter.ai/api/v1"
 
   # Cap output per turn. Without this the agent asks for the model's
-  # native ceiling (128k), and OpenRouter requires enough credit balance
-  # to pre-authorize the WHOLE max_tokens hold — even on `:free` models.
-  # 4096 is plenty for our skill's JSON output contract.
-  max_tokens: 4096
+  # native ceiling, and OpenRouter requires enough credit balance to
+  # pre-authorize the WHOLE max_tokens hold. 6144 leaves headroom for
+  # the JSON output even if a stray bit of reasoning gets through.
+  max_tokens: 6144
 
   # Total context window. Must be >= 64000 (Hermes Agent's hard floor).
-  # Nemotron Super's native window is 128k; we cap at 64k to keep the
-  # credit-hold reservation low and trigger compression sooner.
+  # Nemotron 3 Ultra's native window comfortably exceeds 64k; we cap at
+  # 64k to keep credit-hold reservations low and trigger compression
+  # sooner. Bump if the agent starts hitting compression every actor.
   context_length: 65536
+
+  # v0.4.38 — server-side reasoning-token suppression. OpenRouter
+  # honours `reasoning: {exclude: true}` as a top-level body field;
+  # whether the upstream Hermes CLI forwards it from this YAML key
+  # depends on its schema. If ignored, L2 (persist_signals.py) catches
+  # the residual case. Documented at:
+  #   https://openrouter.ai/docs/use-cases/reasoning-tokens
+  reasoning:
+    exclude: true
 
 # ── FREE-ONLY POLICY (v0.4.8) ────────────────────────────────────────────
 # The thesis runs on free-tier LLMs only. Without explicit overrides the

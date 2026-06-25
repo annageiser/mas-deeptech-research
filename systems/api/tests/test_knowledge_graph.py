@@ -153,11 +153,14 @@ def test_semantic_edges_appear_when_embeddings_present():
 
 
 def test_semantic_threshold_respected():
+    # The synthetic eth/idq fixture is intentionally near-collinear so
+    # the "edges appear" test passes — centroid cosine sits at ~0.9993.
+    # An "impossibly tight" threshold needs to be tighter than that.
     graph = build_graph_json(
         _make_signals(with_embeddings=True),
         _make_actors(),
         include_semantic=True,
-        semantic_threshold=0.999,  # impossibly tight
+        semantic_threshold=0.99999,
     )
     sem_edges = [e for e in graph["edges"] if e["kind"] == "actor-actor-sim"]
     assert sem_edges == []

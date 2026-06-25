@@ -54,8 +54,28 @@ export const api = {
   compare: (days = 30) => get<CompareResponse>(`/api/compare${qs({ days })}`),
   coverage: (system?: string, days = 90) =>
     get<CoverageResponse>(`/api/coverage${qs({ system, days })}`),
-  knowledgeGraph: (system?: string, days = 30, threshold = 2) =>
-    get<KnowledgeGraph>(`/api/knowledge-graph${qs({ system, days, threshold })}`),
+  knowledgeGraph: (
+    system?: string,
+    days = 30,
+    threshold = 2,
+    // v0.4.40 — additive layers. Default off so legacy callers see the
+    // exact same response shape.
+    options?: {
+      include_taxonomy?: boolean;
+      include_semantic?: boolean;
+      semantic_threshold?: number;
+    },
+  ) =>
+    get<KnowledgeGraph>(
+      `/api/knowledge-graph${qs({
+        system,
+        days,
+        threshold,
+        include_taxonomy: options?.include_taxonomy ? 1 : undefined,
+        include_semantic: options?.include_semantic ? 1 : undefined,
+        semantic_threshold: options?.semantic_threshold,
+      })}`,
+    ),
   reports: (kind?: string) => get<{ reports: ReportListItem[] }>(`/api/reports${qs({ kind })}`),
   report: (kind: string, period: string, file: string) =>
     get<{ markdown: string }>(`/api/reports${qs({ kind, period, file })}`),

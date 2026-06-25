@@ -1,6 +1,14 @@
 # Hermes
 .hermes/
 
+# v0.4.40 — codebase-memory-mcp local index. Re-derivable from source on
+# any dev machine via `codebase-memory-mcp index .` (see
+# docs/codebase-memory-mcp.md). A team-shared compressed baseline
+# (.codebase-memory/graph.db.zst) can be committed explicitly if the
+# team chooses; the live index and WAL files should not be.
+.codebase-memory/*
+!.codebase-memory/graph.db.zst
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

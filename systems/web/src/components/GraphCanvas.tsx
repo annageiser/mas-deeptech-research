@@ -35,8 +35,17 @@ type Positioned = KnowledgeGraphNode & {
   angle: number; // radians, used for tangential label rotation
 };
 
+// v0.4.40 — widened to admit the three additive edge kinds. Unknown
+// kinds are kept as `actor-dim`-shaped (no-op rendering branch).
+type EdgeKind =
+  | "actor-dim"
+  | "actor-actor"
+  | "dim-signal-type"
+  | "actor-signal-type"
+  | "actor-actor-sim";
+
 type EdgePositioned = KnowledgeGraphEdge & {
-  kind: "actor-dim" | "actor-actor";
+  kind: EdgeKind;
   a: { x: number; y: number };
   b: { x: number; y: number };
 };
@@ -46,9 +55,26 @@ const W = 1100;
 const H = 800;
 const CX = W / 2;
 const CY = H / 2;
+const RING_SIGNAL_TYPE = 80;   // v0.4.40 — inner-most ring (only used when taxonomy is on)
 const RING_DIM = 200;
 const RING_ACTOR = 330;
 const CATEGORY_GAP_DEG = 6;
+
+// Stable display order for the 4 Ehrenthal signal_type nodes — matches
+// the order used elsewhere on the dashboard (api/main.py ORDER list).
+const SIGNAL_TYPE_ORDER = [
+  "legitimacy",
+  "customer_cocreation",
+  "community_ecosystem",
+  "future_trajectory",
+];
+
+const isKnownEdgeKind = (k: string): k is EdgeKind =>
+  k === "actor-dim" ||
+  k === "actor-actor" ||
+  k === "dim-signal-type" ||
+  k === "actor-signal-type" ||
+  k === "actor-actor-sim";
 
 const CATEGORY_ORDER = [
   "national_initiative",
@@ -68,9 +94,12 @@ export default function GraphCanvas({ graph }: { graph: KnowledgeGraph }) {
   const [inspect, setInspect] = useState<Inspect>(null);
   const [showPeerEdges, setShowPeerEdges] = useState(false);
 
-  const { actorNodes, dimNodes, allNodes, edges, neighbours, nodeById } = useMemo(() => {
+  const { actorNodes, dimNodes, signalTypeNodes, edges, neighbours, nodeById } = useMemo(() => {
     const actorsRaw = graph.nodes.filter((n) => n.kind === "actor");
     const dimsRaw = graph.nodes.filter((n) => n.kind === "dimension");
+    // v0.4.40 — opt-in signal_type nodes go on an inner-most ring.
+    // Empty array when include_taxonomy=false (the default).
+    const signalTypesRaw = graph.nodes.filter((n) => n.kind === "signal_type");
 
     const catRank = (c: string) => {
       const idx = CATEGORY_ORDER.indexOf(c);
@@ -121,15 +150,35 @@ export default function GraphCanvas({ graph }: { graph: KnowledgeGraph }) {
       };
     });
 
+    // v0.4.40 — signal_type ring at fixed angular slots in canonical order.
+    const orderedSt = [...signalTypesRaw].sort((a, b) => {
+      const ka = a.signal_type_key || "";
+      const kb = b.signal_type_key || "";
+      const ia = SIGNAL_TYPE_ORDER.indexOf(ka);
+      const ib = SIGNAL_TYPE_ORDER.indexOf(kb);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+    const signalTypePositions: Positioned[] = orderedSt.map((s, i) => {
+      const ang = (i / Math.max(1, orderedSt.length)) * Math.PI * 2 - Math.PI / 2;
+      return {
+        ...s,
+        x: CX + RING_SIGNAL_TYPE * Math.cos(ang),
+        y: CY + RING_SIGNAL_TYPE * Math.sin(ang),
+        angle: ang,
+      };
+    });
+
     const posMap = new Map<string, { x: number; y: number }>();
-    for (const n of [...actorPositions, ...dimPositions]) posMap.set(n.id, { x: n.x, y: n.y });
+    for (const n of [...actorPositions, ...dimPositions, ...signalTypePositions]) {
+      posMap.set(n.id, { x: n.x, y: n.y });
+    }
 
     const edgesP: EdgePositioned[] = graph.edges
       .map((e) => {
         const a = posMap.get(e.source);
         const b = posMap.get(e.target);
         if (!a || !b) return null;
-        const kind: EdgePositioned["kind"] = e.kind === "actor-actor" ? "actor-actor" : "actor-dim";
+        const kind: EdgeKind = isKnownEdgeKind(e.kind) ? e.kind : "actor-dim";
         return { ...e, kind, a, b } as EdgePositioned;
       })
       .filter((x): x is EdgePositioned => x !== null);
@@ -143,12 +192,12 @@ export default function GraphCanvas({ graph }: { graph: KnowledgeGraph }) {
     }
 
     const byId = new Map<string, Positioned>();
-    for (const n of [...actorPositions, ...dimPositions]) byId.set(n.id, n);
+    for (const n of [...actorPositions, ...dimPositions, ...signalTypePositions]) byId.set(n.id, n);
 
     return {
       actorNodes: actorPositions,
       dimNodes: dimPositions,
-      allNodes: [...dimPositions, ...actorPositions],
+      signalTypeNodes: signalTypePositions,
       edges: edgesP,
       neighbours: nbr,
       nodeById: byId,
@@ -198,6 +247,20 @@ export default function GraphCanvas({ graph }: { graph: KnowledgeGraph }) {
       const shared = e.shared?.join(", ") || `${e.weight} shared signal types`;
       return `${a} ↔ ${b}\nShared: ${shared}`;
     }
+    if (e.kind === "actor-actor-sim") {
+      const a = e.actor_a_label ?? e.source;
+      const b = e.actor_b_label ?? e.target;
+      const sim = e.similarity != null ? e.similarity.toFixed(3) : e.weight.toFixed(3);
+      return `${a} ↔ ${b}\nSemantic similarity (centroid cosine): ${sim}`;
+    }
+    if (e.kind === "dim-signal-type") {
+      return `${e.dimension_label ?? e.source} ∈ ${e.signal_type_label ?? e.target}`;
+    }
+    if (e.kind === "actor-signal-type") {
+      const a = e.actor_label ?? e.source;
+      const st = e.signal_type_label ?? e.target;
+      return `${a} → ${st}\n${e.count ?? e.weight} signal${(e.count ?? e.weight) === 1 ? "" : "s"} aggregated`;
+    }
     const a = e.actor_label ?? e.source;
     const d = e.dimension_label ?? e.target;
     const st = e.signal_type_label ? ` · ${e.signal_type_label}` : "";
@@ -237,8 +300,54 @@ export default function GraphCanvas({ graph }: { graph: KnowledgeGraph }) {
           style={{ width: "100%", minWidth: 700, background: "var(--chart-bg)", borderRadius: 8 }}
           onMouseLeave={() => setInspect(null)}
         >
+          {/* v0.4.40 — innermost ring only drawn when signal_type nodes are present. */}
+          {signalTypeNodes.length > 0 && (
+            <circle cx={CX} cy={CY} r={RING_SIGNAL_TYPE} fill="none" stroke="var(--ring-guide)" strokeDasharray="2 4" />
+          )}
           <circle cx={CX} cy={CY} r={RING_DIM} fill="none" stroke="var(--ring-guide)" strokeDasharray="2 4" />
           <circle cx={CX} cy={CY} r={RING_ACTOR} fill="none" stroke="var(--ring-guide)" strokeDasharray="2 4" />
+
+          {/* v0.4.40 — taxonomy backbone: dimension → signal_type. Always
+              under the actor-dim layer so it stays visually subordinate. */}
+          {edges
+            .map((e, i) => ({ e, i }))
+            .filter(({ e }) => e.kind === "dim-signal-type")
+            .map(({ e, i }) => (
+              <path
+                key={`ds-${i}`}
+                d={edgePath(e)}
+                fill="none"
+                stroke="var(--text-faint)"
+                strokeWidth={1}
+                strokeDasharray="3 3"
+                opacity={isEdgeActive(e) ? 0.6 : 0.15}
+                onMouseEnter={() => setInspect({ kind: "edge", edgeIndex: i })}
+                style={{ cursor: "pointer" }}
+              >
+                <title>{tooltipForEdge(e)}</title>
+              </path>
+            ))}
+
+          {/* v0.4.40 — semantic similarity overlay. Purple to distinguish
+              from the actor-actor shared-dimension edges (blue-ish). */}
+          {edges
+            .map((e, i) => ({ e, i }))
+            .filter(({ e }) => e.kind === "actor-actor-sim")
+            .map(({ e, i }) => (
+              <path
+                key={`as-${i}`}
+                d={edgePath(e)}
+                fill="none"
+                stroke="#a855f7"
+                strokeWidth={Math.min(2.4, 0.6 + (e.similarity ?? e.weight) * 2.0)}
+                strokeDasharray="5 4"
+                opacity={isEdgeActive(e) ? 0.85 : 0.35}
+                onMouseEnter={() => setInspect({ kind: "edge", edgeIndex: i })}
+                style={{ cursor: "pointer" }}
+              >
+                <title>{tooltipForEdge(e)}</title>
+              </path>
+            ))}
 
           {showPeerEdges &&
             edges
@@ -277,6 +386,30 @@ export default function GraphCanvas({ graph }: { graph: KnowledgeGraph }) {
                 <title>{tooltipForEdge(e)}</title>
               </path>
             ))}
+
+          {/* v0.4.40 — innermost signal_type nodes (4 Ehrenthal categories). */}
+          {signalTypeNodes.map((s) => {
+            const active = isActive(s.id);
+            return (
+              <g
+                key={s.id}
+                onMouseEnter={() => setInspect({ kind: "node", nodeId: s.id })}
+                style={{ cursor: "pointer", opacity: active ? 1 : 0.25, transition: "opacity 120ms" }}
+              >
+                <circle cx={s.x} cy={s.y} r={11} fill={s.color} stroke="#fff" strokeWidth={2} />
+                <LabelPill
+                  x={s.x}
+                  y={s.y + 22}
+                  text={s.short_label || s.label}
+                  fontSize={10}
+                  fill="var(--text)"
+                  anchor="middle"
+                  weight={700}
+                />
+                <title>{s.label}</title>
+              </g>
+            );
+          })}
 
           {dimNodes.map((d) => {
             const active = isActive(d.id);
@@ -413,9 +546,14 @@ function InspectorPanel({
   if (inspect.kind === "node") {
     const node = nodeById.get(inspect.nodeId);
     if (!node) return null;
+    // v0.4.40 — three node kinds now; signal_type is the new innermost one.
+    const headerLabel =
+      node.kind === "actor" ? "Actor" :
+      node.kind === "signal_type" ? "Ehrenthal signal type" :
+      "Dimension";
     return (
       <div style={baseStyle}>
-        <Header onClose={onClose}>{node.kind === "actor" ? "Actor" : "Signal type"}</Header>
+        <Header onClose={onClose}>{headerLabel}</Header>
         <NodeBody node={node} edges={edges} nodeById={nodeById} neighbours={neighbours} />
       </div>
     );
@@ -424,9 +562,16 @@ function InspectorPanel({
   // edge
   const e = edges[inspect.edgeIndex];
   if (!e) return null;
+  // v0.4.40 — friendlier section headers for the new edge kinds.
+  const edgeHeader =
+    e.kind === "actor-actor" ? "Shared signal types" :
+    e.kind === "actor-actor-sim" ? "Semantic similarity" :
+    e.kind === "dim-signal-type" ? "Taxonomy edge" :
+    e.kind === "actor-signal-type" ? "Aggregate volume" :
+    "Edge";
   return (
     <div style={baseStyle}>
-      <Header onClose={onClose}>{e.kind === "actor-actor" ? "Shared signal types" : "Edge"}</Header>
+      <Header onClose={onClose}>{edgeHeader}</Header>
       <EdgeBody edge={e} />
     </div>
   );
@@ -505,6 +650,63 @@ function NodeBody({
     );
   }
 
+  // v0.4.40 — signal_type node body: list the dimensions belonging
+  // to this Ehrenthal category, plus the actors with the most volume
+  // in it.
+  if (node.kind === "signal_type") {
+    const dimEdges = edges.filter(
+      (e) => e.kind === "dim-signal-type" && (e.source === node.id || e.target === node.id),
+    );
+    const actorEdges = edges.filter(
+      (e) => e.kind === "actor-signal-type" && (e.source === node.id || e.target === node.id),
+    );
+    return (
+      <>
+        <div style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem" }}>{node.label}</div>
+        <div style={{ color: "var(--text-muted)", marginBottom: "0.75rem" }}>
+          Ehrenthal et al. 2026 four-signal scheme
+        </div>
+        {dimEdges.length > 0 && (
+          <>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.3rem" }}>
+              Dimensions ({dimEdges.length})
+            </div>
+            {dimEdges
+              .map((e) => {
+                const dimId = e.source === node.id ? e.target : e.source;
+                const dimNode = nodeById.get(dimId);
+                return { label: dimNode?.label || e.dimension_label || dimId };
+              })
+              .map((entry) => (
+                <div key={entry.label}>{entry.label}</div>
+              ))}
+          </>
+        )}
+        {actorEdges.length > 0 && (
+          <>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.75rem", marginBottom: "0.3rem" }}>
+              Actors by volume
+            </div>
+            {actorEdges
+              .map((e) => {
+                const actorId = e.source === node.id ? e.target : e.source;
+                const actorNode = nodeById.get(actorId);
+                return { label: actorNode?.label || e.actor_label || actorId, count: e.count ?? e.weight };
+              })
+              .sort((a, b) => b.count - a.count)
+              .slice(0, 12)
+              .map((entry) => (
+                <div key={entry.label} style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>{entry.label}</span>
+                  <span style={{ color: "var(--text-muted)" }}>{entry.count}</span>
+                </div>
+              ))}
+          </>
+        )}
+      </>
+    );
+  }
+
   // Dimension node — list the actors that touch it.
   const myEdges = edges.filter(
     (e) => e.kind === "actor-dim" && (e.source === node.id || e.target === node.id)
@@ -538,6 +740,55 @@ function NodeBody({
 }
 
 function EdgeBody({ edge }: { edge: EdgePositioned }) {
+  // v0.4.40 — semantic-similarity edge between two actors.
+  if (edge.kind === "actor-actor-sim") {
+    const sim = edge.similarity ?? edge.weight;
+    return (
+      <>
+        <div style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem" }}>
+          {edge.actor_a_label ?? edge.source} ↔ {edge.actor_b_label ?? edge.target}
+        </div>
+        <div style={{ color: "var(--text-muted)", marginBottom: "0.6rem" }}>
+          Centroid cosine similarity of pgvector embeddings (BGE-base-en-v1.5, 768d).
+        </div>
+        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.2rem" }}>
+          Similarity
+        </div>
+        <div style={{ fontSize: "1.1rem", fontFamily: "var(--font-mono, monospace)" }}>
+          {sim.toFixed(4)}
+        </div>
+      </>
+    );
+  }
+
+  // v0.4.40 — taxonomy backbone edge: dimension belongs to signal_type.
+  if (edge.kind === "dim-signal-type") {
+    return (
+      <>
+        <div style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem" }}>
+          {edge.dimension_label ?? edge.source} ∈ {edge.signal_type_label ?? edge.target}
+        </div>
+        <div style={{ color: "var(--text-muted)" }}>
+          The dimension belongs to this Ehrenthal signal type per `schema.yaml`.
+        </div>
+      </>
+    );
+  }
+
+  // v0.4.40 — aggregated actor → signal_type volume.
+  if (edge.kind === "actor-signal-type") {
+    return (
+      <>
+        <div style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.25rem" }}>
+          {edge.actor_label ?? edge.source} → {edge.signal_type_label ?? edge.target}
+        </div>
+        <div style={{ color: "var(--text-muted)" }}>
+          {edge.count ?? edge.weight} signal{(edge.count ?? edge.weight) === 1 ? "" : "s"} aggregated across the four-signal scheme.
+        </div>
+      </>
+    );
+  }
+
   if (edge.kind === "actor-actor") {
     return (
       <>

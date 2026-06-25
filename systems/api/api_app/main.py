@@ -411,10 +411,32 @@ def get_compare(days: int = Query(90, ge=1, le=365)) -> dict:
 
 
 @app.get("/api/knowledge-graph")
-def get_kg(system: Optional[str] = None, days: int = Query(90, ge=1, le=365),
-           threshold: int = Query(2, ge=1, le=9)) -> dict:
+def get_kg(
+    system: Optional[str] = None,
+    days: int = Query(90, ge=1, le=365),
+    threshold: int = Query(2, ge=1, le=9),
+    # v0.4.40 — additive feature gates. Default off so any pre-v0.4.40
+    # frontend sees the exact same response shape it always did.
+    include_taxonomy: bool = Query(False, description="Add the 4 signal_type nodes + taxonomy/volume edges (v0.4.40)"),
+    include_semantic: bool = Query(False, description="Add pgvector-cosine actor↔actor semantic edges (v0.4.40)"),
+    semantic_threshold: float = Query(0.85, ge=0.0, le=1.0, description="Min cosine similarity for semantic edges (v0.4.40)"),
+) -> dict:
     sys = _norm_system(system)
-    return build_graph_json(da.signals(system=sys, days=days), da.actors(), shared_dim_threshold=threshold)
+    sig_df = da.signals(system=sys, days=days)
+    if include_semantic and not sig_df.empty:
+        emb_df = da.signal_embeddings(system=sys, days=days)
+        if not emb_df.empty:
+            sig_df = sig_df.merge(
+                emb_df[["id", "embedding"]], on="id", how="left",
+            )
+    return build_graph_json(
+        sig_df,
+        da.actors(),
+        shared_dim_threshold=threshold,
+        include_taxonomy=include_taxonomy,
+        include_semantic=include_semantic,
+        semantic_threshold=semantic_threshold,
+    )
 
 
 @app.get("/api/industry-news")

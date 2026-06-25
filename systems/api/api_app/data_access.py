@@ -93,6 +93,27 @@ def signals(system: Optional[str] = None, days: int = 90) -> pd.DataFrame:
     return _cached(f"signals:{system}:{days}", _p)
 
 
+def signal_embeddings(system: Optional[str] = None, days: int = 90) -> pd.DataFrame:
+    """v0.4.40 — narrow (id, actor_slug, embedding) frame for the
+    semantic-similarity edges in /api/knowledge-graph. Skipped from the
+    main `signals()` query because the 768d vector(768) payload is
+    ~6 KB per row and most callers do not need it.
+
+    Filters to rows whose embedding is non-null. Returns an empty
+    DataFrame if MASF_EMBEDDINGS / HRM_EMBEDDINGS are off everywhere
+    (the default in `.env.example`).
+    """
+    def _p():
+        q = (client().table("signals")
+             .select("id,actor_slug,embedding")
+             .gte("inserted_at", _since_iso(days))
+             .not_.is_("embedding", "null"))
+        if system:
+            q = q.eq("system", system)
+        return pd.DataFrame(q.execute().data or [])
+    return _cached(f"signal_embeddings:{system}:{days}", _p)
+
+
 def token_usage(system: Optional[str] = None, days: int = 90) -> pd.DataFrame:
     def _p():
         rows = (client().table("token_usage")

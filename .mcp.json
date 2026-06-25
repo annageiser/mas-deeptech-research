@@ -1,0 +1,28 @@
+{
+  "_comment": [
+    "Project-shared MCP server config (Claude Code / Cursor / Continue / etc.).",
+    "Picked up automatically by any tool that reads .mcp.json from repo root.",
+    "",
+    "v0.4.40 adds codebase-memory-mcp (DeusData) — a local code-intelligence",
+    "MCP server that indexes the repo into a SQLite knowledge graph and exposes",
+    "tools for tracing call paths, detecting dead code, and querying architecture.",
+    "It runs IN YOUR EDITOR'S MCP CLIENT, not in any Docker container — see",
+    "docs/codebase-memory-mcp.md for the install + the rationale for keeping",
+    "it out of the production runtime.",
+    "",
+    "If `codebase-memory-mcp` is not on $PATH this config is a no-op (the MCP",
+    "client emits a 'tool unavailable' warning and continues). The repo stays",
+    "buildable and runnable without it."
+  ],
+  "mcpServers": {
+    "codebase-memory": {
+      "command": "codebase-memory-mcp",
+      "args": [
+        "--cache-dir", ".codebase-memory"
+      ],
+      "env": {
+        "CBM_LOG_LEVEL": "warn"
+      }
+    }
+  }
+}

@@ -242,7 +242,9 @@ export interface CoverageResponse {
 
 export interface KnowledgeGraphNode {
   id: string;
-  kind: "actor" | "dimension";
+  // v0.4.40 — adds the 'signal_type' kind for the four Ehrenthal categories
+  // when include_taxonomy=true; legacy kinds remain unchanged.
+  kind: "actor" | "dimension" | "signal_type";
   label: string;
   // Actor nodes:
   actor_slug?: string;
@@ -254,10 +256,24 @@ export interface KnowledgeGraphNode {
   signal_type?: string;
   signal_type_label?: string;
   cost_class?: string;
+  // Signal-type nodes (v0.4.40):
+  signal_type_key?: string;
+  short_label?: string;
   // Both:
   color: string;
   size: number;
 }
+
+// v0.4.40 — the wire-level edge kind list. Frontend code treats unknown
+// strings as no-op (defensive: API may emit new kinds before the client
+// is rebuilt). Edge kinds added in v0.4.40 are emitted only when the
+// caller opts in via include_taxonomy=true / include_semantic=true.
+export type KnowledgeGraphEdgeKind =
+  | "actor-dim"           // existing: per-(actor, dimension) signal count
+  | "actor-actor"         // existing: shared-dimension co-occurrence
+  | "dim-signal-type"     // v0.4.40: taxonomy edge dimension → signal_type
+  | "actor-signal-type"   // v0.4.40: aggregated actor → signal_type volume
+  | "actor-actor-sim";    // v0.4.40: pgvector cosine similarity edge
 
 export interface KnowledgeGraphEdge {
   source: string;
@@ -265,7 +281,7 @@ export interface KnowledgeGraphEdge {
   weight: number;
   // String at the wire layer (FastAPI returns whatever build_graph_json emits);
   // the renderer narrows it to the discriminated union it cares about.
-  kind: "actor-dim" | "actor-actor" | string;
+  kind: KnowledgeGraphEdgeKind | string;
   // actor-dim edges:
   count?: number;
   actor_label?: string;
@@ -279,6 +295,8 @@ export interface KnowledgeGraphEdge {
   actor_b_label?: string;
   shared?: string[];               // shared dimension labels
   shared_signal_types?: string[];  // shared Ehrenthal signal_types
+  // v0.4.40 actor-actor-sim edges:
+  similarity?: number;             // pgvector cosine in [0, 1]
 }
 
 export interface KnowledgeGraph {

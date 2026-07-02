@@ -134,8 +134,38 @@ def _persist(_input: dict, attrs: dict) -> dict:
 
     dropped: list[dict] = []
     dropped_flagged: list[dict] = []
+    dropped_upstream_shape: list[dict] = []
     validated: list[dict] = []
     for s in surviving:
+        # v0.4.42: defensive shape guard. Upstream nodes (Classifier / Critic /
+        # AccumulateActor) are expected to hand us dicts, but Nemotron 3 Ultra
+        # 550B has been observed emitting classifier output where individual
+        # signals arrive as JSON-encoded strings instead of parsed dicts (root
+        # cause under investigation; the pre-v0.4.42 code crashed here with
+        # AttributeError: 'str' object has no attribute 'get' and no audit was
+        # written for the run). Recover JSON-string dicts; log the rest to the
+        # audit folder as dropped_upstream_shape.json so the pattern is visible.
+        if not isinstance(s, dict):
+            if isinstance(s, str):
+                try:
+                    maybe = json.loads(s)
+                except (json.JSONDecodeError, TypeError):
+                    maybe = None
+                if isinstance(maybe, dict):
+                    s = maybe
+                else:
+                    dropped_upstream_shape.append({
+                        "type": "str",
+                        "parsed_type": type(maybe).__name__ if maybe is not None else "unparseable",
+                        "content": s[:400],
+                    })
+                    continue
+            else:
+                dropped_upstream_shape.append({
+                    "type": type(s).__name__,
+                    "repr": repr(s)[:400],
+                })
+                continue
         a, u = s.get("actor_slug"), s.get("source_url")
         # First gate: user has previously flagged this exact (actor, url) as
         # wrong → refuse re-insertion forever.
@@ -163,6 +193,8 @@ def _persist(_input: dict, attrs: dict) -> dict:
             audit.write_json("dropped_hallucinations.json", dropped)
         if dropped_flagged:
             audit.write_json("dropped_user_flagged.json", dropped_flagged)
+        if dropped_upstream_shape:
+            audit.write_json("dropped_upstream_shape.json", dropped_upstream_shape)
         # The per-actor Loop's AccumulateActor records its own
         # cross-actor drops; surface them in the audit too.
         cross_dropped = attrs.get("dropped_cross_actor") or []

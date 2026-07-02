@@ -105,10 +105,39 @@ def _accumulate_actor(_input: dict, attrs: dict) -> dict:
     # iteration's actor. The per-actor Loop makes cross-attribution structurally
     # impossible at the input side; this catches LLM misattribution at the
     # output side too. Recorded for audit.
+    #
+    # v0.4.42: also recover from an upstream shape drift observed on Nemotron 3
+    # Ultra 550B, where the Classifier occasionally emits individual signals as
+    # JSON-encoded strings inside the classified list instead of parsed dicts.
+    # Pre-v0.4.42 this crashed silently in Persistence with AttributeError; now
+    # we JSON-decode strings back to dicts and drop anything else with a
+    # diagnostic entry in the audit's dropped_upstream_shape.json.
     iteration_dropped: list[dict] = []
     filtered_classified: list[dict] = []
     keep_map: dict[int, int] = {}  # original index → new index
     for i, s in enumerate(classified):
+        if not isinstance(s, dict):
+            if isinstance(s, str):
+                try:
+                    maybe = json.loads(s)
+                except (json.JSONDecodeError, TypeError):
+                    maybe = None
+                if isinstance(maybe, dict):
+                    s = maybe
+                else:
+                    iteration_dropped.append({
+                        "reason": "upstream shape: str not decodable to dict",
+                        "type": type(maybe).__name__ if maybe is not None else "unparseable",
+                        "content": s[:400],
+                    })
+                    continue
+            else:
+                iteration_dropped.append({
+                    "reason": "upstream shape: non-dict, non-str",
+                    "type": type(s).__name__,
+                    "repr": repr(s)[:400],
+                })
+                continue
         if current_slug and s.get("actor_slug") != current_slug:
             iteration_dropped.append({
                 "reason": "actor_slug mismatch (loop iteration)",

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-bridge"
+version = "0.4.40"
+description = "Thin Python wrapper around the upstream NousResearch Hermes Agent — System B of the BSc thesis."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.27",
+]
+
+# The Hermes wrapper is a script bundle, not an installable library.
+# `pip install .` is supported only so CI can pull dependencies into a
+# fresh Python environment and run pytest. No modules are exposed.
+[tool.setuptools]
+py-modules = []
+
+[tool.pytest.ini_options]
+pythonpath = ["scripts"]
+testpaths = ["tests"]
+addopts = "-q"

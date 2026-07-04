@@ -8,8 +8,8 @@
 #   G — web        : Next.js frontend (always up)
 #   E — caddy      : TLS reverse proxy on :80/:443 → web, /api/* → api
 #   D — dashboard  : legacy Streamlit UI on :8501 (kept during transition;
-#                    no longer reachable via the domain — remove once `web`
-#                    is proven)
+#                    no longer reachable via the domain — removed once `web`
+#                    was proven)
 
 services:
   masfactory:
@@ -49,6 +49,11 @@ services:
     restart: "no"
     env_file: [.env]
     environment:
+      # System B gets its own OpenRouter key when OPENROUTER_API_KEY_SYSTEM_B
+      # is set in .env; otherwise it falls back to the shared OPENROUTER_API_KEY.
+      # This override runs AFTER env_file merges .env in, so the container's
+      # OPENROUTER_API_KEY reflects the per-system value (see .env.example).
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY_SYSTEM_B:-${OPENROUTER_API_KEY}}
       HERMES_HOME: /opt/data
       # v0.4.36: pass the actual built image tag into the persister so
       # runs.config_snapshot.image records reality instead of the v0.2.1
@@ -208,21 +213,21 @@ services:
 
   # Legacy Streamlit dashboard — kept reachable on :8501 during the cutover,
   # no longer wired to the domain. Remove this service once `web` is proven.
-  dashboard:
-    build:
-      context: ./systems/dashboard
-      dockerfile: Dockerfile
-    image: mas-deeptech-research/dashboard:0.1.0
-    container_name: dashboard-container-d
-    restart: unless-stopped
-    env_file: [.env]
-    environment:
-      DASH_REPORTS_DIR: /data/reports
-      TZ: Europe/Zurich
-    volumes:
-      - ./data:/data:ro
-    ports:
-      - "8501:8501"
+  # dashboard:
+  #   build:
+  #     context: ./systems/dashboard
+  #     dockerfile: Dockerfile
+  #   image: mas-deeptech-research/dashboard:0.1.0
+  #   container_name: dashboard-container-d
+  #   restart: unless-stopped
+  #   env_file: [.env]
+  #   environment:
+  #     DASH_REPORTS_DIR: /data/reports
+  #     TZ: Europe/Zurich
+  #   volumes:
+  #     - ./data:/data:ro
+  #   ports:
+  #     - "8501:8501"
 
 volumes:
   caddy_data:

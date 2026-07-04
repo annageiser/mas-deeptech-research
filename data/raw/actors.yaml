@@ -11,12 +11,12 @@ actors:
   - slug: swiss-quantum-initiative
     name: Swiss Quantum Initiative
     category: national_initiative
-    homepage: https://quantum.scnat.ch/en
+    homepage: https://quantum.scnat.ch/en/news_and_events
 
   - slug: nccr-spin
     name: National Centre for Competence in Research SPIN
     category: national_initiative
-    homepage: https://nccr-spin.ch
+    homepage: https://www.nccr-spin.ch/news
 
   - slug: metas
     name: Federal Institute of Metrology (METAS)
@@ -27,7 +27,7 @@ actors:
   - slug: eth-zurich-quantum-center
     name: ETH Zurich Quantum Center
     category: university_or_research_hub
-    homepage: https://quantumcenter.ethz.ch
+    homepage: https://qc.ethz.ch/
     arxiv_query: 'aff:"ETH Zurich" AND (qubit OR quantum)'
 
   - slug: basel-quantum-center
@@ -44,58 +44,58 @@ actors:
   - slug: epfl-qse
     name: Quantum Science and Engineering Center at EPFL
     category: university_or_research_hub
-    homepage: https://qse.epfl.ch
+    homepage: https://www.epfl.ch/research/domains/quantum-center/center-for-quantum-science-and-engineering/news/
     arxiv_query: 'aff:EPFL AND (qubit OR "quantum computing")'
 
   - slug: cern-quantum-technology-initiative
     name: Quantum Technology Initiative at CERN
     category: university_or_research_hub
-    homepage: https://quantum.cern
+    homepage: https://quantum.cern/index.php/news-events
 
   - slug: psi
     name: Paul Scherrer Institute (PSI)
     category: university_or_research_hub
-    homepage: https://www.psi.ch
+    homepage: https://www.psi.ch/de/news
 
   - slug: eth-psi-quantum-computing-hub
     name: ETH-PSI Quantum Computing Hub
     category: university_or_research_hub
-    homepage: https://qchub.ethz.ch
+    homepage: https://qc.ethz.ch/news-events.html
 
   - slug: geneva-quantum-centre
     name: Geneva Quantum Centre at the University of Geneva
     category: university_or_research_hub
-    homepage: https://www.unige.ch/gqc
+    homepage: https://www.unige.ch/gap/qic/qtech/news
 
   - slug: cscs
     name: Swiss National Supercomputing Center (CSCS)
     category: university_or_research_hub
-    homepage: https://www.cscs.ch
+    homepage: https://www.cscs.ch/publications/all-publications
 
   - slug: empa
     name: Swiss Federal Laboratories for Materials Science and Technology (Empa)
     category: university_or_research_hub
-    homepage: https://www.empa.ch
+    homepage: https://www.empa.ch/web/s604/news-portal
 
   - slug: zhaw
     name: Zurich University of Applied Sciences (ZHAW)
     category: university_or_research_hub
-    homepage: https://www.zhaw.ch
+    homepage: https://www.zhaw.ch/de/ueber-uns/aktuell/news
 
   - slug: fhnw
     name: University of Applied Sciences Northwestern Switzerland (FHNW)
     category: university_or_research_hub
-    homepage: https://www.fhnw.ch
+    homepage: https://www.fhnw.ch/de/aktuelles/news-storys
 
   - slug: usi
     name: University of Lugano (USI)
     category: university_or_research_hub
-    homepage: https://www.usi.ch
+    homepage: https://www.usi.ch/en/news-events/news
 
   - slug: hslu
     name: Lucerne University of Applied Sciences and Arts (HSLU)
     category: university_or_research_hub
-    homepage: https://www.hslu.ch
+    homepage: https://news.hslu.ch/
 
   # ---------- Ecosystem Builders and Accelerators ----------
   - slug: switzerland-innovation-parks

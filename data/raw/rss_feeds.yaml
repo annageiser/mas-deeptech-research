@@ -44,6 +44,10 @@ swiss_media:
   # NOTE: SwissInfo's sci-tech RSS returned 404 in 2026-06-04 testing.
   # Re-curate when a working Swiss-domestic quantum feed is identified.
 
+  - name: "PostQuantum"
+    url: "https://postquantum.com/feed/"
+    tags: [news, industry]
+
 vendor:
   # Per-vendor blog feeds — entries are pre-attributed to actor_slug below.
   # Add an entry here when an actor publishes an RSS-enabled blog and you

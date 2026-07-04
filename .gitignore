@@ -218,3 +218,8 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .DS_Store
+
+# codebase-memory-mcp: don't index the vendored Hermes fork (submodule).
+# It's ~105k of ~109k graph nodes — third-party code that bloats the graph
+# and breaks the :9750 visual layout. We only want our own code indexed.
+systems/hermes/upstream/

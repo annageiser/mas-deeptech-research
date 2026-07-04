@@ -12,7 +12,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import pandas as pd
-from supabase import Client, create_client
+
+try:
+    from supabase import Client, create_client
+except ImportError:
+    Client = None
+    create_client = None
 
 from .config import Settings, load_settings
 

@@ -49,11 +49,12 @@ services:
     restart: "no"
     env_file: [.env]
     environment:
-      # System B gets its own OpenRouter key when OPENROUTER_API_KEY_SYSTEM_B
-      # is set in .env; otherwise it falls back to the shared OPENROUTER_API_KEY.
-      # This override runs AFTER env_file merges .env in, so the container's
-      # OPENROUTER_API_KEY reflects the per-system value (see .env.example).
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY_SYSTEM_B:-${OPENROUTER_API_KEY}}
+      # System B uses the shared OPENROUTER_API_KEY (the 1000-req/day key)
+      # inherited from env_file. The per-system OPENROUTER_API_KEY_SYSTEM_B
+      # override was reverted: the dedicated key was on the 50-req/day free
+      # tier, which 429-starved every hermes run into signals: [] (both
+      # systems zero-signal on 2026-07-07). Both systems now share the
+      # 1000/day key again. See docs/iterations/v0.4.44-revert-system-b-key-split.md.
       HERMES_HOME: /opt/data
       # v0.4.36: pass the actual built image tag into the persister so
       # runs.config_snapshot.image records reality instead of the v0.2.1

@@ -42,14 +42,13 @@ model:
   # sooner. Bump if the agent starts hitting compression every actor.
   context_length: 65536
 
-  # v0.4.38 — server-side reasoning-token suppression. OpenRouter
-  # honours `reasoning: {exclude: true}` as a top-level body field;
-  # whether the upstream Hermes CLI forwards it from this YAML key
-  # depends on its schema. If ignored, L2 (persist_signals.py) catches
-  # the residual case. Documented at:
-  #   https://openrouter.ai/docs/use-cases/reasoning-tokens
-  reasoning:
-    exclude: true
+  # v0.4.45 — reasoning suppression is NOT configured here. A live
+  # request_dump + the Hermes docs confirmed `model.reasoning.*` is IGNORED
+  # by this CLI; reasoning is controlled SOLELY by `agent.reasoning_effort`
+  # (set to "none" below). The former `reasoning: {exclude: true}` key here
+  # was dead config and is removed to avoid the false impression that L1
+  # server-side suppression is active. L2 (persist_signals.py <think>-strip)
+  # still runs as a backstop. See docs/iterations/v0.4.45-hermes-reasoning-disable.md.
 
 # ── FREE-ONLY POLICY (v0.4.8) ────────────────────────────────────────────
 # The thesis runs on free-tier LLMs only. Without explicit overrides the
@@ -138,7 +137,18 @@ tool_loop_guardrails:
 
 agent:
   max_turns: 30        # ≤ 30 tool calls per actor — generous but capped
-  reasoning_effort: "low"  # signal-collection is more search than reasoning
+  # v0.4.45 — was "low". A live request_dump proved the hermes CLI
+  # translates reasoning_effort into OpenRouter's body param as
+  # `reasoning: {enabled: true, effort: <val>}` — so "low" still ENABLED
+  # reasoning. Nemotron 3 Ultra (a reasoning model) then spent its output
+  # budget on reasoning tokens and returned reasoning-only, empty visible
+  # bodies after tool calls ("Thinking-only response → Returning empty" →
+  # no JSON block → signals: []). Direct OpenRouter tests confirmed
+  # `reasoning: {enabled: false}` yields clean visible JSON from the same
+  # model. "none" disables reasoning here — the single lever the CLI honours
+  # (model.reasoning.* below is ignored). See
+  # docs/iterations/v0.4.45-hermes-reasoning-disable.md.
+  reasoning_effort: "none"
 
 # Context compression — long search histories shouldn't blow the budget.
 compression:

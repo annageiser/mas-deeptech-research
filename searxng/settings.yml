@@ -1,0 +1,70 @@
+# SearXNG settings — shared meta-search substrate for System A + System B.
+# v0.5.0 reference-architecture retrieval layer.
+# See docs/iterations/v0.5.0-reference-architecture-retrieval.md.
+#
+# This is an INTERNAL instance (no published ports; reachable only at
+# http://searxng:8080 on the compose network), consumed programmatically via
+# the JSON API by both scrapers. It is NOT a public search engine.
+#
+# secret_key: committed as the placeholder "ultrasecretkey"; a real random
+# secret is injected host-side at deploy with:
+#   sed -i "s|ultrasecretkey|$(openssl rand -hex 32)|" searxng/settings.yml
+# (keeps the secret out of git; the running instance is internal-only).
+
+use_default_settings: true
+
+general:
+  instance_name: "mas-deeptech-research shared searxng"
+  # No public donation / contact chrome — this is a headless API backend.
+  donation_url: false
+  contact_url: false
+  enable_metrics: false
+
+server:
+  secret_key: "ultrasecretkey" # replaced at deploy — see header
+  # Internal instance → disable the bot-detection limiter so the two scraper
+  # containers can hit the JSON API. Turning the limiter OFF also removes the
+  # Valkey/Redis dependency (no sidecar needed). Do NOT expose this instance
+  # publicly with the limiter off.
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  method: "GET"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  # REQUIRED: enable the JSON output format. It is OFF by default (a plain
+  # `format=json` request 403s without this), and it is exactly what our
+  # Retriever / searxng-search skill consume.
+  formats:
+    - html
+    - json
+
+# Reference-architecture retrieval requirement R3 (academic sources). The core
+# academic engines (arxiv, google scholar, semantic scholar, crossref, pubmed)
+# are already enabled via use_default_settings; we additionally enable OpenAlex
+# for broad open-access coverage. Entries merge by name over the defaults.
+#
+# PATENTS (R3-IP): SearXNG has NO built-in patents engine (verified against
+# /config — 279 engines, zero patent matches). Patent signals (Spence 1973
+# costly signal) are therefore handled OUTSIDE SearXNG: System A via the EPO
+# OPS API (existing); System B via a dedicated patent channel in a later stage
+# (EPO OPS / WIPO Patentscope). Do NOT add a "google patents" entry here — it
+# has no engine module and fails to load.
+engines:
+  # Academic (R3)
+  - name: openalex
+    disabled: false
+  # General web (R1). KNOWN LIMITATION: the big scraping engines
+  # (duckduckgo/startpage CAPTCHA, brave rate-limits, mojeek "access denied")
+  # block this instance's datacenter IP. Effective general recall therefore
+  # comes from `google cse` (real Google results, reliable — default-enabled),
+  # `brave` (intermittent), Wikipedia/Wikidata, plus the independent-index
+  # engines below (non-blocking, add occasional coverage). This is documented
+  # in docs/iterations/v0.5.0-...; residential-proxy workarounds are out of
+  # scope for the free/reproducible design.
+  - name: marginalia
+    disabled: false
+  - name: mwmbl
+    disabled: false

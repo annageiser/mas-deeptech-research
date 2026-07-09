@@ -64,6 +64,9 @@ WORKFLOW_ATTRIBUTES: dict[str, object] = {
     "limit_arxiv_per_actor": 5,
     "limit_website_pages_per_actor": 3,
     "limit_news_per_actor": 5,
+    # v0.5.0 — shared SearXNG substrate (empty URL → collector no-ops).
+    "searxng_url": "",
+    "limit_websearch_per_actor": 10,
     "web_cache_dir": "/data/raw/web_cache",
     "store": None,
     "audit_folder": None,

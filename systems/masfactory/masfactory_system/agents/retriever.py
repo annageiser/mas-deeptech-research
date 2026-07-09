@@ -20,6 +20,7 @@ from ..collection import (
     collect_press_releases,
     collect_rss_for_actors,
     collect_website,
+    collect_websearch,
 )
 from ..schema import Actor, Document
 from ..training_layer import load_training_layer, mark_source_fetched
@@ -47,6 +48,10 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
     limit_news = int(attrs.get("limit_news_per_actor", 10) or 10)
     limit_press = int(attrs.get("limit_press_per_actor", 10) or 10)
     limit_patents = int(attrs.get("limit_patents_per_actor", 10) or 10)
+    # v0.5.0 — shared SearXNG substrate. searxng_url empty → the collector
+    # no-ops (fail-open), so this is a pure add-on to the existing funnel.
+    limit_websearch = int(attrs.get("limit_websearch_per_actor", 10) or 10)
+    searxng_url = (attrs.get("searxng_url") or "").strip()
     cache_dir = attrs.get("web_cache_dir", "/data/raw/web_cache") or "/data/raw/web_cache"
 
     documents: list[dict] = []
@@ -116,6 +121,22 @@ def _retrieve(_input: dict, attrs: dict) -> dict:
                 )
             except Exception as exc:
                 errors.append({"slug": slug, "source": "news", "error": str(exc)})
+
+        # v0.5.0 — broad SearXNG web discovery on the shared substrate. Unlike
+        # Google News (gl=CH), this is NOT geo-biased, so it catches global
+        # actors the Swiss-biased feed misses (e.g. IBM). Always opt in when
+        # SEARXNG_URL is configured; the Critic filters for relevance. Fail-open.
+        if searxng_url and (
+            "websearch" in sources or not sources
+            or "arxiv" in sources or "website" in sources or "news" in sources
+        ):
+            try:
+                documents.extend(
+                    d.model_dump(mode="json")
+                    for d in collect_websearch(actor, searxng_url=searxng_url, max_results=limit_websearch)
+                )
+            except Exception as exc:
+                errors.append({"slug": slug, "source": "websearch", "error": str(exc)})
 
         # Press-release aggregator (Bing News with PR-flavoured query). Distinct
         # ranker + aggregator coverage from Google News; together the two read

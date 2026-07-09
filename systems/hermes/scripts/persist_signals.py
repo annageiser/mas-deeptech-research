@@ -219,6 +219,38 @@ def _strip_reasoning_artefacts(text: str) -> str:
     return out
 
 
+# v0.5.0 — Hermes-CLI status glyphs that can get INTERLEAVED into the agent's
+# stdout mid-JSON. When an auxiliary-model call fails *while the main answer is
+# streaming* (observed: "⚠ Auxiliary title generation failed: …choices=None"),
+# the warning line lands INSIDE the JSON block and breaks json.loads — the
+# persister then reports "no JSON block found" even though real signals were
+# emitted (silent yield loss). We drop lines whose first non-whitespace char is
+# one of these. Box-drawing / panel-border glyphs are deliberately EXCLUDED:
+# they don't interleave into the JSON (the CLI prints the final JSON un-boxed),
+# and including them would delete every line of a JSON block a future CLI
+# version happened to render inside a bordered panel. See docs/iterations/v0.5.0-...
+_CLI_NOISE_GLYPHS = "⚠↻✓✗⚡•⚕"
+
+
+def _strip_cli_noise_lines(text: str) -> str:
+    """Drop lines whose first non-whitespace char is a Hermes-CLI status glyph.
+
+    Safe for JSON: serialized JSON never begins a line with these glyphs
+    (valid JSON escapes embedded newlines as \\n, so every real line starts
+    with a structural token — '{', '"', etc.), so this only removes
+    interleaved CLI chrome, never signal content. No-op when none appear.
+    """
+    if not text or not any(g in text for g in _CLI_NOISE_GLYPHS):
+        return text
+    kept: list[str] = []
+    for ln in text.split("\n"):
+        head = ln.lstrip()[:1]
+        if head and head in _CLI_NOISE_GLYPHS:
+            continue
+        kept.append(ln)
+    return "\n".join(kept)
+
+
 def _extract_json_block(text: str) -> dict[str, Any] | None:
     """Find the agent's signal-list JSON object in stdout.
 
@@ -234,6 +266,10 @@ def _extract_json_block(text: str) -> dict[str, Any] | None:
 
     Returns None if no parseable signal-list object is found.
     """
+    # v0.5.0 — remove interleaved CLI status/warning lines that would
+    # otherwise break json.loads on an otherwise-valid block.
+    text = _strip_cli_noise_lines(text)
+
     # Strategy 1: fenced block. Match non-greedy on the LAST occurrence.
     fences = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     for candidate in reversed(fences):

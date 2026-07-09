@@ -126,6 +126,20 @@ memory:
 platform_toolsets:
   cli: [web, skills]
 
+# v0.5.0 Stage 2 — route the `web` toolset's SEARCH through the shared
+# self-hosted SearXNG instance (docker-compose `searxng` service, reached at
+# $SEARXNG_URL=http://searxng:8080). This makes System B search the SAME
+# substrate System A will use in Stage 3, so the A-vs-B comparison isolates
+# architecture, not search source. The SearXNG provider is built into the
+# Hermes image (plugins/web/searxng) and activates on SEARXNG_URL; setting
+# search_backend explicitly makes it deterministic rather than relying on the
+# env-var auto-detect order (which would still pick searxng, since no paid key
+# is set). Extract stays unset — SearXNG is search-only; full-text extraction
+# is added via the `scrapling` skill in Stage 2b. See
+# docs/iterations/v0.5.0-reference-architecture-retrieval.md.
+web:
+  search_backend: "searxng"
+
 # Guardrails for an unattended cron run: hard-stop if the model loops.
 tool_loop_guardrails:
   warnings_enabled: true
@@ -136,7 +150,15 @@ tool_loop_guardrails:
     idempotent_no_progress: 3
 
 agent:
-  max_turns: 30        # ≤ 30 tool calls per actor — generous but capped
+  # v0.5.0 — was 30, briefly 12 (a speed experiment). Validation showed the
+  # Nvidia "Worker 32/32" throttle — NOT the turn count — dominates runtime
+  # (2 actors still took ~10 min at 12 turns), and fewer turns risks COVERAGE
+  # (fewer searches for hard-to-source actors, which is the acute problem:
+  # 23/40 actors emitted no signals). Raised back to 20: room to search
+  # broadly + extract + synthesise per actor, still bounded so a fruitless
+  # actor can't loop 30×. Coverage is the priority. Tunable; the runtime fix
+  # is decoupling the report step, not starving turns. See docs/iterations/v0.5.0-...
+  max_turns: 20
   # v0.4.45 — was "low". A live request_dump proved the hermes CLI
   # translates reasoning_effort into OpenRouter's body param as
   # `reasoning: {enabled: true, effort: <val>}` — so "low" still ENABLED

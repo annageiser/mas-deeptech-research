@@ -86,14 +86,16 @@ services:
       # signals: [] every run) to Llama-3.3-70B-instruct (plain instruct
       # model). To swap, set HERMES_MODEL in .env.
       HERMES_MODEL: ${HERMES_MODEL:-}
-      # ── Web-search backends — provision at least ONE in .env ─────────────
-      # Upstream's web_tools.py tries them in priority order:
-      #   firecrawl → parallel → tavily → exa → brave-free → ddgs
-      # Without a key, `web_search` + `web_extract` register but fail their
-      # availability check, the agent ends up with `Tools: 0`, and our skill
-      # correctly returns empty signals (quality rule #1: never fabricate).
-      # Tavily is the recommended free-tier choice — 1k req/mo, covers both
-      # search AND extract. See docs/reproducibility.md § "Hermes web tools".
+      # ── Web-search backend ───────────────────────────────────────────────
+      # v0.5.0 Stage 2: System B's web_search now runs on the shared
+      # self-hosted SearXNG service (cli-config.yaml sets
+      # web.search_backend=searxng; this URL activates the built-in searxng
+      # provider — plugins/web/searxng). Free, no API key, no quota. Internal
+      # default points at the compose service; override in .env only to use an
+      # external instance. The paid/other keys below stay wired but inactive
+      # (blank in .env). web_extract remains search-only until the scrapling
+      # skill lands (Stage 2b). See docs/iterations/v0.5.0-...
+      SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       EXA_API_KEY: ${EXA_API_KEY:-}
       BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
@@ -104,6 +106,13 @@ services:
     volumes:
       - ./data:/data
       - hermes_state:/opt/data
+    # v0.5.0 Stage 2: ensure the shared SearXNG substrate is up + healthy
+    # before a run starts. The cron `docker compose run --rm hermes` honours
+    # this and waits; the `--no-deps` smoke path skips it and assumes searxng
+    # is already running.
+    depends_on:
+      searxng:
+        condition: service_healthy
     # Default CMD in the Dockerfile runs collect_all_actors.sh.
     # Override for interactive debugging:
     #   docker compose run --rm hermes \

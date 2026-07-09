@@ -24,6 +24,7 @@ Nemotron 3 Ultra primary; harmless on plain-instruct fallback models.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from masfactory import LegacyOpenAIModel
@@ -86,6 +87,46 @@ def _is_no_choices_error(exc: BaseException) -> bool:
     return False
 
 
+# v0.5.0 — transient provider hiccups that succeed on retry. The free Nemotron
+# endpoint returns HTTP 400 "Provider returned error … DEGRADED function cannot
+# be invoked" intermittently (measured ~1/3 of calls; the other 2/3 return 200),
+# plus the usual 429 / 5xx / overloaded. tenacity does NOT retry a 400
+# (BadRequestError is normally a hard client error), so without this the first
+# degraded call crashes the whole run — the Planner is the very first LLM node,
+# so a single 400 zeroes System A's run. We retry the SAME model a few times
+# with backoff before falling over to the fallback model.
+_TRANSIENT_MARKERS = (
+    "provider returned error", "degraded", "temporarily", "overloaded",
+    "rate limit", "429", "500", "502", "503", "504", "timeout", "timed out",
+)
+
+
+def _unwrap(exc: BaseException) -> BaseException:
+    """Return the underlying exception behind a tenacity RetryError, else exc."""
+    if type(exc).__name__ == "RetryError":
+        last = getattr(exc, "last_attempt", None)
+        if last is not None:
+            try:
+                inner = last.exception()
+            except Exception:
+                inner = None
+            if inner is not None:
+                return inner
+    return exc
+
+
+def _is_transient_provider_error(exc: BaseException) -> bool:
+    """True for provider errors that typically succeed on a retry."""
+    exc = _unwrap(exc)
+    code = getattr(exc, "status_code", None) or getattr(
+        getattr(exc, "response", None), "status_code", None
+    )
+    if code in (408, 409, 429, 500, 502, 503, 504):
+        return True
+    text = str(exc).lower()
+    return any(m in text for m in _TRANSIENT_MARKERS)
+
+
 class FailoverLegacyOpenAIModel(LegacyOpenAIModel):
     """Primary LegacyOpenAIModel with an inner fallback model.
 
@@ -146,15 +187,35 @@ class FailoverLegacyOpenAIModel(LegacyOpenAIModel):
         )
         return new_kwargs
 
+    # v0.5.0 — number of primary attempts on a transient provider error before
+    # falling over to the fallback model. 3 gives ~96% success at the measured
+    # ~1/3 per-call degrade rate (1 - (1/3)**3).
+    _TRANSIENT_RETRIES = 3
+
     def invoke(self, messages: list[dict], tools: list[dict] | None, settings: dict | None = None, **kwargs: Any) -> dict:
         kwargs = self._apply_reasoning_exclude(kwargs)
-        try:
-            return super().invoke(messages, tools, settings, **kwargs)
-        except Exception as exc:
-            if _is_no_choices_error(exc):
-                self._failover_count += 1
-                return self._fallback.invoke(messages, tools, settings, **kwargs)
-            raise
+        for attempt in range(self._TRANSIENT_RETRIES):
+            try:
+                return super().invoke(messages, tools, settings, **kwargs)
+            except Exception as exc:
+                # OpenRouter 200-no-choices quirk → fall over to the fallback now.
+                if _is_no_choices_error(exc):
+                    self._failover_count += 1
+                    return self._fallback.invoke(messages, tools, settings, **kwargs)
+                # Transient provider hiccup (DEGRADED 400 / 429 / 5xx): retry the
+                # SAME model with backoff; on the last attempt, fall over.
+                if _is_transient_provider_error(exc):
+                    if attempt < self._TRANSIENT_RETRIES - 1:
+                        time.sleep(2.0 * (attempt + 1))  # 2s, 4s
+                        continue
+                    try:
+                        self._failover_count += 1
+                        return self._fallback.invoke(messages, tools, settings, **kwargs)
+                    except Exception:
+                        raise exc  # surface the primary's transient error, not the fallback's
+                raise  # non-transient (real 4xx, auth, etc.) → don't mask it
+        # Loop exhausts only via `continue`; the final attempt always returns or raises.
+        raise RuntimeError("unreachable: transient-retry loop fell through")
 
 
 def build_main_model(settings: Settings) -> LegacyOpenAIModel:

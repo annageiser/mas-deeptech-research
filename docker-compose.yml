@@ -22,9 +22,17 @@ services:
     env_file: [.env]
     environment:
       MASF_AUDIT_DIR: /data/raw/runs
+      # v0.5.0 Stage 3: broad web discovery via the shared SearXNG substrate
+      # (collection/websearch.py) — the SAME source System B uses. Internal
+      # default points at the compose service; blank SEARXNG_URL disables the
+      # collector (fail-open). See docs/iterations/v0.5.0-...
+      SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}
       TZ: Europe/Zurich
     volumes:
       - ./data:/data
+    depends_on:
+      searxng:
+        condition: service_healthy
     command: ["run-once"]
 
   # System B — real NousResearch hermes-agent CLI (v0.16.0, pinned via

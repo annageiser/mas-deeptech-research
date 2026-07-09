@@ -39,6 +39,10 @@ class Settings:
     limit_arxiv_per_actor: int
     limit_website_pages_per_actor: int
     limit_news_per_actor: int
+    # v0.5.0 — shared SearXNG substrate (collection/websearch.py). Empty string
+    # when SEARXNG_URL is unset → the collector no-ops (fail-open).
+    searxng_url: str
+    limit_websearch_per_actor: int
     audit_dir: str
     http_referer: str
     app_title: str
@@ -105,6 +109,8 @@ def load_settings(*, require_supabase: bool = True) -> Settings:
         limit_arxiv_per_actor=_int("MASF_LIMIT_ARXIV", 5),
         limit_website_pages_per_actor=_int("MASF_LIMIT_WEBSITE", 3),
         limit_news_per_actor=_int("MASF_LIMIT_NEWS", 5),
+        searxng_url=os.environ.get("SEARXNG_URL", "").strip(),
+        limit_websearch_per_actor=_int("MASF_LIMIT_WEBSEARCH", 10),
         audit_dir=os.environ.get("MASF_AUDIT_DIR", "/data/raw/runs").strip() or "/data/raw/runs",
         http_referer=os.environ.get("OPENROUTER_HTTP_REFERER", DEFAULT_HTTP_REFERER).strip()
         or DEFAULT_HTTP_REFERER,

@@ -131,7 +131,10 @@ class SupabaseStore:
         rows = [self._signal_to_row(s) for s in signals]
         resp = (
             self._client.table("signals")
-            .upsert(rows, on_conflict="actor_slug,source_url,content_hash", ignore_duplicates=True)
+            # v0.5.0 — per-system dedup: `system` in the conflict key so System A
+            # records its own findings even when System B already found the same
+            # signal (and vice versa). Matches schema.sql's 4-column unique key.
+            .upsert(rows, on_conflict="actor_slug,source_url,content_hash,system", ignore_duplicates=True)
             .execute()
         )
         return len(resp.data or [])

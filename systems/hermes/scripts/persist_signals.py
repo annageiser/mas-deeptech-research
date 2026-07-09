@@ -548,7 +548,10 @@ def _upsert_signals(
     if not rows:
         return 0
 
-    url = f"{base_url.rstrip('/')}/rest/v1/signals?on_conflict=actor_slug,source_url,content_hash"
+    # v0.5.0 — per-system dedup: `system` in the conflict key so System B records
+    # its own findings even when System A already found the same signal (and vice
+    # versa). Matches schema.sql's 4-column unique key.
+    url = f"{base_url.rstrip('/')}/rest/v1/signals?on_conflict=actor_slug,source_url,content_hash,system"
     headers = _headers(api_key, prefer="resolution=ignore-duplicates,return=representation")
     try:
         with httpx.Client(timeout=30.0) as client:

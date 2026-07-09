@@ -51,7 +51,9 @@ create table if not exists public.signals (
     inserted_at     timestamptz not null default now(),
     embedding       vector(768),
     content_hash    text not null,
-    unique (actor_slug, source_url, content_hash)
+    -- v0.5.0 — per-system uniqueness: `system` is part of the key so each
+    -- architecture records its OWN findings (see the migration note below).
+    unique (actor_slug, source_url, content_hash, system)
 );
 
 -- Backwards-compat: if the table existed before `system` was added.
@@ -66,6 +68,47 @@ do $$ begin
         where table_name='signals' and constraint_name='signals_system_check'
     ) then
         alter table public.signals add constraint signals_system_check check (system in ('masfactory', 'hermes'));
+    end if;
+end $$;
+
+-- v0.5.0 — per-system signal dedup. Add `system` to the uniqueness key so each
+-- architecture (masfactory / hermes) records its OWN findings independently.
+-- Before this, the cross-system unique key meant whichever system found a
+-- signal first "owned" it and the other's identical finding was silently
+-- dropped — confounding the A-vs-B recall comparison and capping System A once
+-- System B had claimed the broad-web signals. Idempotent: finds and drops the
+-- old 3-column unique constraint (whatever its generated name), then adds the
+-- 4-column one. Adding a column to a unique key only RELAXES it, so no existing
+-- row can violate it — safe to run on the live table.
+do $$
+declare old_name text;
+begin
+    select con.conname into old_name
+    from pg_constraint con
+    where con.conrelid = 'public.signals'::regclass
+      and con.contype = 'u'
+      and (
+        select array_agg(att.attname::text order by att.attname::text)
+        from unnest(con.conkey) as k
+        join pg_attribute att on att.attrelid = con.conrelid and att.attnum = k
+      ) = array['actor_slug', 'content_hash', 'source_url']::text[]
+    limit 1;
+    if old_name is not null then
+        execute format('alter table public.signals drop constraint %I', old_name);
+    end if;
+    if not exists (
+        select 1 from pg_constraint con
+        where con.conrelid = 'public.signals'::regclass
+          and con.contype = 'u'
+          and (
+            select array_agg(att.attname::text order by att.attname::text)
+            from unnest(con.conkey) as k
+            join pg_attribute att on att.attrelid = con.conrelid and att.attnum = k
+          ) = array['actor_slug', 'content_hash', 'source_url', 'system']::text[]
+    ) then
+        alter table public.signals
+            add constraint signals_actor_url_hash_system_key
+            unique (actor_slug, source_url, content_hash, system);
     end if;
 end $$;
 

@@ -33,19 +33,33 @@ The cron-mode environment ships with these free, no-API-key sources:
 
 | Tool / skill | What it gives you | Notes |
 |---|---|---|
-| `web_search` | titles + URLs + snippets | DuckDuckGo-backed, unlimited |
+| `web_search` | titles + URLs + snippets | SearXNG-backed, unlimited |
+| `web_extract` | **full page text** of specific URLs | free, no key (httpx + selectolax); use it |
 | Bundled `arxiv` skill | structured publication metadata | best for publications |
-| `web_extract` | full page text via LLM summarisation | only if a paid backend is configured — may be unavailable |
 
-**If `web_extract` is unavailable**, use the search SNIPPETS from
-`web_search` as your evidence. Snippets are short but they ARE real
-evidence — the title plus the URL plus the snippet together constitute
-a citable source. **Default to inclusion when a search hit shows a
-dated, actor-relevant event from the last 180 days.** A title like
-"Swiss Quantum Call 2026" with URL https://snf.ch/... IS a legitimate
-funding-event signal; do not reject it just because you cannot read
-the full page. Copy the title or snippet verbatim into
-`evidence_quote`.
+**Search first, then READ the promising hits.** `web_search` gives you a
+shortlist of titles + URLs + snippets. For the **2–4 most promising hits**
+per actor — the ones that look like a dated, actor-relevant event — call
+`web_extract` on their exact URLs to pull the **full page text**, then
+ground the signal in what the page actually says:
+
+- Set `source_url` to the **exact page URL you extracted** (the specific
+  article/press-release URL — never the search engine or a homepage when the
+  event is on a sub-page).
+- Copy a **verbatim passage from the extracted full text** into
+  `evidence_quote` (a real sentence about the event, not just the headline).
+- Full text lets you fill `published_at`, `dimension`, and `signal_type`
+  with far more confidence than a snippet — so read before you rate.
+
+**Graceful fallback — if `web_extract` returns an error or empty text**
+(fetch blocked, robots-disallowed, JS-only page), fall back to the search
+SNIPPET as your evidence. Snippets are short but they ARE real evidence — the
+title plus the URL plus the snippet together constitute a citable source.
+**Default to inclusion when a search hit shows a dated, actor-relevant event
+from the last 180 days.** A title like "Swiss Quantum Call 2026" with URL
+https://snf.ch/... IS a legitimate funding-event signal; do not reject it
+just because a page failed to extract. Copy the title or snippet verbatim
+into `evidence_quote` and rate confidence accordingly (see rule 5).
 
 **Do NOT fabricate URLs, dates, or quoted text — every signal must trace
 to a real published source returned by `web_search` or the bundled
@@ -174,11 +188,14 @@ If you find no signals after honest effort, return:
 5. **Confidence ≥ 0.3**: if you cannot defend `confidence ≥ 0.3` from
    the evidence, drop the signal. (Lowered from 0.4 → 0.3 in v0.4.29
    after the production agent kept returning `signals: []` despite
-   ddgs returning obviously relevant hits. Snippet-only evidence
-   rarely justifies higher confidence even when the underlying event
-   is real. A confidence of 0.3-0.4 means "the snippet shows a real
-   event but I cannot confirm details without reading the full page";
-   that IS a legitimate signal to record.)
+   obviously relevant hits.) Calibrate to how well you can support it:
+   - **0.3–0.4** — snippet-only (extraction failed/unavailable): "the
+     snippet shows a real event but I could not confirm details from the
+     full page." Still a legitimate signal to record.
+   - **0.5–0.8** — you **read the full page** via `web_extract` and it
+     confirms the event, the actor's role, and (ideally) a date. v0.5.1
+     full-text extraction is exactly what lets you justify this range, so
+     prefer reading a promising hit over guessing from its snippet.
 6. **Defense flags only when explicit**: only set `defense_engagement=true`
    or `defense_ambivalence=true` when the evidence directly mentions
    military / defense / dual-use / national-security / classified /

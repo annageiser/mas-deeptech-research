@@ -50,27 +50,26 @@ for var in SUPABASE_URL SUPABASE_SERVICE_KEY OPENROUTER_API_KEY; do
     fi
 done
 
-# v0.4.14: ddgs (DuckDuckGo) is installed in the image as the free
-# unlimited web_search backend — no API key needed. Search-provider
-# keys (TAVILY_API_KEY / FIRECRAWL_API_KEY / etc) are still honored if
-# set: upstream tries firecrawl/parallel/tavily/exa/brave/ddgs in
-# priority order. Without any paid key, ddgs serves web_search and
-# web_extract is unavailable; the agent falls back to using search
-# snippets as evidence (see the skill).
+# v0.5.0 Stage 2 / v0.5.1 Stage 2b: the default free substrate is now
+# SearXNG for web_search (self-hosted, no key) + our local full-text
+# provider for web_extract (plugins/web/localextract; httpx + selectolax,
+# no key), pinned explicitly in cli-config.yaml (web.search_backend=searxng,
+# web.extract_backend=localextract). So in the default config the agent has
+# BOTH search AND full-text extraction for free — web_extract is no longer
+# gated on a paid key. Paid keys, if set, still take auto-detect precedence
+# for anything not explicitly pinned; we record that for the audit trail.
 #
-# v0.4.36: also persist HERMES_TOOL_STATUS so the eval harness can
-# distinguish "agent ran with tools and found nothing" from "agent
-# had no extraction tools available — signals: [] is mechanical not
-# substantive." Without this, days where every backend key was unset
-# look identical to substantive zero-yield days in §3.5 metrics,
-# silently inflating System A's apparent yield advantage (Phase 4
-# finding G-15).
+# v0.4.36: HERMES_TOOL_STATUS lets the eval harness distinguish "agent ran
+# with full tools and found nothing" (substantive zero) from "agent had no
+# extraction tools available — signals: [] is mechanical not substantive"
+# (§3.5, Phase 4 finding G-15). With Stage 2b, the free path is no longer a
+# mechanical-zero risk; the status now records the actual substrate.
 if [ -n "${TAVILY_API_KEY:-}${EXA_API_KEY:-}${BRAVE_SEARCH_API_KEY:-}${FIRECRAWL_API_KEY:-}${PARALLEL_API_KEY:-}${FIRECRAWL_API_URL:-}" ]; then
-    echo "[collect_all_actors] paid search backend detected (web_extract enabled)"
-    export HERMES_TOOL_STATUS="paid"
+    echo "[collect_all_actors] paid search backend detected; extract pinned to localextract (full-text enabled)"
+    export HERMES_TOOL_STATUS="paid+localextract"
 else
-    echo "[collect_all_actors] using ddgs (DuckDuckGo, free unlimited); web_extract unavailable, agent uses snippets"
-    export HERMES_TOOL_STATUS="ddgs"
+    echo "[collect_all_actors] free substrate: SearXNG search + localextract full-text (web_extract enabled, no key)"
+    export HERMES_TOOL_STATUS="searxng+localextract"
 fi
 
 if [ ! -f "${ACTORS_FILE}" ]; then

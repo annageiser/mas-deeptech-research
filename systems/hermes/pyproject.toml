@@ -4,12 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hermes-bridge"
-version = "0.4.40"
+version = "0.5.1"
 description = "Thin Python wrapper around the upstream NousResearch Hermes Agent — System B of the BSc thesis."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "httpx>=0.27",
+  # v0.5.1 (Stage 2b): the bundled localextract web-extract provider
+  # (plugins/web/localextract) parses page HTML with selectolax — the SAME
+  # parser System A uses — to give System B full-text extraction. Declared
+  # here so CI installs it for the extraction unit tests; the runtime image
+  # installs it separately into the upstream venv via the Dockerfile.
+  "selectolax>=0.3",
 ]
 
 # The Hermes wrapper is a script bundle, not an installable library.
@@ -19,6 +25,9 @@ dependencies = [
 py-modules = []
 
 [tool.pytest.ini_options]
-pythonpath = ["scripts"]
+# `scripts` for the persister tests; the localextract plugin dir so its pure
+# HTML helpers (`_html`) import as a top-level module WITHOUT needing the
+# upstream `agent` package (which isn't present in this lightweight CI env).
+pythonpath = ["scripts", "plugins/web/localextract"]
 testpaths = ["tests"]
 addopts = "-q"

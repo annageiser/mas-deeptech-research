@@ -129,16 +129,24 @@ platform_toolsets:
 # v0.5.0 Stage 2 — route the `web` toolset's SEARCH through the shared
 # self-hosted SearXNG instance (docker-compose `searxng` service, reached at
 # $SEARXNG_URL=http://searxng:8080). This makes System B search the SAME
-# substrate System A will use in Stage 3, so the A-vs-B comparison isolates
+# substrate System A uses in Stage 3, so the A-vs-B comparison isolates
 # architecture, not search source. The SearXNG provider is built into the
 # Hermes image (plugins/web/searxng) and activates on SEARXNG_URL; setting
 # search_backend explicitly makes it deterministic rather than relying on the
 # env-var auto-detect order (which would still pick searxng, since no paid key
-# is set). Extract stays unset — SearXNG is search-only; full-text extraction
-# is added via the `scrapling` skill in Stage 2b. See
-# docs/iterations/v0.5.0-reference-architecture-retrieval.md.
+# is set).
+#
+# v0.5.1 Stage 2b — route the `web` toolset's EXTRACT through our local
+# full-text provider (plugins/web/localextract, bundled into the image). It
+# fetches pages with httpx + selectolax — the SAME method System A uses
+# (collection/website.py) — so both systems ground signals in comparable full
+# text instead of B being snippet-only. SearXNG is search-only
+# (supports_extract() == False), which is why extract needs its own backend.
+# This replaces the abandoned `scrapling` skill (heavy + broken extraction);
+# see docs/iterations/v0.5.1-stage2b-system-b-fulltext.md.
 web:
   search_backend: "searxng"
+  extract_backend: "localextract"
 
 # Guardrails for an unattended cron run: hard-stop if the model loops.
 tool_loop_guardrails:

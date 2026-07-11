@@ -1,0 +1,7 @@
+name: web-localextract
+version: 1.0.0
+description: "Local full-text web extraction via httpx + selectolax — no API key. Gives the agent's web_extract tool a free, self-hosted extract backend that mirrors System A's page-text extraction. Pair with a search backend (e.g. SearXNG)."
+author: Anna Geiser (thesis System B)
+kind: backend
+provides_web_providers:
+  - localextract

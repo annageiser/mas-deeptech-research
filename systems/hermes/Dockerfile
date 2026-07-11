@@ -62,6 +62,48 @@ RUN uv pip install --no-cache-dir 'fastembed>=0.4.0' \
 RUN uv pip install --no-cache-dir 'vaderSentiment>=3.3.2' \
     && chown -R hermes:hermes /opt/hermes/.venv
 
+# v0.5.1 (Stage 2b): install selectolax so System B can extract full page text
+# with the SAME parser + method System A uses (collection/website.py). Light,
+# reliable, no browser — the opposite of the abandoned scrapling/Playwright
+# path. Feeds the local full-text web-extract provider installed below.
+RUN uv pip install --no-cache-dir selectolax \
+    && chown -R hermes:hermes /opt/hermes/.venv
+
+# v0.5.1 (Stage 2b): install the local full-text web-extract provider into the
+# image's BUNDLED plugins dir so it auto-loads as a `backend` plugin (bundled
+# backends load without an explicit `plugins.enable`). The target dir is
+# resolved the SAME way upstream does (hermes_cli.plugins.get_bundled_plugins_dir):
+# $HERMES_BUNDLED_PLUGINS if set, else <hermes_cli parent>/plugins. The final
+# import+capability assertion fails the build loudly if the path/layout ever
+# drifts on a base-image bump — otherwise the agent would silently revert to
+# snippet-only extraction with no error.
+COPY plugins/web/localextract /opt/swiss-quantum/plugins/web/localextract
+RUN set -eu; \
+    PLUGROOT="${HERMES_BUNDLED_PLUGINS:-$(/opt/hermes/.venv/bin/python -c 'import hermes_cli, os; print(os.path.join(os.path.dirname(os.path.dirname(hermes_cli.__file__)), "plugins"))')}"; \
+    echo "[localextract] bundled plugins dir: $PLUGROOT"; \
+    mkdir -p "$PLUGROOT/web/localextract"; \
+    cp -r /opt/swiss-quantum/plugins/web/localextract/. "$PLUGROOT/web/localextract/"; \
+    chown -R hermes:hermes "$PLUGROOT/web/localextract"; \
+    /opt/hermes/.venv/bin/python -c "import plugins.web.localextract.provider as m; assert m.LocalExtractProvider().supports_extract(); print('[localextract] provider import + capability OK')"
+
+# v0.5.1 (Stage 2b): teach upstream's extract-backend router that `localextract`
+# is an available backend. `tools.web_tools._is_backend_available()` HARDCODES
+# the built-in backend names and returns False for anything else — so without
+# this our `web.extract_backend: localextract` is silently dropped and the agent
+# reverts to snippet-only. The patch script APPENDS a wrapper to the module
+# (robust to upstream body edits) rather than editing the function in place. It
+# applies at IMPORT time — before any plugin discovery — so even a `web_extract`
+# issued before the first `web_search` resolves the backend correctly (the
+# discovery-timed runtime monkeypatch this replaces could not). Kept as a real
+# script (not a RUN heredoc) so the build doesn't depend on BuildKit. Idempotent
+# (marker-guarded) + asserted in a fresh interpreter: only env-INDEPENDENT cases
+# (localextract recognised; unknown name still False) — real backends like
+# searxng are env-gated (SEARXNG_URL is unset at build time) so aren't asserted.
+COPY scripts/patch_web_tools_backend.py /tmp/patch_web_tools_backend.py
+RUN /opt/hermes/.venv/bin/python /tmp/patch_web_tools_backend.py \
+    && /opt/hermes/.venv/bin/python -c "import tools.web_tools as m; assert m._is_backend_available('localextract') is True; assert m._is_backend_available('definitely-not-a-backend') is False; print('[localextract] _is_backend_available shim OK')" \
+    && rm -f /tmp/patch_web_tools_backend.py
+
 # Install the Swiss-quantum skill into the agent's skills directory.
 # The agent picks up skills from $HERMES_HOME/skills/* at startup.
 COPY skills/collect-swiss-quantum-signals \

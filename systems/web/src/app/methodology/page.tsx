@@ -87,6 +87,38 @@ export default async function Methodology() {
         <p className="small faint">Cost multipliers: {Object.entries(meta.cost_classes).map(([k, v]) => `${k} ${v.multiplier}`).join(" · ")}.</p>
       </Card>
 
+      <Card style={{ marginTop: "1rem", borderLeft: "3px solid var(--warn)" }}>
+        <h3 style={{ marginTop: 0 }}>Limitations</h3>
+        <p className="small">
+          This is a Bachelor&rsquo;s-thesis prototype, not a production intelligence
+          tool, and the numbers should be read accordingly. Coverage is bounded by
+          what is publicly visible &mdash; arXiv, actor websites, and Google News,
+          plus optional patent records. Activity behind paywalls, in private
+          channels, or not indexed by these sources stays invisible, which
+          systematically undercounts smaller or stealth actors. The cohort is a
+          fixed list of roughly 40 Swiss quantum-computing organisations observed
+          over a single evaluation window, so the results describe the Swiss
+          ecosystem in 2026 and do not generalise to other deep-tech fields, other
+          countries, or other time periods.
+        </p>
+        <p className="small">
+          Every signal is classified automatically by large language models against
+          the signalling-theory scheme above &mdash; not hand-coded by a human
+          &mdash; so the scores are best-effort estimates rather than ground truth,
+          and the line between a costly signal and cheap talk is ultimately a model
+          judgement. Both AI systems run on free-tier models and free web-search
+          backends that are rate-limited and non-deterministic, so a given day&rsquo;s
+          run can miss signals or vary from the next. The two systems also differ in
+          more than architecture (their prompts differ too), which makes the
+          System&nbsp;A vs System&nbsp;B comparison illustrative rather than a
+          controlled benchmark. Finally, one person designed the systems, the schema,
+          and this evaluation &mdash; an independent evaluator was outside the thesis
+          scope &mdash; so the dashboard reports <em>observable public signalling</em>
+          {" "}and makes no claim about any actor&rsquo;s actual research capability,
+          commercial success, or scientific quality.
+        </p>
+      </Card>
+
       {st.references && (
         <Card style={{ marginTop: "1rem" }}>
           <h3 style={{ marginTop: 0 }}>References</h3>

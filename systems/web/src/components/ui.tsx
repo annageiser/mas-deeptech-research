@@ -1,4 +1,36 @@
 import Link from "next/link";
+import { GLOSSARY } from "@/lib/glossary";
+
+/**
+ * Inline term with a hover/focus tooltip explaining a metric or calculation.
+ * Pure-CSS (no client JS) so it works in server components. `term` keys into
+ * GLOSSARY; `children` is the visible text (defaults to the glossary title).
+ * `align="end"` anchors the tooltip to the right edge — use it for the
+ * right-most / numeric table columns so the bubble doesn't overflow the page.
+ */
+export function Term({
+  term,
+  children,
+  align = "start",
+}: {
+  term: keyof typeof GLOSSARY | string;
+  children?: React.ReactNode;
+  align?: "start" | "end";
+}) {
+  const def = GLOSSARY[term as string];
+  const label = children ?? def?.title ?? term;
+  if (!def) return <>{label}</>;
+  return (
+    <span className={`term${align === "end" ? " term-end" : ""}`} tabIndex={0}>
+      {label}
+      <span className="tip" role="tooltip">
+        <strong className="tip-title">{def.title}</strong>
+        {def.formula && <code className="tip-formula">{def.formula}</code>}
+        <span className="tip-body">{def.body}</span>
+      </span>
+    </span>
+  );
+}
 
 export function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return <div className="card" style={style}>{children}</div>;

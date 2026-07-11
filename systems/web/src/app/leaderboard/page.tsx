@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import { Card, Empty, PageHeader, ActorLink, Bar } from "@/components/ui";
+import { Card, Empty, PageHeader, ActorLink, Bar, Term } from "@/components/ui";
 import { Scatter2D } from "@/components/charts";
 
 export const dynamic = "force-dynamic";
@@ -65,13 +65,13 @@ export default async function Leaderboard({ searchParams }: SP) {
               <th>#</th>
               <th>Actor</th>
               <th>Category</th>
-              <th className="num">Impact</th>
+              <th className="num"><Term term="impact" align="end">Impact</Term></th>
               <th style={{ width: 120 }}>Impact</th>
-              <th className="num">Credibility</th>
-              <th className="num">Δ wk</th>
-              <th className="num">Dims</th>
-              <th className="num">Authority</th>
-              <th className="num">Cheap-talk</th>
+              <th className="num"><Term term="credibility" align="end">Credibility</Term></th>
+              <th className="num"><Term term="momentum" align="end">Δ wk</Term></th>
+              <th className="num"><Term term="diversity" align="end">Dims</Term></th>
+              <th className="num"><Term term="authority" align="end">Authority</Term></th>
+              <th className="num"><Term term="cheap_talk" align="end">Cheap-talk</Term></th>
             </tr>
           </thead>
           <tbody>

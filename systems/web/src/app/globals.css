@@ -168,6 +168,49 @@ tbody tr:hover { background: var(--surface-2); }
 .small { font-size: 0.82rem; }
 .pill-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 
+/* ---------- glossary tooltip (<Term>) ---------- */
+.term {
+  position: relative;
+  border-bottom: 1px dashed var(--text-faint);
+  cursor: help;
+  outline: none;
+}
+.term:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 3px; }
+.term > .tip {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max-content;
+  max-width: 260px;
+  /* Reset inherited table-header casing/weight so tooltip text reads normally. */
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  padding: 0.6rem 0.7rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-3px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  pointer-events: none;
+}
+.term.term-end > .tip { left: auto; right: 0; }
+.term:hover > .tip,
+.term:focus > .tip,
+.term:focus-visible > .tip { visibility: visible; opacity: 1; transform: translateY(0); }
+.tip-title { display: block; font-size: 0.82rem; }
+.tip-formula { display: block; margin: 0.35rem 0; font-size: 0.78em; }
+.tip-body { display: block; color: var(--text-muted); }
+
 /* ---------- filter controls ---------- */
 .filters { display: flex; align-items: center; gap: 0.75rem; }
 .seg { display: inline-flex; background: var(--surface-2); border-radius: 8px; padding: 2px; }

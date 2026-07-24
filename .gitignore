@@ -224,3 +224,6 @@ __marimo__/
 # Agent context
 docs/agent_context
 docs/agent_context/
+# The Python `lib/` rule above is unanchored and also matches the Next.js
+# app source dir; re-include it so new web lib files are not silently dropped.
+!systems/web/src/lib/

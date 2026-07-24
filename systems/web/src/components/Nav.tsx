@@ -8,6 +8,7 @@ const GROUPS: { label: string; items: { href: string; label: string }[] }[] = [
     label: "Ecosystem",
     items: [
       { href: "/", label: "Overview" },
+      { href: "/personas", label: "Stakeholder lenses" },
       { href: "/signalling", label: "Signalling theory" },
       { href: "/leaderboard", label: "Signal leaderboard" },
       { href: "/ecosystem", label: "Ecosystem map" },

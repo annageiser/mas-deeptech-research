@@ -310,3 +310,33 @@ export interface ReportListItem {
   file: string;
   title: string;
 }
+
+// Persona-lens layer — descriptive insight cards from GET /api/insights.
+export interface InsightEvidence {
+  actor_name?: string;
+  title: string;
+  source_url?: string | null;
+  dimension_label?: string;
+  signal_type_label?: string;
+}
+
+export interface Insight {
+  id: string;
+  type: string;
+  personas: string[];
+  severity: string; // "info" | "watch"
+  title: string;
+  detail: string;
+  actor_slug?: string | null;
+  actor_name?: string | null;
+  metrics: Record<string, number | string>;
+  evidence: InsightEvidence[];
+}
+
+export interface InsightsResponse {
+  insights: Insight[];
+  count: number;
+  persona: string | null;
+  days: number;
+  generated_at: string;
+}

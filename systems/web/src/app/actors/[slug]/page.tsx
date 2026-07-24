@@ -34,11 +34,11 @@ export default async function ActorDetail({ params, searchParams }: SP) {
 
       {sc ? (
         <div className="grid cols-4">
-          <Stat label="Impact" value={sc.impact.toFixed(2)} />
-          <Stat label="Credibility" value={sc.credibility.toFixed(2)} help="Cost-discounted impact." />
-          <Stat label="Authority" value={sc.authority.toFixed(2)} help="1 = pure capability evidence, 0 = pure legitimacy." />
+          <Stat label="Signal activity" value={sc.impact.toFixed(2)} help="Weighted count of the actor's signals." />
+          <Stat label="Cost-weighted" value={sc.credibility.toFixed(2)} help="Signal activity after discounting low-cost signals." />
+          <Stat label="Capability–Legitimacy" value={sc.authority.toFixed(2)} help="1 = pure capability evidence, 0 = pure legitimacy." />
           <Stat
-            label="Momentum"
+            label="Signal trend"
             value={`${sc.momentum >= 0 ? "+" : ""}${sc.momentum}`}
             deltaDir={sc.momentum > 0 ? "up" : sc.momentum < 0 ? "down" : "flat"}
             delta={`${sc.signal_count_this_week} this wk vs ${sc.signal_count_prev_week} prev`}

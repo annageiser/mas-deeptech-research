@@ -76,12 +76,12 @@ export default async function Methodology() {
         <table>
           <thead><tr><th>Score</th><th>Formula</th><th>Answers</th></tr></thead>
           <tbody>
-            <tr><td><strong>Impact</strong></td><td className="small"><code>Σ (weight × confidence)</code></td><td className="small muted">How much an observer should update their view.</td></tr>
-            <tr><td><strong>Credibility</strong></td><td className="small"><code>Σ (weight × confidence × cost_mult)</code></td><td className="small muted">Impact after discounting cheap talk.</td></tr>
-            <tr><td><strong>Cheap-talk ratio</strong></td><td className="small"><code>low_cost / total</code></td><td className="small muted">Substituting positioning for evidence?</td></tr>
-            <tr><td><strong>Authority</strong></td><td className="small"><code>(cap+1)/(cap+leg+2)</code></td><td className="small muted">Capability- vs legitimacy-driven.</td></tr>
-            <tr><td><strong>Momentum</strong></td><td className="small"><code>signals_7d − prev_7d</code></td><td className="small muted">Accelerating or cooling.</td></tr>
-            <tr><td><strong>Diversity</strong></td><td className="small"><code>distinct dimensions</code></td><td className="small muted">Broad vs narrow signalling.</td></tr>
+            <tr><td><strong>Signal Activity Score</strong></td><td className="small"><code>Σ (weight × confidence)</code></td><td className="small muted">How much an observer should update their view.</td></tr>
+            <tr><td><strong>Cost-Weighted Signal Score</strong></td><td className="small"><code>Σ (weight × confidence × cost_mult)</code></td><td className="small muted">Signal activity after discounting low-cost signals.</td></tr>
+            <tr><td><strong>Low-Cost Signal Share</strong></td><td className="small"><code>low_cost / total</code></td><td className="small muted">Substituting positioning for evidence?</td></tr>
+            <tr><td><strong>Capability–Legitimacy Ratio</strong></td><td className="small"><code>(cap+1)/(cap+leg+2)</code></td><td className="small muted">Capability- vs legitimacy-led.</td></tr>
+            <tr><td><strong>Signal Trend</strong></td><td className="small"><code>signals_7d − prev_7d</code></td><td className="small muted">Accelerating or cooling.</td></tr>
+            <tr><td><strong>Signal Breadth</strong></td><td className="small"><code>distinct dimensions</code></td><td className="small muted">Broad vs narrow signalling.</td></tr>
           </tbody>
         </table>
         <p className="small faint">Cost multipliers: {Object.entries(meta.cost_classes).map(([k, v]) => `${k} ${v.multiplier}`).join(" · ")}.</p>
@@ -105,8 +105,8 @@ export default async function Methodology() {
           Every signal is classified automatically by large language models against
           the signalling-theory scheme above &mdash; not hand-coded by a human
           &mdash; so the scores are best-effort estimates rather than ground truth,
-          and the line between a costly signal and cheap talk is ultimately a model
-          judgement. Both AI systems run on free-tier models and free web-search
+          and the line between a costly signal and a low-cost one is ultimately a
+          model judgement. Both AI systems run on free-tier models and free web-search
           backends that are rate-limited and non-deterministic, so a given day&rsquo;s
           run can miss signals or vary from the next. The two systems also differ in
           more than architecture (their prompts differ too), which makes the

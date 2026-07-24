@@ -49,14 +49,14 @@ export default async function Overview({ searchParams }: SP) {
   const costData = [
     { name: "High-cost", value: sig.cost_mix.high || 0, color: "#15803d" },
     { name: "Medium", value: sig.cost_mix.medium || 0, color: "#ca8a04" },
-    { name: "Cheap talk", value: sig.cost_mix.low || 0, color: "#dc2626" },
+    { name: "Low-cost", value: sig.cost_mix.low || 0, color: "#dc2626" },
   ];
 
   return (
     <>
       <PageHeader
         title="Swiss Quantum Ecosystem"
-        lead="Who has impact right now, what signals they send, and how their position is shifting — collected automatically from public sources every day by two independent AI systems."
+        lead="Who is most active right now, what signals they send, and how their position is shifting — collected automatically from public sources every day by two independent AI systems."
       />
 
       <div className="grid cols-4">
@@ -67,14 +67,14 @@ export default async function Overview({ searchParams }: SP) {
           help="Actors with ≥1 signal in the selected window."
         />
         <Stat
-          label="Cheap-talk ratio"
+          label="Low-cost signal share"
           value={`${Math.round(sig.ecosystem_cheap_talk_ratio * 100)}%`}
-          help="Share of all signals that are low-cost 'cheap talk' (market positioning). Ehrenthal's research question."
+          help="Share of all signals that are low-cost and hard to verify (market positioning). Ehrenthal's research question."
           deltaDir={sig.ecosystem_cheap_talk_ratio > 0.4 ? "down" : "flat"}
           delta={sig.ecosystem_cheap_talk_ratio > 0.4 ? "positioning-heavy" : "evidence-backed"}
         />
         <Stat
-          label="Ecosystem momentum"
+          label="Ecosystem signal trend"
           value={`${s.total_momentum >= 0 ? "+" : ""}${s.total_momentum}`}
           deltaDir={s.total_momentum > 0 ? "up" : s.total_momentum < 0 ? "down" : "flat"}
           delta="vs previous week"
@@ -84,13 +84,13 @@ export default async function Overview({ searchParams }: SP) {
 
       <div className="grid cols-2" style={{ marginTop: "1rem" }}>
         <Card>
-          <h3 style={{ marginTop: 0 }}>Top actors by impact</h3>
+          <h3 style={{ marginTop: 0 }}>Top actors by signal activity</h3>
           <table>
             <thead>
               <tr>
                 <th>Actor</th>
                 <th>Category</th>
-                <th className="num">Impact</th>
+                <th className="num">Activity</th>
                 <th className="num">Δ wk</th>
               </tr>
             </thead>
@@ -115,9 +115,9 @@ export default async function Overview({ searchParams }: SP) {
         </Card>
 
         <Card>
-          <h3 style={{ marginTop: 0 }}>Signal credibility mix</h3>
+          <h3 style={{ marginTop: 0 }}>Signal cost mix</h3>
           <p className="small muted" style={{ marginTop: 0 }}>
-            Costly, hard-to-fake signals (patents, funding, research) vs cheap talk (positioning).
+            Costly, hard-to-fake signals (patents, funding, research) vs low-cost positioning.
           </p>
           <Donut data={costData} />
         </Card>
@@ -140,7 +140,7 @@ export default async function Overview({ searchParams }: SP) {
         <h3 style={{ marginTop: 0 }}>Sub-categories (drill-down)</h3>
         <p className="small muted" style={{ marginTop: 0 }}>
           The 19 sub-dimensions, colour-keyed to their parent signal type above. Cost weighting:{" "}
-          <CostBadge cost="high" /> hard-to-fake · <CostBadge cost="medium" /> · <CostBadge cost="low" /> cheap talk.
+          <CostBadge cost="high" /> hard-to-fake · <CostBadge cost="medium" /> · <CostBadge cost="low" /> low-cost.
         </p>
         {dimData.length ? (
           <HBarColored data={dimData} dataKey="count" categoryKey="label" colorKey="color" height={400} />

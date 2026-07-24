@@ -21,6 +21,7 @@ from . import reports as R
 from . import training as T
 from .config import load_settings
 from .coverage import coverage_payload
+from .insights import insights_payload
 from .knowledge_graph import build_graph_json
 from .meta import meta_payload
 from .scoring import actor_impact_table, attach_actor_metadata, ecosystem_summary
@@ -278,6 +279,23 @@ def get_coverage(system: Optional[str] = None, days: int = Query(90, ge=1, le=36
     """B.3 — collection-breadth metric: signals/actor/week per source_kind."""
     sys = _norm_system(system)
     return coverage_payload(sys, days)
+
+
+@app.get("/api/insights")
+def get_insights(
+    system: Optional[str] = None,
+    days: int = Query(90, ge=1, le=365),
+    persona: Optional[str] = None,
+) -> dict:
+    """Descriptive insight templates for the persona-lens pages.
+
+    Re-composes already-collected signals into source-attributed patterns
+    ('rising', 'narrative_heavy', 'coverage_gap', …). Optional ?persona=
+    filters + orders for one of the five stakeholder lenses. Purely
+    descriptive and window-bounded — no external data, no recommendations.
+    """
+    sys = _norm_system(system)
+    return insights_payload(sys, days, persona)
 
 
 @app.get("/api/actor/{slug}")

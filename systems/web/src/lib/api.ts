@@ -8,6 +8,7 @@ import type {
   CompareResponse,
   CoverageResponse,
   EcosystemResponse,
+  InsightsResponse,
   KnowledgeGraph,
   MetaResponse,
   ReportListItem,
@@ -54,6 +55,8 @@ export const api = {
   compare: (days = 30) => get<CompareResponse>(`/api/compare${qs({ days })}`),
   coverage: (system?: string, days = 90) =>
     get<CoverageResponse>(`/api/coverage${qs({ system, days })}`),
+  insights: (persona?: string, system?: string, days = 90) =>
+    get<InsightsResponse>(`/api/insights${qs({ persona, system, days })}`),
   knowledgeGraph: (
     system?: string,
     days = 30,

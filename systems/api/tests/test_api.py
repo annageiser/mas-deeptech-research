@@ -368,3 +368,55 @@ def test_signals_filter_accepts_manual_system():
     """v0.4.37 — 'manual' is now a valid system filter."""
     r = client.get("/api/signals?system=manual")
     assert r.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Persona-lens layer — /api/insights (descriptive insight templates)
+# ---------------------------------------------------------------------------
+
+
+def test_insights_returns_descriptive_items():
+    r = client.get("/api/insights")
+    assert r.status_code == 200
+    body = r.json()
+    items = body["insights"]
+    assert isinstance(items, list) and len(items) >= 3
+    # every insight carries the descriptive-card contract
+    for it in items:
+        assert {"id", "type", "personas", "title", "detail", "metrics", "evidence"} <= set(it)
+        assert isinstance(it["personas"], list)
+    types = {it["type"] for it in items}
+    # fixture: a1 has a funding_event signal → a funding insight; two active
+    # actors → a concentration insight
+    assert "funding" in types
+    assert "concentration" in types
+    # funding evidence is source-attributed
+    funding = next(it for it in items if it["type"] == "funding")
+    assert funding["evidence"] and funding["evidence"][0]["source_url"].startswith("http")
+
+
+def test_insights_persona_filter_tags_and_orders():
+    r = client.get("/api/insights?persona=investor")
+    assert r.status_code == 200
+    body = r.json()
+    items = body["insights"]
+    assert body["persona"] == "investor"
+    # everything returned is relevant to the investor lens
+    assert all("investor" in it["personas"] for it in items)
+    # investor priority order puts 'rising' first (fixture has rising actors)
+    assert items[0]["type"] == "rising"
+
+
+def test_insights_government_excludes_investor_only_types():
+    body = client.get("/api/insights?persona=government").json()
+    types = {it["type"] for it in body["insights"]}
+    # 'rising' is tagged for investor/corporate/consultant, not government
+    assert "rising" not in types
+    # government cares about funding + coverage gaps
+    assert "funding" in types
+
+
+def test_insights_unknown_persona_returns_all_unfiltered():
+    body = client.get("/api/insights?persona=not-a-persona").json()
+    assert body["persona"] is None
+    assert len(body["insights"]) >= 3

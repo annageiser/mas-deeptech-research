@@ -83,7 +83,7 @@ export default async function Ecosystem({ searchParams }: SP) {
         <h3 style={{ marginTop: 0 }}>Category leaders</h3>
         <table>
           <thead>
-            <tr><th>Actor</th><th>Category</th><th className="num">Impact</th><th className="num">Signals</th></tr>
+            <tr><th>Actor</th><th>Category</th><th className="num">Activity</th><th className="num">Signals</th></tr>
           </thead>
           <tbody>
             {eco.top_actors.map((a) => (

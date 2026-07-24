@@ -288,7 +288,7 @@ DIMENSION_SIGNAL_TYPE = {
     "defense_ambivalence":         "defense_signals",
 }
 
-COST_LABEL = {"high": "High-cost (hard to fake)", "medium": "Medium-cost", "low": "Low-cost (cheap talk)"}
+COST_LABEL = {"high": "High-cost (hard to fake)", "medium": "Medium-cost", "low": "Low-cost"}
 
 
 def cost_class(dimension_key: str) -> str:

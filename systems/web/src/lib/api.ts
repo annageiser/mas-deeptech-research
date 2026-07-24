@@ -85,5 +85,5 @@ export const api = {
 export const COST_COLOR: Record<string, string> = {
   high: "#15803d", // green — costly / credible
   medium: "#ca8a04", // amber
-  low: "#dc2626", // red — cheap talk
+  low: "#dc2626", // red — low-cost
 };

@@ -16,7 +16,7 @@ export type GlossaryEntry = {
 
 export const GLOSSARY: Record<string, GlossaryEntry> = {
   impact: {
-    title: "Impact",
+    title: "Signal Activity Score",
     formula: "Σ (weight × confidence)",
     body:
       "How much an observer should update their view of an actor, summed " +
@@ -24,41 +24,41 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
       "is how sure the classifier is the signal is real.",
   },
   credibility: {
-    title: "Credibility",
+    title: "Cost-Weighted Signal Score",
     formula: "Σ (weight × confidence × cost_mult)",
     body:
-      "Impact after discounting cheap talk. Hard-to-fake signals (patents, " +
-      "funding, peer-reviewed research) keep most of their weight; low-cost " +
-      "positioning is multiplied down.",
+      "The Signal Activity Score after discounting low-cost signals. " +
+      "Hard-to-fake signals (patents, funding, peer-reviewed research) keep " +
+      "most of their weight; low-cost positioning is multiplied down.",
   },
   momentum: {
-    title: "Momentum",
+    title: "Signal Trend",
     formula: "signals_7d − prev_7d",
     body:
       "Signal count in the last 7 days minus the 7 days before. Positive = " +
       "accelerating, negative = cooling. Shown in the Δ-week column.",
   },
   diversity: {
-    title: "Diversity",
+    title: "Signal Breadth",
     formula: "distinct dimensions",
     body:
       "How many of the signal dimensions an actor is active on. High = " +
       "broad, multi-front signalling; low = a narrow, single-note story.",
   },
   authority: {
-    title: "Authority",
+    title: "Capability–Legitimacy Ratio",
     formula: "(cap + 1) / (cap + leg + 2)",
     body:
       "Balance between capability signals (what an actor can technically " +
       "do) and legitimacy signals (endorsements, partnerships). Near 1 = " +
-      "capability-driven; near 0 = legitimacy-driven. Laplace-smoothed.",
+      "capability-led; near 0 = legitimacy-led. Laplace-smoothed.",
   },
   cheap_talk: {
-    title: "Cheap-talk ratio",
+    title: "Low-Cost Signal Share",
     formula: "low_cost / total",
     body:
-      "Share of an actor's signals that are low-cost 'cheap talk' — claims " +
-      "that are easy to make and hard to verify. A high ratio means " +
-      "positioning is substituting for evidence.",
+      "Share of an actor's signals that are low-cost and hard to verify — " +
+      "claims that are easy to make. A high share means positioning is " +
+      "substituting for evidence.",
   },
 };

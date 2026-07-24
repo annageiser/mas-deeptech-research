@@ -47,7 +47,7 @@ export default async function Actors({ searchParams }: SP) {
               <tr>
                 <th>Actor</th>
                 <th className="num">Signals</th>
-                <th className="num">Impact</th>
+                <th className="num">Activity</th>
                 <th className="num">Δ wk</th>
               </tr>
             </thead>

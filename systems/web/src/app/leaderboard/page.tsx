@@ -7,11 +7,11 @@ export const dynamic = "force-dynamic";
 type SP = { searchParams: { system?: string; days?: string; sort?: string } };
 
 const SORTS: Record<string, { label: string; key: string }> = {
-  impact: { label: "Impact", key: "impact" },
-  credibility: { label: "Credibility", key: "credibility" },
-  momentum: { label: "Momentum", key: "momentum" },
-  diversity: { label: "Diversity", key: "diversity" },
-  authority: { label: "Authority", key: "authority" },
+  impact: { label: "Activity", key: "impact" },
+  credibility: { label: "Cost-weighted", key: "credibility" },
+  momentum: { label: "Trend", key: "momentum" },
+  diversity: { label: "Breadth", key: "diversity" },
+  authority: { label: "Cap.–Leg.", key: "authority" },
 };
 
 export default async function Leaderboard({ searchParams }: SP) {
@@ -43,8 +43,8 @@ export default async function Leaderboard({ searchParams }: SP) {
   return (
     <>
       <PageHeader
-        title="Impact leaderboard"
-        lead="Five lenses on what 'impact' means in a deep-tech market with no prices or share data. Credibility discounts cheap talk; authority is the capability-vs-legitimacy balance."
+        title="Signal leaderboard"
+        lead="Five neutral lenses on how active each actor is in a deep-tech market with no prices or share data. The Cost-Weighted Signal Score discounts low-cost signals; the Capability–Legitimacy Ratio is the balance between technical and legitimacy signalling."
       />
 
       <div className="filters" style={{ marginBottom: "1rem" }}>
@@ -65,13 +65,13 @@ export default async function Leaderboard({ searchParams }: SP) {
               <th>#</th>
               <th>Actor</th>
               <th>Category</th>
-              <th className="num"><Term term="impact" align="end">Impact</Term></th>
-              <th style={{ width: 120 }}>Impact</th>
-              <th className="num"><Term term="credibility" align="end">Credibility</Term></th>
+              <th className="num"><Term term="impact" align="end">Activity</Term></th>
+              <th style={{ width: 120 }}>Activity</th>
+              <th className="num"><Term term="credibility" align="end">Cost-weighted</Term></th>
               <th className="num"><Term term="momentum" align="end">Δ wk</Term></th>
-              <th className="num"><Term term="diversity" align="end">Dims</Term></th>
-              <th className="num"><Term term="authority" align="end">Authority</Term></th>
-              <th className="num"><Term term="cheap_talk" align="end">Cheap-talk</Term></th>
+              <th className="num"><Term term="diversity" align="end">Breadth</Term></th>
+              <th className="num"><Term term="authority" align="end">Cap.–Leg.</Term></th>
+              <th className="num"><Term term="cheap_talk" align="end">Low-cost</Term></th>
             </tr>
           </thead>
           <tbody>
@@ -88,7 +88,7 @@ export default async function Leaderboard({ searchParams }: SP) {
                     {a.momentum > 0 ? "▲" : a.momentum < 0 ? "▼" : "·"} {a.momentum}
                   </span>
                 </td>
-                <td className="num">{a.diversity}/9</td>
+                <td className="num">{a.diversity}/19</td>
                 <td className="num">{a.authority.toFixed(2)}</td>
                 <td className="num">{Math.round(a.cheap_talk_ratio * 100)}%</td>
               </tr>
@@ -98,11 +98,11 @@ export default async function Leaderboard({ searchParams }: SP) {
       </Card>
 
       <Card style={{ marginTop: "1rem" }}>
-        <h3 style={{ marginTop: 0 }}>Impact vs momentum</h3>
+        <h3 style={{ marginTop: 0 }}>Signal activity vs trend</h3>
         <p className="small muted" style={{ marginTop: 0 }}>
           Top-right = strong &amp; accelerating. Bottom-right = strong but cooling. Top-left = small but rising.
         </p>
-        <Scatter2D data={scatter} xKey="impact" yKey="momentum" xLabel="Impact" yLabel="Momentum (Δ vs prev week)" />
+        <Scatter2D data={scatter} xKey="impact" yKey="momentum" xLabel="Signal Activity Score" yLabel="Signal Trend (Δ vs prev week)" />
       </Card>
     </>
   );

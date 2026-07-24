@@ -73,7 +73,7 @@ export function ChannelBadge({ channel }: { channel: string }) {
 }
 
 export function CostBadge({ cost }: { cost: string }) {
-  const label = cost === "high" ? "High-cost" : cost === "low" ? "Cheap talk" : "Medium";
+  const label = cost === "high" ? "High-cost" : cost === "low" ? "Low-cost" : "Medium";
   return <span className={`badge cost-${cost}`}>{label}</span>;
 }
 

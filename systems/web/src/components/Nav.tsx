@@ -9,7 +9,7 @@ const GROUPS: { label: string; items: { href: string; label: string }[] }[] = [
     items: [
       { href: "/", label: "Overview" },
       { href: "/signalling", label: "Signalling theory" },
-      { href: "/leaderboard", label: "Impact leaderboard" },
+      { href: "/leaderboard", label: "Signal leaderboard" },
       { href: "/ecosystem", label: "Ecosystem map" },
       { href: "/graph", label: "Knowledge graph" },
     ],

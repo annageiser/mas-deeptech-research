@@ -70,8 +70,8 @@ to a real published source returned by `web_search` or the bundled
 | Search hit (title | URL) | Signal you should emit |
 |---|---|
 | Swiss Quantum Call 2026 — snf.ch | https://www.snf.ch/.../swiss-quantum-call-2026 | signal_type=legitimacy, dimension=funding_event, evidence_quote="Swiss Quantum Call 2026", confidence 0.55 |
-| Swiss Quantum Strategy Released — Swissnex | https://swissnex.org/news/swiss-quantum-strategy-released/ | signal_type=community_ecosystem, dimension=strategic_positioning, evidence_quote="Swiss Quantum Strategy Released", confidence 0.5 |
-| IDQ among those receiving EU funding for OPENQKD | https://www.idquantique.com/.../id-quantique-receive-eu-funding-openqkd/ | signal_type=customer_cocreation, dimension=consortium_funding, evidence_quote="IDQ among those receiving EU funding for OPENQKD", confidence 0.55 |
+| Swiss Quantum Strategy Released — Swissnex | https://swissnex.org/news/swiss-quantum-strategy-released/ | signal_type=future_trajectory, dimension=roadmaps, evidence_quote="Swiss Quantum Strategy Released", confidence 0.5 |
+| IDQ among those receiving EU funding for OPENQKD | https://www.idquantique.com/.../id-quantique-receive-eu-funding-openqkd/ | signal_type=community_ecosystem, dimension=industry_partnerships, evidence_quote="IDQ among those receiving EU funding for OPENQKD", confidence 0.55 |
 | ETH Zurich Researchers Achieve "Surgery" On Qubits | https://quantumzeitgeist.com/eth-zurich-quantum-computing-qubit-surgery/ | signal_type=future_trajectory, dimension=technological_advances, evidence_quote="ETH Zurich Researchers Achieve 'Surgery' On Qubits", confidence 0.45 |
 
 Search-query patterns to try (aim for 6–9 searches per run, stop earlier
@@ -132,9 +132,49 @@ signal is ALSO one of the four above — the flag layers on top.
 
 Default both flags to `false`. Only set `true` when evidence is explicit.
 
-Each signal also carries a `dimension` (free-text sub-category, e.g.
-`funding_event`, `leadership_appointment`, `publication`, `pilot_announcement`,
-`certification`, `consortium_membership`, `strategic_positioning`).
+Each signal also carries a `dimension`, the fine-grained sub-category.
+
+**`dimension` is a CLOSED vocabulary. Pick exactly one of the nineteen keys
+below, spelled exactly as written. Do NOT invent a new label, do not
+pluralise or singularise, do not substitute a synonym.** If nothing fits
+well, choose the closest key rather than coining a new one.
+
+These nineteen are the coded markers from Ehrenthal et al. (2026) plus two
+declared extensions, and they are the SAME vocabulary System A classifies
+against. The comparison between the two systems depends on both of them
+using this list, so an off-list value makes the signal unusable for
+analysis even when the finding itself is good.
+
+Grouped by their parent `signal_type`:
+
+- `legitimacy` -> `leadership_expertise`, `patents`, `publications`,
+  `awards`, `testimonials`, `educational_outreach`, `funding_event`,
+  `regulatory_recognition`
+- `customer_cocreation` -> `collaborations_applications`, `pilots_pocs`,
+  `customer_training`
+- `community_ecosystem` -> `cloud_platform_listings`, `hpc_collaborations`,
+  `industry_partnerships`, `academic_partnerships`
+- `future_trajectory` -> `roadmaps`, `milestones`, `technological_advances`,
+  `long_horizon_claims`
+
+Common mistakes, with the correct key:
+
+| Do not write | Write instead |
+|---|---|
+| `publication` | `publications` |
+| `patent` | `patents` |
+| `award` | `awards` |
+| `strategic_positioning`, `positioning` | `roadmaps` |
+| `consortium_membership`, `consortium_funding` | `industry_partnerships` (or `academic_partnerships` if the partner is a university) |
+| `pilot_announcement`, `poc` | `pilots_pocs` |
+| `leadership_appointment`, `hiring` | `leadership_expertise` |
+| `product_launch`, `partnership_announcement` | `milestones` or `industry_partnerships` — pick by what the evidence shows |
+| `conference_role` | `educational_outreach` |
+| `certification` | `regulatory_recognition` |
+
+The canonical source is
+`systems/masfactory/masfactory_system/classification/schema.yaml`. If that
+file gains a key, this list must be updated to match.
 
 ## Output contract — STRICT
 
@@ -155,7 +195,7 @@ explanation before, no chatter after. The block must parse with
       "source_name": "publication or domain",
       "source_kind": "arxiv | website | news | swissreg | manual (v0.4.27 — pick the best match; if unsure, use 'news'. 'website' for the actor's own pages, 'arxiv' for arXiv hits, 'swissreg' for patent registries, 'news' for third-party press)",
       "signal_type": "legitimacy | customer_cocreation | community_ecosystem | future_trajectory",
-      "dimension": "free-text sub-category",
+      "dimension": "EXACTLY ONE of the nineteen keys listed above — no synonyms, no new labels",
       "stakeholder": "investor | customer | partner | talent | regulator | general_public",
       "defense_engagement": false,
       "defense_ambivalence": false,

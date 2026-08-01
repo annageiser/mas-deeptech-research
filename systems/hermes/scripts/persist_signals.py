@@ -160,6 +160,107 @@ VALID_SIGNAL_TYPES = {
 }
 
 
+# ---------------------------------------------------------------------------
+# v0.5.4 — dimension vocabulary control.
+#
+# The nineteen keys from classification/schema.yaml. VENDORED, like every
+# other shared constant in this file: the comparison-validity invariant says
+# this persister cannot import from masfactory_system. Kept in sync by
+# systems/hermes/tests/test_dimension_normalisation.py, which parses the
+# canonical YAML and fails if the two ever diverge.
+#
+# WHY THIS EXISTS. Until v0.5.4 the skill told the agent that `dimension` was
+# a "free-text sub-category" and two of its four worked examples used labels
+# that are not in the taxonomy. The agent complied exactly: 88% of System B's
+# July signals (1304 of 1484) carried one of 214 invented labels. System A ran
+# at 0% off-taxonomy over the same period because its Classifier is given the
+# closed list and its output goes through normalise_dimension().
+#
+# That asymmetry was not a property of the two architectures — it was a defect
+# in one system's prompt. It also silently broke scoring: api_app/scoring.py
+# resolves DIMENSION_WEIGHT and DIMENSION_COST by key and falls back to 0.8 /
+# "medium" on a miss, so the headline metrics for System B were computed
+# almost entirely from fallback constants rather than the signalling-theory
+# weights.
+#
+# The skill is fixed at the source. This is the backstop, and it is
+# deliberately conservative: it corrects only unambiguous restatements of a
+# canonical key. Anything it cannot map is PASSED THROUGH UNCHANGED and
+# counted, so residual drift stays visible and measurable in the run log
+# rather than being silently coerced into a category the agent did not choose.
+# ---------------------------------------------------------------------------
+
+VALID_DIMENSIONS = {
+    "leadership_expertise", "patents", "publications", "awards", "testimonials",
+    "educational_outreach", "funding_event", "regulatory_recognition",
+    "collaborations_applications", "pilots_pocs", "customer_training",
+    "cloud_platform_listings", "hpc_collaborations", "industry_partnerships",
+    "academic_partnerships", "roadmaps", "milestones", "technological_advances",
+    "long_horizon_claims",
+}
+
+# Only defensible one-to-one restatements. Every entry is either a
+# singular/plural variant of a canonical key or a synonym observed in the
+# production corpus whose meaning maps onto exactly one key. Judgement calls
+# with more than one plausible target are deliberately ABSENT so they surface
+# as drift instead of being guessed at.
+DIMENSION_SYNONYMS = {
+    # singular/plural variants — the single largest category of drift
+    "publication": "publications",
+    "patent": "patents",
+    "award": "awards",
+    "testimonial": "testimonials",
+    "roadmap": "roadmaps",
+    "milestone": "milestones",
+    "technological_advance": "technological_advances",
+    "pilot_poc": "pilots_pocs",
+    "pilots_poc": "pilots_pocs",
+    "industry_partnership": "industry_partnerships",
+    "academic_partnership": "academic_partnerships",
+    "hpc_collaboration": "hpc_collaborations",
+    "cloud_platform_listing": "cloud_platform_listings",
+    "long_horizon_claim": "long_horizon_claims",
+    "collaboration_application": "collaborations_applications",
+    "collaborations_application": "collaborations_applications",
+    # observed synonyms with exactly one sensible target
+    "pilot_announcement": "pilots_pocs",
+    "poc": "pilots_pocs",
+    "proof_of_concept": "pilots_pocs",
+    "leadership_appointment": "leadership_expertise",
+    "leadership_hire": "leadership_expertise",
+    "hiring": "leadership_expertise",
+    "conference_role": "educational_outreach",
+    "conference_participation": "educational_outreach",
+    "outreach": "educational_outreach",
+    "certification": "regulatory_recognition",
+    "accreditation": "regulatory_recognition",
+    "regulatory_approval": "regulatory_recognition",
+    "funding": "funding_event",
+    "funding_round": "funding_event",
+    "grant": "funding_event",
+    "grant_award": "funding_event",
+    "strategic_positioning": "roadmaps",
+    "positioning": "roadmaps",
+    "strategy": "roadmaps",
+}
+
+
+def _normalise_dimension(raw: Any) -> tuple[str, bool]:
+    """Map an agent-emitted dimension onto the closed vocabulary.
+
+    Returns `(dimension, was_off_taxonomy)`. An unmappable value is returned
+    unchanged with the flag set, so the caller can count residual drift
+    instead of the value being quietly rewritten.
+    """
+    key = (str(raw) if raw is not None else "").strip().lower().replace(" ", "_").replace("-", "_")
+    if key in VALID_DIMENSIONS:
+        return key, False
+    mapped = DIMENSION_SYNONYMS.get(key)
+    if mapped:
+        return mapped, True
+    return key, True
+
+
 # v0.4.38 — Layer 2 of the three-layer reasoning-token defence (see
 # docs/iterations/v0.4.38-nemotron-3-ultra-migration.md). The upstream
 # Hermes Agent CLI does not reliably unwrap reasoning-token blocks
@@ -497,11 +598,23 @@ def _upsert_signals(
       - is_technical = False   (agent-discovered signals default to non-technical)
     """
     rows = []
+    # v0.5.4 — count vocabulary corrections so residual drift stays visible in
+    # the run log rather than disappearing into the normaliser.
+    dim_corrected = 0
+    dim_unmapped: list[str] = []
     for s in signals:
         err = _validate_signal(s)
         if err:
             _log(log_path, f"skip {s.get('title', '?')!r}: {err}")
             continue
+        dimension, off_taxonomy = _normalise_dimension(s["dimension"])
+        if off_taxonomy:
+            if dimension in VALID_DIMENSIONS:
+                dim_corrected += 1
+                _log(log_path, f"dimension corrected: {s['dimension']!r} -> {dimension!r}")
+            else:
+                dim_unmapped.append(dimension)
+                _log(log_path, f"dimension OFF-TAXONOMY (kept as-is): {dimension!r}")
         rows.append({
             "run_id": run_id,
             "actor_slug": actor_slug,
@@ -515,7 +628,7 @@ def _upsert_signals(
             "title": s["title"][:500],
             "summary": (s.get("summary") or "")[:2000],
             "evidence_quote": (s.get("evidence_quote") or "")[:500],
-            "dimension": s["dimension"],
+            "dimension": dimension,
             "signal_type": s["signal_type"],
             "stakeholder": s.get("stakeholder"),
             "is_technical": False,
@@ -545,6 +658,17 @@ def _upsert_signals(
         sent = _score_sentiment(s)
         if sent is not None:
             rows[-1]["sentiment_score"], rows[-1]["sentiment_label"] = sent
+
+    # v0.5.4 — one summary line per actor. Drift is a measurable property of
+    # the agentic system, so it is reported rather than hidden by the fix.
+    if rows and (dim_corrected or dim_unmapped):
+        _log(
+            log_path,
+            f"dimension vocabulary: {len(rows)} signals, "
+            f"{dim_corrected} corrected, {len(dim_unmapped)} still off-taxonomy"
+            + (f" {sorted(set(dim_unmapped))}" if dim_unmapped else ""),
+        )
+
     if not rows:
         return 0
 

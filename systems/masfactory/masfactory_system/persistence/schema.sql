@@ -373,13 +373,32 @@ create index if not exists signal_flags_flagged_at_idx on public.signal_flags (f
 -- before insert and drops signals whose nearest neighbour is closer than
 -- the configured threshold (default 0.92 cosine similarity).
 --
--- Idempotent — CREATE OR REPLACE makes this safe to re-run on every
--- schema.sql apply.
+-- p_system SCOPES THE SEARCH TO ONE PRODUCER, and passing it is what keeps
+-- the A-vs-B comparison honest. Without it this function searched the whole
+-- corpus, so a near-identical finding already recorded by System B would
+-- suppress System A's own record of the same event. That directly contradicts
+-- the v0.5.0 decision to put `system` in the signals uniqueness key so each
+-- architecture records its OWN findings independently — the row-level key said
+-- "both may record it" while this function said "only the first one may".
+-- The suppression was also one-directional: System B runs no semantic dedup at
+-- all, so only System A could lose signals, and it lost them to the larger
+-- corpus. Deduplication is a within-system concern; cross-system overlap is a
+-- MEASUREMENT (see eval_app inter_system_agreement), not a thing to delete.
+--
+-- Pass NULL to search every system, which is the pre-v0.5.2 behaviour and is
+-- kept only so an ad-hoc query can still ask that question deliberately.
+--
+-- The DROP is required: adding a parameter changes the signature, so a bare
+-- CREATE OR REPLACE would leave the old 4-argument function in place as an
+-- overload and callers would silently keep hitting it.
+drop function if exists public.find_similar_signals(text, vector, integer, integer);
+
 create or replace function public.find_similar_signals(
     p_actor_slug text,
     p_query_embedding vector(768),
     p_days_back integer default 30,
-    p_limit integer default 1
+    p_limit integer default 1,
+    p_system text default null
 )
 returns table (
     id uuid,
@@ -404,6 +423,7 @@ as $$
     where s.actor_slug = p_actor_slug
       and s.embedding is not null
       and s.inserted_at > now() - (p_days_back || ' days')::interval
+      and (p_system is null or s.system = p_system)
     order by s.embedding <=> p_query_embedding asc
     limit greatest(1, least(20, p_limit));
 $$;
@@ -578,7 +598,7 @@ create trigger trg_signal_sources_touch
 grant usage on schema public to service_role;
 grant all on all tables    in schema public to service_role;
 grant all on all sequences in schema public to service_role;
-grant execute on function public.find_similar_signals(text, vector, integer, integer) to service_role;
+grant execute on function public.find_similar_signals(text, vector, integer, integer, text) to service_role;
 alter default privileges in schema public grant all on tables    to service_role;
 alter default privileges in schema public grant all on sequences to service_role;
 alter default privileges in schema public grant execute on functions to service_role;

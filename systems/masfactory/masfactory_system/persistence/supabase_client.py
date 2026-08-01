@@ -2,8 +2,11 @@
 
 All writes are idempotent — the cron schedule means the same run can fire
 twice (e.g. after a transient network blip on the host). `signals` carries a
-unique constraint on (actor_slug, source_url, content_hash) so duplicate
-inserts are silently ignored at the DB level.
+unique constraint on (actor_slug, source_url, content_hash, system) so
+duplicate inserts are silently ignored at the DB level. `system` has been part
+of that key since v0.5.0: System A and System B each record their OWN copy of
+a signal both of them found, because suppressing the second one would cap
+whichever system happened to run later and confound the A-vs-B comparison.
 """
 
 from __future__ import annotations
@@ -17,10 +20,15 @@ from supabase import Client, create_client
 from ..config import Settings
 
 
+# Producer name this module writes under. Part of the signals uniqueness key
+# and the scope for semantic dedup, so it is named once rather than repeated.
+SYSTEM = "masfactory"
+
+
 @dataclass
 class RunRow:
     id: str
-    system: str = "masfactory"
+    system: str = SYSTEM
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -106,7 +114,7 @@ class SupabaseStore:
 
     def start_run(self, *, actor_slugs: list[str], config_snapshot: dict[str, Any]) -> str:
         payload = {
-            "system": "masfactory",
+            "system": SYSTEM,
             "status": "running",
             "actor_slugs": actor_slugs,
             "config_snapshot": config_snapshot,
@@ -144,7 +152,7 @@ class SupabaseStore:
         row: dict[str, Any] = {
             "run_id": s.run_id,
             "actor_slug": s.actor_slug,
-            "system": "masfactory",
+            "system": SYSTEM,
             "source_kind": s.source_kind,
             "source_url": s.source_url,
             "title": s.title,
@@ -253,6 +261,7 @@ class SupabaseStore:
         actor_slug: str,
         embedding: list[float],
         days_back: int = 30,
+        system: Optional[str] = SYSTEM,
     ) -> Optional[dict[str, Any]]:
         """Return the single nearest existing signal for this actor, or None.
 
@@ -263,10 +272,23 @@ class SupabaseStore:
         or None if there are no embedded signals for this actor in the
         time window.
 
+        v0.5.3 — `system` scopes the search to ONE producer and defaults to
+        this system's own rows. Before that the search covered the whole
+        corpus, so a near-identical row already written by System B made
+        System A drop its own record of the same event. That contradicted the
+        v0.5.0 uniqueness key, which deliberately includes `system` so each
+        architecture records its own findings. Deduplication is a
+        within-system concern; cross-system overlap is measured by
+        eval_app/metrics/inter_system_agreement.py, not deleted here.
+        Pass system=None to search every producer deliberately.
+
         Defensive: any Supabase / network error returns None — the caller
         treats None as "no near-duplicate found" and proceeds with insert
         (a soft-fail that biases toward recall, matching the thesis's
-        recall-over-precision stance throughout the pipeline).
+        recall-over-precision stance throughout the pipeline). That also
+        makes the deploy order of this change safe: an image calling the
+        five-argument form against a database still on the four-argument
+        function fails open rather than suppressing signals.
         """
         try:
             resp = self._client.rpc(
@@ -276,6 +298,7 @@ class SupabaseStore:
                     "p_query_embedding": embedding,
                     "p_days_back": int(days_back),
                     "p_limit": 1,
+                    "p_system": system,
                 },
             ).execute()
         except Exception:

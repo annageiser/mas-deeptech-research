@@ -20,6 +20,43 @@ from .config import Settings
 SystemName = Literal["masfactory", "hermes"]
 
 
+# ---------- pagination ----------
+#
+# PostgREST caps a response at `max-rows` (1000 on Supabase) and returns a
+# PARTIAL result with no error. A weekly report for System B is already at
+# roughly half that ceiling and climbing, and a report that silently loses its
+# tail would understate the week without ever failing. `_paged` walks .range()
+# windows to the server's exact count. `build` must return a FRESH builder each
+# call, because .range() mutates it.
+
+PAGE_SIZE = 1000
+MAX_ROWS = 200_000
+
+
+def _paged(build, *, page_size: int = PAGE_SIZE, max_rows: int = MAX_ROWS) -> list[dict]:
+    first = build().range(0, page_size - 1).execute()
+    rows: list[dict] = list(first.data or [])
+    total = getattr(first, "count", None)
+
+    if total is not None:
+        target = min(int(total), max_rows)
+        while len(rows) < target:
+            span = min(page_size, target - len(rows))
+            chunk = build().range(len(rows), len(rows) + span - 1).execute().data or []
+            if not chunk:
+                break
+            rows.extend(chunk)
+        return rows
+
+    while len(rows) < max_rows and len(rows) % page_size == 0 and rows:
+        span = min(page_size, max_rows - len(rows))
+        chunk = build().range(len(rows), len(rows) + span - 1).execute().data or []
+        rows.extend(chunk)
+        if len(chunk) < span:
+            break
+    return rows
+
+
 class SupabaseReader:
     def __init__(self, settings: Settings):
         if not settings.has_supabase:
@@ -29,21 +66,28 @@ class SupabaseReader:
     # ---------- low-level fetches ----------
 
     def runs_in_window(self, *, system: SystemName | None, since: datetime, until: datetime) -> list[dict]:
-        q = (
-            self._client.table("runs")
-            .select("id,system,status,started_at,finished_at,actor_slugs,error_message")
-            .gte("started_at", since.isoformat())
-            .lte("started_at", until.isoformat())
-            .order("started_at", desc=False)
-        )
-        if system:
-            q = q.eq("system", system)
-        return q.execute().data or []
+        def _build():
+            q = (
+                self._client.table("runs")
+                .select("id,system,status,started_at,finished_at,actor_slugs,error_message",
+                        count="exact")
+                .gte("started_at", since.isoformat())
+                .lte("started_at", until.isoformat())
+                # `id` is the tiebreaker that makes paging deterministic.
+                .order("started_at", desc=False)
+                .order("id")
+            )
+            if system:
+                q = q.eq("system", system)
+            return q
+        return _paged(_build)
 
     def signals_for_runs(self, run_ids: list[str]) -> list[dict]:
         if not run_ids:
             return []
-        return (
+        # A whole cron tick shares a near-identical inserted_at, so `id` is
+        # required for pages not to overlap or skip.
+        return _paged(lambda: (
             self._client.table("signals")
             .select(
                 # v0.4.27 — added the v0.4.0 (signal_type) and v0.4.19 (defense
@@ -51,26 +95,24 @@ class SupabaseReader:
                 "run_id,actor_slug,source_kind,source_url,title,summary,"
                 "evidence_quote,dimension,signal_type,is_technical,confidence,"
                 "inserted_at,stakeholder,defense_engagement,defense_ambivalence,"
-                "sentiment_score,sentiment_label"
+                "sentiment_score,sentiment_label",
+                count="exact",
             )
             .in_("run_id", run_ids)
             .order("inserted_at", desc=False)
-            .execute()
-            .data
-            or []
-        )
+            .order("id")
+        ))
 
     def token_usage_for_runs(self, run_ids: list[str]) -> list[dict]:
         if not run_ids:
             return []
-        return (
+        return _paged(lambda: (
             self._client.table("token_usage")
-            .select("run_id,node_name,model_name,input_tokens,output_tokens,calls")
+            .select("run_id,node_name,model_name,input_tokens,output_tokens,calls",
+                    count="exact")
             .in_("run_id", run_ids)
-            .execute()
-            .data
-            or []
-        )
+            .order("id")
+        ))
 
     def actors(self) -> list[dict]:
         return self._client.table("actors").select("slug,name,category,homepage").execute().data or []

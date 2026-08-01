@@ -138,12 +138,23 @@ def _existing_actor_slugs(base: str, key: str) -> set[str]:
         return {r["slug"] for r in (resp.json() or [])}
 
 
+# Uniqueness key on public.signals. v0.5.0 added `system` to the constraint so
+# each producer records its own findings independently (schema.sql:83-113). The
+# two sibling call sites — persistence/supabase_client.py and hermes'
+# persist_signals.py — were updated with the migration; this one was missed, and
+# every nightly run since 2026-07-09 failed with PostgREST 42P10 ("no unique or
+# exclusion constraint matching the ON CONFLICT specification"), so no curated
+# manual signal propagated. Keep all three specifications identical to the
+# constraint or the upsert 400s.
+SIGNALS_ON_CONFLICT = "actor_slug,source_url,content_hash,system"
+
+
 def _insert_signal_rows(
     base: str, key: str, *, rows: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     if not rows:
         return []
-    url = f"{base}/rest/v1/signals?on_conflict=actor_slug,source_url,content_hash"
+    url = f"{base}/rest/v1/signals?on_conflict={SIGNALS_ON_CONFLICT}"
     with httpx.Client(timeout=30.0) as client:
         resp = client.post(
             url,

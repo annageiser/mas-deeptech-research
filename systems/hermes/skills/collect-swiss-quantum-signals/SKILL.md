@@ -14,6 +14,31 @@ classification scheme. The output should be the kind of structured coding
 a careful human researcher would produce — defensible against a second
 human coder reviewing your call.
 
+## Iteration budget — read this first
+
+You have a HARD limit of 20 iterations. When it runs out you are cut off
+mid-thought and **everything you found is lost**: the wrapper sees no JSON
+block and records zero signals for this actor. On recent production runs this
+happened to more than half of all actors, so treat the budget as the binding
+constraint it is.
+
+Rules, in priority order:
+
+1. **Emit the JSON block by iteration 12 at the latest.** Stop searching and
+   write the answer. A short list of well-grounded signals beats a long
+   investigation that never gets written down.
+2. **Stop early once you have 3 or more defensible signals.** More is welcome
+   only if it is cheap.
+3. **Never spend an iteration on classification.** Choosing `signal_type` and
+   `dimension` is a labelling decision made from evidence you already hold. Do
+   not search or extract in order to decide a label — pick the closest key from
+   the closed list and move on.
+4. **Budget your reads.** At most 2-4 `web_extract` calls per actor, on the
+   most promising hits only. Snippets are acceptable evidence (see below).
+5. If you are near the limit with nothing solid, emit `{"signals": []}` rather
+   than nothing at all. An explicit empty result is a usable observation; being
+   cut off is not.
+
 ## Inputs
 
 You receive a single actor specification as a prompt of the form:
@@ -177,6 +202,9 @@ The canonical source is
 file gains a key, this list must be updated to match.
 
 ## Output contract — STRICT
+
+**Write this block before your iteration budget runs out.** If you are at
+iteration 12 or beyond, stop researching now and emit what you have.
 
 Your final response MUST be a single JSON code block, nothing else. No
 explanation before, no chatter after. The block must parse with

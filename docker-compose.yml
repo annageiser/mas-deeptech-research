@@ -7,9 +7,10 @@
 #   F — api        : FastAPI JSON service over Supabase (always up)
 #   G — web        : Next.js frontend (always up)
 #   E — caddy      : TLS reverse proxy on :80/:443 → web, /api/* → api
-#   D — dashboard  : legacy Streamlit UI on :8501 (kept during transition;
-#                    no longer reachable via the domain — removed once `web`
-#                    was proven)
+#   H — searxng    : shared self-hosted meta-search for both scrapers
+#
+# The Streamlit dashboard (container D) was retired on 2026-08-02, superseded
+# by api + web. Its source is in git history before that date.
 
 services:
   masfactory:
@@ -264,24 +265,6 @@ services:
       retries: 3
       start_period: 20s
     # No `ports:` — this instance is internal to the compose network only.
-
-  # Legacy Streamlit dashboard — kept reachable on :8501 during the cutover,
-  # no longer wired to the domain. Remove this service once `web` is proven.
-  # dashboard:
-  #   build:
-  #     context: ./systems/dashboard
-  #     dockerfile: Dockerfile
-  #   image: mas-deeptech-research/dashboard:0.1.0
-  #   container_name: dashboard-container-d
-  #   restart: unless-stopped
-  #   env_file: [.env]
-  #   environment:
-  #     DASH_REPORTS_DIR: /data/reports
-  #     TZ: Europe/Zurich
-  #   volumes:
-  #     - ./data:/data:ro
-  #   ports:
-  #     - "8501:8501"
 
 volumes:
   caddy_data:

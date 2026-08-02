@@ -1,5 +1,7 @@
 """Actor scoring — Impact, Credibility, Momentum, Diversity, Authority,
-cheap-talk ratio. Vendored copy of the dashboard scoring (kept identical).
+cheap-talk ratio. Originally vendored from the Streamlit dashboard's
+scoring module; that package was retired on 2026-08-02 and this is now the
+single implementation.
 
 References (cited on the Methodology endpoint):
 - Ehrenthal, Gonzalez-Padron & Gruen (2026) — noncommensurable performance

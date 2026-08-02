@@ -40,8 +40,6 @@ jobs:
             path: systems/reports
           - system: api
             path: systems/api
-          - system: dashboard
-            path: systems/dashboard
           - system: evaluation
             path: systems/evaluation
 

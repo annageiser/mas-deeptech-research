@@ -1,8 +1,7 @@
 """Read-only Supabase access with a tiny in-process TTL cache.
 
-No Streamlit here (unlike the old dashboard) — the API is a plain ASGI app.
-The cache keeps the dashboard responsive without thrashing Supabase; TTL is
-configurable via API_CACHE_TTL (default 60s).
+The API is a plain ASGI app. The cache keeps the frontend responsive without
+thrashing Supabase; TTL is configurable via API_CACHE_TTL (default 60s).
 """
 
 from __future__ import annotations

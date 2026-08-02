@@ -1,0 +1,74 @@
+HOW TO FILL THIS SHEET
+======================
+
+Open gold-sheet.csv in Excel, Numbers or Google Sheets.
+Fill the five right-hand columns for every row, then save as CSV
+(keep the same column headers) and run:
+
+    python -m eval_app.qda sheet-import gold-sheet.csv \
+        --out data/gold/labels.yaml
+
+You are the reference standard here. Judge each signal only from the
+title, summary, evidence quote and source URL in front of you. The
+sheet deliberately does not tell you which system found the signal or
+how it labelled it, so that your labels measure the systems rather
+than your agreement with them. Open the URL if the quote is unclear.
+
+COLUMNS
+-------
+gold_keep           true / false
+                    Is this a real, dated, actor-relevant quantum
+                    signal that belongs in the corpus at all?
+                    false = noise, boilerplate, wrong topic, undated.
+                    If false, leave the two label columns blank.
+
+gold_signal_type    one of:
+                      legitimacy
+                      customer_cocreation
+                      community_ecosystem
+                      future_trajectory
+
+gold_dimension      one of the nineteen:
+                      leadership_expertise
+                      patents
+                      publications
+                      awards
+                      testimonials
+                      educational_outreach
+                      funding_event
+                      regulatory_recognition
+                      collaborations_applications
+                      pilots_pocs
+                      customer_training
+                      cloud_platform_listings
+                      hpc_collaborations
+                      industry_partnerships
+                      academic_partnerships
+                      roadmaps
+                      milestones
+                      technological_advances
+                      long_horizon_claims
+
+gold_actor_correct  true / false
+                    Is the signal really about the named actor?
+                    false = it is about someone else.
+
+notes               free text, optional. Worth a line whenever the
+                    call was close — that is the material for the
+                    limitations section.
+
+PACING
+------
+Budget about two minutes per row. Do not agonise: your first
+defensible reading is the one to record. If a row is genuinely
+ambiguous, pick the closest label and say why in notes.
+
+SECOND CODER
+------------
+For an inter-rater reliability figure, have a second person label
+10-15 of the same rows in a fresh copy, import it to a different
+path, then:
+
+    python -m eval_app.qda compare data/gold/labels.yaml other.yaml
+
+That reports Cohen's kappa, which is the statistic to quote.

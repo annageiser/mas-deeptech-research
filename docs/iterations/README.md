@@ -6,6 +6,7 @@ Each entry is one Markdown file named `vX.Y.Z-short-title.md`. Git commits in th
 
 | Version | Date | Title | Highlight |
 |---|---|---|---|
+| [v0.5.2](v0.5.2-stakeholder-persona-lenses.md) | 2026-07-24 | Stakeholder layer: neutral metrics + persona lenses | 6 metrics renamed neutral · 5 persona lenses + `/api/insights` |
 | [v0.4.2](v0.4.2-defense-signals-rss-labelling.md) | 2026-06-02 | Defense signals + RSS + Anna's labelling | 5th signal_type · feed-discovery layer · gold-example labelling for few-shot |
 | (v0.4.1) | 2026-06-02 | arXiv author-affiliation fix | covered in `docs/signal-collection-expansion-plan.md` |
 | (v0.4.0) | 2026-06-01 | Ehrenthal four-signal scheme | covered in `docs/signal-taxonomy.md` |

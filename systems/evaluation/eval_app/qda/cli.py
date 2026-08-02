@@ -113,6 +113,7 @@ def _cmd_sheet(args) -> int:
     summary = export_sheet(
         out_path=args.out, window_days=args.window_days,
         sample_size=args.sample_size, seed=args.seed, schema_path=args.schema,
+        balance_systems=not args.no_balance,
     )
     print(f"wrote {summary.path}  ({summary.n_rows} rows, seed={summary.seed})")
     print(f"wrote {summary.path.rsplit('.', 1)[0]}.HOWTO.txt  — read this first")
@@ -193,6 +194,9 @@ def main(argv: list[str] | None = None) -> int:
     p_sheet.add_argument("--seed", type=int, default=None,
                          help="random seed (default 42 or $EVAL_GOLD_SEED)")
     p_sheet.add_argument("--schema", default=None, help="explicit path to schema.yaml")
+    p_sheet.add_argument("--no-balance", action="store_true",
+                         help="draw one pooled sample instead of half from each "
+                              "system (the pooled draw skews to the larger producer)")
     p_sheet.set_defaults(func=_cmd_sheet)
 
     # ---- sheet-import ----

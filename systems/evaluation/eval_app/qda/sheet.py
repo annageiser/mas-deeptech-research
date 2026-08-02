@@ -114,8 +114,13 @@ def export_sheet(
     sample_size: int = _TARGET_TOTAL,
     seed: Optional[int] = None,
     schema_path: Optional[str] = None,
+    balance_systems: bool = True,
 ) -> SheetSummary:
-    """Write the stratified sample to a coder-fillable CSV."""
+    """Write the stratified sample to a coder-fillable CSV.
+
+    `balance_systems` (default on) draws half the quota from each producer
+    so per-system precision has comparable support on both sides.
+    """
     seed_val = (
         seed if seed is not None
         else int(os.environ.get("EVAL_GOLD_SEED", str(_DEFAULT_SEED)) or _DEFAULT_SEED)
@@ -124,9 +129,8 @@ def export_sheet(
 
     # system='manual' is excluded: those rows are the coder's own editorial
     # labels and coding them would be marking her own homework.
-    frames = [da.signals(system=s, days=window_days) for s in ("masfactory", "hermes")]
-    signals = pd.concat(frames, ignore_index=True)
-    if signals.empty:
+    per_system = {s: da.signals(system=s, days=window_days) for s in ("masfactory", "hermes")}
+    if all(df.empty for df in per_system.values()):
         raise RuntimeError(
             f"No masfactory/hermes signals in the last {window_days} days. "
             "Widen --window-days or run a cron first."
@@ -135,10 +139,35 @@ def export_sheet(
     actors_df = da.actors()
     actors_by_slug = {row["slug"]: row for _, row in actors_df.iterrows()}
 
-    chosen, cell_counts, skipped = _stratified_pick(
-        signals_df=signals, actors_by_slug=actors_by_slug,
-        sample_size=sample_size, rng=rng,
-    )
+    if balance_systems:
+        # Sample each producer to its own half-quota. The corpus is lopsided
+        # (2214 hermes rows against 1008 masfactory at the time of writing) and
+        # the cross-system content_hash de-duplication inside _stratified_pick
+        # keeps the highest-confidence representative, so a single pooled draw
+        # skews hard toward the larger producer -- an early run of this came
+        # back 35 hermes / 15 masfactory. Per-system precision is the whole
+        # point of the gold set, and 15 labelled rows will not carry it.
+        half = max(1, sample_size // 2)
+        chosen, cell_counts, skipped = [], {}, 0
+        for name, df in per_system.items():
+            if df.empty:
+                continue
+            picked, counts, skip = _stratified_pick(
+                signals_df=df, actors_by_slug=actors_by_slug,
+                sample_size=half, rng=rng,
+            )
+            chosen.extend(picked)
+            skipped += skip
+            for cell, n in counts.items():
+                cell_counts[f"{name} | {cell}"] = n
+        rng.shuffle(chosen)  # order must not encode the producer
+    else:
+        signals = pd.concat(per_system.values(), ignore_index=True)
+        chosen, cell_counts, skipped = _stratified_pick(
+            signals_df=signals, actors_by_slug=actors_by_slug,
+            sample_size=sample_size, rng=rng,
+        )
+
     if not chosen:
         raise RuntimeError("Stratified sampler returned zero rows — check the corpus distribution.")
 

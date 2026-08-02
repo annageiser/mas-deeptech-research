@@ -809,6 +809,8 @@ Facts established against the source:
 16. `web_extract` on long pages is LLM-summarised by the auxiliary model before System B sees it ([localextract/provider.py:36-39](systems/hermes/plugins/web/localextract/provider.py:36)), whereas System A's Extractor reads collector text. The provider docstring states the methods are equivalent; that equivalence is asserted in prose, not tested.
 17. No ESLint configuration exists although `npm run lint` is declared.
 18. No integration test exercises Supabase, OpenRouter, or the SearXNG service. Every suite runs offline against fixtures or stubs.
+19. Fixed in this repository. The reproducibility metric compared the signals attached to each `run_id`, but signals attach to the run that first inserted them, so a re-run that rediscovers the same URL contributes no rows and consecutive runs are near-disjoint by construction. It reported no comparisons at all for System A. It now reads each run's found set from the run artefacts ([eval_app/found_sets.py](systems/evaluation/eval_app/found_sets.py)) and compares over the shared actor cohort. Computing it needs the two artefact directories to be reachable; see `EVAL_MASF_AUDIT_DIR` and `EVAL_HERMES_RUNS_DIR`.
+20. Token-usage coverage is partial: 123 `token_usage` rows against 260 runs in the 90-day window, so the signals-per-1000-tokens figure rests on roughly half the runs. Worth establishing which runs are missing rows before that number is quoted as a headline.
 
 ### Divergence between this repository and the running system
 

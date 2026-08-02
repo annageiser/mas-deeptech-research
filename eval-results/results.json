@@ -1,0 +1,690 @@
+{
+  "computed_at": "2026-08-02T11:42:28.215073+00:00",
+  "settings": {
+    "window_days": 90,
+    "gold_set_path": "data/gold/labels.yaml",
+    "n_signals": 3361,
+    "n_runs": 260,
+    "n_token_rows": 123
+  },
+  "inter_system_agreement": {
+    "metric": "inter_system_agreement",
+    "n_actors_compared": 39,
+    "actor_buckets": {
+      "both": 39,
+      "only_a": 0,
+      "only_b": 1
+    },
+    "jaccard_macro": 0.0434,
+    "jaccard_weighted": 0.0386,
+    "per_actor": [
+      {
+        "actor_slug": "basel-precision-instruments",
+        "n_a": 6,
+        "n_b": 16,
+        "n_intersection": 5,
+        "n_union": 17,
+        "jaccard": 0.2941
+      },
+      {
+        "actor_slug": "switzerland-innovation-parks",
+        "n_a": 9,
+        "n_b": 18,
+        "n_intersection": 4,
+        "n_union": 23,
+        "jaccard": 0.1739
+      },
+      {
+        "actor_slug": "zhaw",
+        "n_a": 13,
+        "n_b": 24,
+        "n_intersection": 3,
+        "n_union": 34,
+        "jaccard": 0.0882
+      },
+      {
+        "actor_slug": "swiss-quantum-initiative",
+        "n_a": 9,
+        "n_b": 54,
+        "n_intersection": 5,
+        "n_union": 58,
+        "jaccard": 0.0862
+      },
+      {
+        "actor_slug": "geneva-quantum-centre",
+        "n_a": 6,
+        "n_b": 22,
+        "n_intersection": 2,
+        "n_union": 26,
+        "jaccard": 0.0769
+      },
+      {
+        "actor_slug": "zurich-instruments",
+        "n_a": 7,
+        "n_b": 22,
+        "n_intersection": 2,
+        "n_union": 27,
+        "jaccard": 0.0741
+      },
+      {
+        "actor_slug": "empa",
+        "n_a": 4,
+        "n_b": 41,
+        "n_intersection": 3,
+        "n_union": 42,
+        "jaccard": 0.0714
+      },
+      {
+        "actor_slug": "gesda",
+        "n_a": 6,
+        "n_b": 54,
+        "n_intersection": 4,
+        "n_union": 56,
+        "jaccard": 0.0714
+      },
+      {
+        "actor_slug": "csem",
+        "n_a": 12,
+        "n_b": 20,
+        "n_intersection": 2,
+        "n_union": 30,
+        "jaccard": 0.0667
+      },
+      {
+        "actor_slug": "open-quantum-institute-cern",
+        "n_a": 6,
+        "n_b": 29,
+        "n_intersection": 2,
+        "n_union": 33,
+        "jaccard": 0.0606
+      },
+      {
+        "actor_slug": "metas",
+        "n_a": 10,
+        "n_b": 28,
+        "n_intersection": 2,
+        "n_union": 36,
+        "jaccard": 0.0556
+      },
+      {
+        "actor_slug": "zuriq",
+        "n_a": 11,
+        "n_b": 31,
+        "n_intersection": 2,
+        "n_union": 40,
+        "jaccard": 0.05
+      },
+      {
+        "actor_slug": "qzabre",
+        "n_a": 8,
+        "n_b": 14,
+        "n_intersection": 1,
+        "n_union": 21,
+        "jaccard": 0.0476
+      },
+      {
+        "actor_slug": "nccr-spin",
+        "n_a": 6,
+        "n_b": 66,
+        "n_intersection": 3,
+        "n_union": 69,
+        "jaccard": 0.0435
+      },
+      {
+        "actor_slug": "terra-quantum",
+        "n_a": 7,
+        "n_b": 20,
+        "n_intersection": 1,
+        "n_union": 26,
+        "jaccard": 0.0385
+      },
+      {
+        "actor_slug": "qnami",
+        "n_a": 6,
+        "n_b": 22,
+        "n_intersection": 1,
+        "n_union": 27,
+        "jaccard": 0.037
+      },
+      {
+        "actor_slug": "verve-ventures",
+        "n_a": 3,
+        "n_b": 26,
+        "n_intersection": 1,
+        "n_union": 28,
+        "jaccard": 0.0357
+      },
+      {
+        "actor_slug": "ionq",
+        "n_a": 17,
+        "n_b": 42,
+        "n_intersection": 2,
+        "n_union": 57,
+        "jaccard": 0.0351
+      },
+      {
+        "actor_slug": "femtoprint",
+        "n_a": 10,
+        "n_b": 20,
+        "n_intersection": 1,
+        "n_union": 29,
+        "jaccard": 0.0345
+      },
+      {
+        "actor_slug": "id-quantique",
+        "n_a": 14,
+        "n_b": 20,
+        "n_intersection": 1,
+        "n_union": 33,
+        "jaccard": 0.0303
+      },
+      {
+        "actor_slug": "miraex",
+        "n_a": 12,
+        "n_b": 24,
+        "n_intersection": 1,
+        "n_union": 35,
+        "jaccard": 0.0286
+      },
+      {
+        "actor_slug": "quantumbasel",
+        "n_a": 10,
+        "n_b": 27,
+        "n_intersection": 1,
+        "n_union": 36,
+        "jaccard": 0.0278
+      },
+      {
+        "actor_slug": "ibm-research-zurich",
+        "n_a": 4,
+        "n_b": 36,
+        "n_intersection": 1,
+        "n_union": 39,
+        "jaccard": 0.0256
+      },
+      {
+        "actor_slug": "swissphotonics",
+        "n_a": 7,
+        "n_b": 33,
+        "n_intersection": 1,
+        "n_union": 39,
+        "jaccard": 0.0256
+      },
+      {
+        "actor_slug": "usi",
+        "n_a": 8,
+        "n_b": 32,
+        "n_intersection": 1,
+        "n_union": 39,
+        "jaccard": 0.0256
+      },
+      {
+        "actor_slug": "eth-psi-quantum-computing-hub",
+        "n_a": 2,
+        "n_b": 43,
+        "n_intersection": 1,
+        "n_union": 44,
+        "jaccard": 0.0227
+      },
+      {
+        "actor_slug": "cern-quantum-technology-initiative",
+        "n_a": 12,
+        "n_b": 45,
+        "n_intersection": 1,
+        "n_union": 56,
+        "jaccard": 0.0179
+      },
+      {
+        "actor_slug": "swiss-nanoscience-institute",
+        "n_a": 4,
+        "n_b": 54,
+        "n_intersection": 1,
+        "n_union": 57,
+        "jaccard": 0.0175
+      },
+      {
+        "actor_slug": "epfl-qse",
+        "n_a": 2,
+        "n_b": 62,
+        "n_intersection": 1,
+        "n_union": 63,
+        "jaccard": 0.0159
+      },
+      {
+        "actor_slug": "basel-quantum-center",
+        "n_a": 3,
+        "n_b": 70,
+        "n_intersection": 1,
+        "n_union": 72,
+        "jaccard": 0.0139
+      },
+      {
+        "actor_slug": "cscs",
+        "n_a": 3,
+        "n_b": 31,
+        "n_intersection": 0,
+        "n_union": 34,
+        "jaccard": 0.0
+      },
+      {
+        "actor_slug": "eth-zurich-quantum-center",
+        "n_a": 8,
+        "n_b": 46,
+        "n_intersection": 0,
+        "n_union": 54,
+        "jaccard": 0.0
+      },
+      {
+        "actor_slug": "fhnw",
+        "n_a": 7,
+        "n_b": 14,
+        "n_intersection": 0,
+        "n_union": 21,
+        "jaccard": 0.0
+      },
+      {
+        "actor_slug": "hslu",
+        "n_a": 6,
+        "n_b": 17,
+        "n_intersection": 0,
+        "n_union": 23,
+        "jaccard": 0.0
+      },
+      {
+        "actor_slug": "huber-suhner",
+        "n_a": 7,
+        "n_b": 8,
+        "n_intersection": 0,
+        "n_union": 15,
+        "jaccard": 0.0
+      },
+      {
+        "actor_slug": "ligentec",
+        "n_a": 8,
+        "n_b": 14,
+        "n_intersection": 0,
+        "n_union": 22,
+        "jaccard": 0.0
+      },
+      {
+        "actor_slug": "psi",
+        "n_a": 7,
+        "n_b": 57,
+        "n_intersection": 0,
+        "n_union": 64,
+        "jaccard": 0.0
+      },
+      {
+        "actor_slug": "qai-ventures",
+        "n_a": 3,
+        "n_b": 25,
+        "n_intersection": 0,
+        "n_union": 28,
+        "jaccard": 0.0
+      },
+      {
+        "actor_slug": "swissnex",
+        "n_a": 3,
+        "n_b": 19,
+        "n_intersection": 0,
+        "n_union": 22,
+        "jaccard": 0.0
+      }
+    ]
+  },
+  "token_efficiency": {
+    "metric": "token_efficiency",
+    "per_system": {
+      "masfactory": {
+        "label": "System A \u00b7 MASFactory",
+        "n_signals": 1008,
+        "input_tokens": 40992360,
+        "output_tokens": 23582578,
+        "total_tokens": 64574938,
+        "signals_per_1k_tokens": 0.0156
+      },
+      "hermes": {
+        "label": "System B \u00b7 Hermes",
+        "n_signals": 2335,
+        "input_tokens": 14995592,
+        "output_tokens": 1899209,
+        "total_tokens": 16894801,
+        "signals_per_1k_tokens": 0.1382
+      }
+    },
+    "delta_signals_per_1k_tokens": -0.1226,
+    "ratio_a_over_b": 0.113
+  },
+  "reproducibility_inserted_sets": {
+    "metric": "reproducibility",
+    "per_system": {
+      "masfactory": {
+        "n_comparisons": 0,
+        "jaccard_mean": null,
+        "jaccard_min": null
+      },
+      "hermes": {
+        "n_comparisons": 2,
+        "jaccard_mean": 0.155,
+        "jaccard_min": 0.0101,
+        "jaccard_max": 0.3
+      }
+    },
+    "per_comparison": [
+      {
+        "system": "hermes",
+        "run_a": "a505d49e-1cf2-46c0-a5db-f5e71868665e",
+        "run_b": "bb3ff72b-5523-4808-947e-51ec1016be44",
+        "n_signals_a": 98,
+        "n_signals_b": 2,
+        "n_intersection": 1,
+        "n_union": 99,
+        "jaccard": 0.0101
+      },
+      {
+        "system": "hermes",
+        "run_a": "74078a1e-37ff-44f2-a014-24ab25ab7140",
+        "run_b": "d1b9146c-b73d-4ac3-94da-cd444b655b46",
+        "n_signals_a": 4,
+        "n_signals_b": 9,
+        "n_intersection": 3,
+        "n_union": 10,
+        "jaccard": 0.3
+      }
+    ]
+  },
+  "reproducibility": {
+    "metric": "reproducibility_from_found_sets",
+    "basis": "consecutive runs of the same system, compared on the (actor, source_url) pairs each run FOUND, restricted to actors both runs attempted",
+    "per_system": {
+      "masfactory": {
+        "n_comparisons": 12,
+        "jaccard_mean": 0.4137,
+        "jaccard_min": 0.0238,
+        "jaccard_max": 0.6182,
+        "n_runs_seen": 84,
+        "n_runs_with_findings": 74
+      },
+      "hermes": {
+        "n_comparisons": 12,
+        "jaccard_mean": 0.12,
+        "jaccard_min": 0.0,
+        "jaccard_max": 0.5,
+        "n_runs_seen": 44,
+        "n_runs_with_findings": 35
+      }
+    },
+    "per_comparison": [
+      {
+        "system": "masfactory",
+        "run_a": "2026-07-22T04-00-19+0200",
+        "run_b": "2026-07-23T04-00-17+0200",
+        "n_shared_actors": 40,
+        "n_a": 40,
+        "n_b": 46,
+        "n_intersection": 30,
+        "n_union": 56,
+        "jaccard": 0.5357
+      },
+      {
+        "system": "masfactory",
+        "run_a": "2026-07-23T04-00-17+0200",
+        "run_b": "2026-07-24T04-00-17+0200",
+        "n_shared_actors": 40,
+        "n_a": 46,
+        "n_b": 32,
+        "n_intersection": 27,
+        "n_union": 51,
+        "jaccard": 0.5294
+      },
+      {
+        "system": "masfactory",
+        "run_a": "2026-07-24T04-00-17+0200",
+        "run_b": "2026-07-25T04-00-21+0200",
+        "n_shared_actors": 40,
+        "n_a": 32,
+        "n_b": 39,
+        "n_intersection": 26,
+        "n_union": 45,
+        "jaccard": 0.5778
+      },
+      {
+        "system": "masfactory",
+        "run_a": "2026-07-25T04-00-21+0200",
+        "run_b": "2026-07-26T04-00-21+0200",
+        "n_shared_actors": 40,
+        "n_a": 39,
+        "n_b": 39,
+        "n_intersection": 27,
+        "n_union": 51,
+        "jaccard": 0.5294
+      },
+      {
+        "system": "masfactory",
+        "run_a": "2026-07-26T04-00-21+0200",
+        "run_b": "2026-07-27T04-00-20+0200",
+        "n_shared_actors": 40,
+        "n_a": 39,
+        "n_b": 50,
+        "n_intersection": 34,
+        "n_union": 55,
+        "jaccard": 0.6182
+      },
+      {
+        "system": "masfactory",
+        "run_a": "2026-07-27T04-00-20+0200",
+        "run_b": "2026-07-28T04-00-20+0200",
+        "n_shared_actors": 40,
+        "n_a": 50,
+        "n_b": 35,
+        "n_intersection": 32,
+        "n_union": 53,
+        "jaccard": 0.6038
+      },
+      {
+        "system": "masfactory",
+        "run_a": "2026-07-28T04-00-20+0200",
+        "run_b": "2026-07-29T04-00-19+0200",
+        "n_shared_actors": 40,
+        "n_a": 35,
+        "n_b": 27,
+        "n_intersection": 22,
+        "n_union": 40,
+        "jaccard": 0.55
+      },
+      {
+        "system": "masfactory",
+        "run_a": "2026-07-29T04-00-19+0200",
+        "run_b": "2026-07-30T04-00-16+0200",
+        "n_shared_actors": 40,
+        "n_a": 27,
+        "n_b": 32,
+        "n_intersection": 20,
+        "n_union": 39,
+        "jaccard": 0.5128
+      },
+      {
+        "system": "masfactory",
+        "run_a": "2026-07-30T04-00-16+0200",
+        "run_b": "2026-07-31T04-00-23+0200",
+        "n_shared_actors": 40,
+        "n_a": 32,
+        "n_b": 89,
+        "n_intersection": 22,
+        "n_union": 99,
+        "jaccard": 0.2222
+      },
+      {
+        "system": "masfactory",
+        "run_a": "2026-07-31T04-00-23+0200",
+        "run_b": "2026-08-01T04-00-21+0200",
+        "n_shared_actors": 40,
+        "n_a": 89,
+        "n_b": 37,
+        "n_intersection": 24,
+        "n_union": 102,
+        "jaccard": 0.2353
+      },
+      {
+        "system": "masfactory",
+        "run_a": "2026-08-01T04-00-21+0200",
+        "run_b": "2026-08-02T02-11-15+0200",
+        "n_shared_actors": 40,
+        "n_a": 37,
+        "n_b": 2,
+        "n_intersection": 1,
+        "n_union": 38,
+        "jaccard": 0.0263
+      },
+      {
+        "system": "masfactory",
+        "run_a": "2026-08-02T02-11-15+0200",
+        "run_b": "2026-08-02T04-00-11+0200",
+        "n_shared_actors": 40,
+        "n_a": 2,
+        "n_b": 41,
+        "n_intersection": 1,
+        "n_union": 42,
+        "jaccard": 0.0238
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260725T050007Z",
+        "run_b": "20260726T050009Z",
+        "n_shared_actors": 40,
+        "n_a": 48,
+        "n_b": 50,
+        "n_intersection": 9,
+        "n_union": 89,
+        "jaccard": 0.1011
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260726T050009Z",
+        "run_b": "20260727T050010Z",
+        "n_shared_actors": 40,
+        "n_a": 50,
+        "n_b": 53,
+        "n_intersection": 13,
+        "n_union": 90,
+        "jaccard": 0.1444
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260727T050010Z",
+        "run_b": "20260728T050011Z",
+        "n_shared_actors": 40,
+        "n_a": 53,
+        "n_b": 54,
+        "n_intersection": 11,
+        "n_union": 96,
+        "jaccard": 0.1146
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260728T050011Z",
+        "run_b": "20260729T050011Z",
+        "n_shared_actors": 40,
+        "n_a": 54,
+        "n_b": 43,
+        "n_intersection": 11,
+        "n_union": 86,
+        "jaccard": 0.1279
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260729T050011Z",
+        "run_b": "20260730T050012Z",
+        "n_shared_actors": 40,
+        "n_a": 43,
+        "n_b": 66,
+        "n_intersection": 4,
+        "n_union": 105,
+        "jaccard": 0.0381
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260730T050012Z",
+        "run_b": "20260731T050009Z",
+        "n_shared_actors": 40,
+        "n_a": 66,
+        "n_b": 45,
+        "n_intersection": 7,
+        "n_union": 104,
+        "jaccard": 0.0673
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260731T050009Z",
+        "run_b": "20260801T050009Z",
+        "n_shared_actors": 40,
+        "n_a": 45,
+        "n_b": 112,
+        "n_intersection": 18,
+        "n_union": 139,
+        "jaccard": 0.1295
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260801T050009Z",
+        "run_b": "20260802T001923Z",
+        "n_shared_actors": 1,
+        "n_a": 6,
+        "n_b": 1,
+        "n_intersection": 1,
+        "n_union": 6,
+        "jaccard": 0.1667
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260802T001923Z",
+        "run_b": "20260802T002721Z",
+        "n_shared_actors": 1,
+        "n_a": 1,
+        "n_b": 0,
+        "n_intersection": 0,
+        "n_union": 1,
+        "jaccard": 0.0
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260802T002721Z",
+        "run_b": "20260802T003733Z",
+        "n_shared_actors": 3,
+        "n_a": 6,
+        "n_b": 1,
+        "n_intersection": 0,
+        "n_union": 7,
+        "jaccard": 0.0
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260802T003733Z",
+        "run_b": "20260802T004658Z",
+        "n_shared_actors": 3,
+        "n_a": 1,
+        "n_b": 2,
+        "n_intersection": 1,
+        "n_union": 2,
+        "jaccard": 0.5
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260802T004658Z",
+        "run_b": "20260802T050008Z",
+        "n_shared_actors": 4,
+        "n_a": 2,
+        "n_b": 19,
+        "n_intersection": 1,
+        "n_union": 20,
+        "jaccard": 0.05
+      }
+    ]
+  },
+  "classification_quality": {
+    "metric": "classification_quality",
+    "status": "no_gold_set",
+    "gold_path": "data/gold/labels.yaml",
+    "note": "No gold set present at the configured path. Create data/gold/labels.yaml from data/gold/labels.yaml.example, label \u2265 50 signals across the 4 actor categories \u00d7 4 signal types (\u2265 3 per cell where possible), and re-run."
+  }
+}

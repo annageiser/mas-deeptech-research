@@ -107,6 +107,47 @@ def _cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_sheet(args) -> int:
+    from .sheet import export_sheet
+
+    summary = export_sheet(
+        out_path=args.out, window_days=args.window_days,
+        sample_size=args.sample_size, seed=args.seed, schema_path=args.schema,
+    )
+    print(f"wrote {summary.path}  ({summary.n_rows} rows, seed={summary.seed})")
+    print(f"wrote {summary.path.rsplit('.', 1)[0]}.HOWTO.txt  — read this first")
+    if summary.skipped:
+        print(f"  skipped {summary.skipped} rows with no resolvable actor or signal_type")
+    print("  stratified cells (actor category / signal type):")
+    for cell, n in sorted(summary.cell_counts.items()):
+        print(f"    {n:3d}  {cell}")
+    print()
+    print("  Fill the five gold_* columns, save as CSV, then:")
+    print(f"    python -m eval_app.qda sheet-import {summary.path} --out data/gold/labels.yaml")
+    return 0
+
+
+def _cmd_sheet_import(args) -> int:
+    from .sheet import import_sheet
+
+    summary = import_sheet(
+        args.csv, out_path=args.out, coder=args.coder,
+        schema_path=args.schema, merge=not args.no_merge,
+    )
+    print(f"read {summary.n_rows} rows: {summary.n_labelled} labelled, {summary.n_blank} still blank")
+    print(f"wrote {summary.path}")
+    if summary.errors:
+        print(f"\n  {len(summary.errors)} row(s) rejected — fix and re-import:")
+        for e in summary.errors[:25]:
+            print(f"    {e}")
+        if len(summary.errors) > 25:
+            print(f"    ... and {len(summary.errors) - 25} more")
+    if summary.n_blank:
+        print(f"\n  {summary.n_blank} rows are still unlabelled. The metric uses what is there,")
+        print("  but the pre-registered target is 50.")
+    return 1 if summary.errors else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="eval_app.qda",
@@ -140,6 +181,29 @@ def main(argv: list[str] | None = None) -> int:
                        help="overwrite labels.yaml instead of merging on signal_id")
     p_imp.add_argument("--show-summary", action="store_true")
     p_imp.set_defaults(func=_cmd_import)
+
+    # ---- sheet (spreadsheet route to a gold set) ----
+    p_sheet = sub.add_parser(
+        "sheet", help="sample signals -> coder-fillable CSV (no QDA software needed)")
+    p_sheet.add_argument("--out", required=True, help="output .csv path")
+    p_sheet.add_argument("--window-days", type=int, default=90,
+                         help="window for the source signals (default 90)")
+    p_sheet.add_argument("--sample-size", type=int, default=50,
+                         help="target sample size (default 50, pre-reg §5)")
+    p_sheet.add_argument("--seed", type=int, default=None,
+                         help="random seed (default 42 or $EVAL_GOLD_SEED)")
+    p_sheet.add_argument("--schema", default=None, help="explicit path to schema.yaml")
+    p_sheet.set_defaults(func=_cmd_sheet)
+
+    # ---- sheet-import ----
+    p_si = sub.add_parser("sheet-import", help="filled CSV -> labels.yaml")
+    p_si.add_argument("csv", help="the filled .csv")
+    p_si.add_argument("--out", required=True, help="output labels.yaml")
+    p_si.add_argument("--coder", default="anna")
+    p_si.add_argument("--schema", default=None, help="explicit path to schema.yaml")
+    p_si.add_argument("--no-merge", action="store_true",
+                      help="overwrite labels.yaml instead of merging on signal_id")
+    p_si.set_defaults(func=_cmd_sheet_import)
 
     # ---- compare ----
     p_cmp = sub.add_parser("compare", help="pairwise Cohen's κ on two labels.yaml")

@@ -1,4 +1,4 @@
-# Evaluation results — 2026-08-02T11-43-18 UTC
+# Evaluation results — 2026-08-02T11-50-27 UTC
 
 Computed by `python -m eval_app.runner all` from the live Supabase. Settings + window are recorded in `results.json` for full reproducibility.
 
@@ -34,7 +34,7 @@ The thesis's headline efficiency number combines this with the gold-set classifi
 
 | System | # comparisons | Jaccard mean | min | max |
 |---|---:|---:|---:|---:|
-| masfactory | 12 | 0.4137 | 0.0238 | 0.6182 |
+| masfactory | 12 | 0.4996 | 0.2268 | 0.6182 |
 | hermes | 12 | 0.12 | 0.0 | 0.5 |
 
 Interpretation: a re-run Jaccard < 1.0 reflects (a) model non-determinism at temperature > 0 and (b) underlying source-list freshness (Google News / Bing News rotate hourly). The metric calibrates the credibility-mechanism story — even a system fed exclusively costly signals doesn't reproduce 100% because the *world* isn't reproducible.

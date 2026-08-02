@@ -74,3 +74,40 @@ Each `results.md` carries the exact UTC timestamp and `EVAL_WINDOW_DAYS` setting
 > "All numbers in this section are reproducible from the harness in `systems/evaluation/`. The frozen-for-defence run is at `data/eval/2026-06-25T<...>/results.json`; numbers in the body are quoted from `results.md` in the same folder."
 
 This is the operational definition of reproducibility required by the constructive-research methodology (Kasanen et al. 1993).
+
+## Running the harness against production
+
+Three of the four metrics need only the database. `classification_quality`
+additionally needs `data/gold/labels.yaml`, and `reproducibility` needs both
+systems' run artefacts, because the database records what each run INSERTED
+and reproducibility is a question about what each run FOUND. See
+`eval_app/found_sets.py` for why those are not the same thing.
+
+On the VPS, mounting the hermes state volume read-only rather than copying it
+(the volume is around 700 MB):
+
+```bash
+cd /opt/mas-deeptech-research && docker compose run --rm --no-deps --entrypoint sh -v /opt/mas-deeptech-research/systems/evaluation:/eval -v /opt/mas-deeptech-research/data:/data -v /opt/mas-deeptech-research/systems/hermes:/hermes:ro -v mas-deeptech-research_hermes_state:/hermes_state:ro reports -c 'pip install -q pandas supabase scikit-learn pyarrow; cd /eval && PYTHONPATH=/eval EVAL_OUTPUT_DIR=/data/eval EVAL_WINDOW_DAYS=90 EVAL_MASF_AUDIT_DIR=/data/raw/runs EVAL_HERMES_RUNS_DIR=/hermes_state/state/runs EVAL_HERMES_PERSISTER=/hermes/scripts/persist_signals.py python -m eval_app.runner all'
+```
+
+Results land in `data/eval/<UTC-iso>/` as `results.md` and `results.json`.
+
+Note that System B's run artefacts are pruned after 30 days by
+`collect_all_actors.sh`, so the reproducibility window for System B is bounded
+by that retention, not by `EVAL_WINDOW_DAYS`.
+
+### Gold set
+
+```bash
+python -m eval_app.qda sheet --out gold-sheet.csv --sample-size 50
+```
+
+Fill the five `gold_*` columns in a spreadsheet, then:
+
+```bash
+python -m eval_app.qda sheet-import gold-sheet.csv --out data/gold/labels.yaml
+```
+
+The sheet is blind by construction: it carries neither the producing system nor
+that system's own labels, because a coder who can see the machine's answer
+tends to ratify it.

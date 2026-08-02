@@ -39,6 +39,8 @@ class Settings:
     limit_arxiv_per_actor: int
     limit_website_pages_per_actor: int
     limit_news_per_actor: int
+    limit_press_per_actor: int
+    limit_patents_per_actor: int
     # v0.5.0 — shared SearXNG substrate (collection/websearch.py). Empty string
     # when SEARXNG_URL is unset → the collector no-ops (fail-open).
     searxng_url: str
@@ -106,9 +108,21 @@ def load_settings(*, require_supabase: bool = True) -> Settings:
         supabase_url=supabase_url,
         supabase_service_key=supabase_key,
         limit_actors=_int("MASF_LIMIT_ACTORS", 3),
-        limit_arxiv_per_actor=_int("MASF_LIMIT_ARXIV", 5),
-        limit_website_pages_per_actor=_int("MASF_LIMIT_WEBSITE", 3),
-        limit_news_per_actor=_int("MASF_LIMIT_NEWS", 5),
+        # v0.5.5 — these three were still on the pre-v0.4.0 conservative
+        # values (5 / 3 / 5) while .env.example and the retriever fallbacks
+        # both documented the wider v0.4.0 funnel (10 / 5 / 10). Three
+        # different "defaults" for the same knobs, and production had adopted
+        # the lowest set, so System A ran at roughly half its documented
+        # design point on arXiv and the actor's own website — the two richest
+        # channels for research actors. Aligned on the documented values.
+        limit_arxiv_per_actor=_int("MASF_LIMIT_ARXIV", 10),
+        limit_website_pages_per_actor=_int("MASF_LIMIT_WEBSITE", 5),
+        limit_news_per_actor=_int("MASF_LIMIT_NEWS", 10),
+        # v0.5.5 — press + patents were documented in .env.example but the
+        # runner never passed them into the graph, so the retriever always
+        # fell back to its own 10/10 and the env vars were inoperative.
+        limit_press_per_actor=_int("MASF_LIMIT_PRESS", 10),
+        limit_patents_per_actor=_int("MASF_LIMIT_PATENTS", 10),
         searxng_url=os.environ.get("SEARXNG_URL", "").strip(),
         limit_websearch_per_actor=_int("MASF_LIMIT_WEBSEARCH", 10),
         audit_dir=os.environ.get("MASF_AUDIT_DIR", "/data/raw/runs").strip() or "/data/raw/runs",

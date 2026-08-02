@@ -61,9 +61,11 @@ WORKFLOW_ATTRIBUTES: dict[str, object] = {
     # ---- injected by runner ----
     "actor_pool": [],
     "limit_actors": 3,
-    "limit_arxiv_per_actor": 5,
-    "limit_website_pages_per_actor": 3,
-    "limit_news_per_actor": 5,
+    "limit_arxiv_per_actor": 10,
+    "limit_website_pages_per_actor": 5,
+    "limit_news_per_actor": 10,
+    "limit_press_per_actor": 10,
+    "limit_patents_per_actor": 10,
     # v0.5.0 — shared SearXNG substrate (empty URL → collector no-ops).
     "searxng_url": "",
     "limit_websearch_per_actor": 10,

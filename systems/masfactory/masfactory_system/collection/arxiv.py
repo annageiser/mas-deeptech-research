@@ -26,6 +26,7 @@ that the rest of the v0.4.0 pipeline takes.
 from __future__ import annotations
 
 import hashlib
+import logging
 import threading
 import time
 import xml.etree.ElementTree as ET
@@ -46,6 +47,8 @@ _ATOM_NS = "{http://www.w3.org/2005/Atom}"
 _ARXIV_NS = "{http://arxiv.org/schemas/atom}"
 
 
+log = logging.getLogger(__name__)
+
 _ARXIV_MIN_INTERVAL = 3.1  # seconds — arXiv asks for ≥3s between requests
 _last_call_at = 0.0
 _throttle_lock = threading.Lock()
@@ -62,6 +65,58 @@ def _throttle() -> None:
 
 
 ARXIV_ENDPOINT = "https://export.arxiv.org/api/query"
+
+# v0.5.5 — transient-failure retry. Attempts are inclusive of the first try.
+ARXIV_MAX_ATTEMPTS = 4
+ARXIV_BACKOFF_BASE = 5.0  # seconds: 5, 10, 20 between the four attempts
+
+
+def _get_with_retry(url: str, *, timeout: float) -> httpx.Response:
+    """GET the arXiv API, retrying 429 / 5xx / timeouts with exponential backoff.
+
+    Honours `Retry-After` when arXiv sends it. Raises the last error if every
+    attempt fails, which the caller in retriever.py turns into a recorded
+    retriever_error rather than a crashed run.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(ARXIV_MAX_ATTEMPTS):
+        if attempt:
+            wait = ARXIV_BACKOFF_BASE * (2 ** (attempt - 1))
+            if isinstance(last_exc, httpx.HTTPStatusError):
+                # A Retry-After from the server beats our guess.
+                hdr = last_exc.response.headers.get("Retry-After", "")
+                try:
+                    wait = max(wait, float(hdr))
+                except (TypeError, ValueError):
+                    pass
+            log.warning(
+                "arxiv: attempt %d/%d failed (%s); backing off %.0fs",
+                attempt, ARXIV_MAX_ATTEMPTS, type(last_exc).__name__, wait,
+            )
+            time.sleep(wait)
+
+        _throttle()
+        try:
+            with httpx.Client(
+                timeout=timeout,
+                headers={"User-Agent": "masfactory-thesis/0.1 (research)"},
+                follow_redirects=True,
+            ) as client:
+                resp = client.get(url)
+            # 4xx other than 429 is our bug (bad query) — do not retry it.
+            if resp.status_code == 429 or resp.status_code >= 500:
+                resp.raise_for_status()
+            resp.raise_for_status()
+            return resp
+        except (httpx.HTTPStatusError, httpx.TimeoutException, httpx.TransportError) as exc:
+            if isinstance(exc, httpx.HTTPStatusError):
+                code = exc.response.status_code
+                if code != 429 and code < 500:
+                    raise  # permanent; retrying cannot help
+            last_exc = exc
+
+    assert last_exc is not None
+    raise last_exc
 
 # arXiv field prefixes — if the caller-provided query already starts with one
 # of these, we use it verbatim (no `all:` wrap). Otherwise we wrap as `all:`
@@ -203,14 +258,19 @@ def collect_arxiv(
 
     # arXiv now serves https; the http endpoint returns 301. Follow redirects
     # so we don't lose every actor's papers to the http→https hop.
-    _throttle()
-    with httpx.Client(
-        timeout=timeout,
-        headers={"User-Agent": "masfactory-thesis/0.1 (research)"},
-        follow_redirects=True,
-    ) as client:
-        resp = client.get(url)
-        resp.raise_for_status()
+    #
+    # v0.5.5 — retry on 429 and on read timeouts. Forty actors at one query
+    # each, 3.1s apart, is well inside arXiv's published etiquette, but the
+    # endpoint still rate-limits and times out intermittently. There was no
+    # retry, and the caller in retriever.py catches every collector exception
+    # and moves on, so a transient 429 silently cost that actor its entire
+    # publications channel for the day. Measured effect: System A recorded
+    # ZERO arxiv-sourced signals across the whole of July while System B
+    # recorded 151, which reads as an architectural difference and is not one.
+    #
+    # Backoff is deliberately generous — the run is a nightly cron with no
+    # latency budget, and arXiv asks callers to back off rather than hammer.
+    resp = _get_with_retry(url, timeout=timeout)
 
     feed = feedparser.parse(resp.text)
     # Side-load affiliations from the raw XML (feedparser drops them).

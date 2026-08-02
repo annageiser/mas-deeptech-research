@@ -101,6 +101,10 @@ def cmd_run_once(args: argparse.Namespace) -> int:
                     "limit_arxiv_per_actor": settings.limit_arxiv_per_actor,
                     "limit_website_pages_per_actor": settings.limit_website_pages_per_actor,
                     "limit_news_per_actor": settings.limit_news_per_actor,
+                    # v0.5.5 — previously omitted, so MASF_LIMIT_PRESS and
+                    # MASF_LIMIT_PATENTS were documented but inoperative.
+                    "limit_press_per_actor": settings.limit_press_per_actor,
+                    "limit_patents_per_actor": settings.limit_patents_per_actor,
                     "searxng_url": settings.searxng_url,
                     "limit_websearch_per_actor": settings.limit_websearch_per_actor,
                     "web_cache_dir": "/data/raw/web_cache",

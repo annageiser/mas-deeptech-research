@@ -21,10 +21,12 @@ from datetime import datetime, timezone
 
 from . import data_access as da
 from .config import load_settings
+from .found_sets import load_all_found_sets, summarise as summarise_found_sets
 from .metrics import (
     classification_quality,
     inter_system_agreement,
     reproducibility,
+    reproducibility_from_found_sets,
     token_efficiency,
 )
 from .report import write_results
@@ -79,7 +81,30 @@ def main(argv: list[str] | None = None) -> int:
     if args.command in ("all", "tok"):
         results["token_efficiency"] = token_efficiency(signals_df, tokens_df)
     if args.command in ("all", "rep"):
-        results["reproducibility"] = reproducibility(runs_df, signals_df)
+        # The database-derived figure. Retained for continuity, but it compares
+        # what each run INSERTED, and the unique key means a re-run that
+        # rediscovers the same URL inserts nothing -- so consecutive runs are
+        # near-disjoint by construction. Reported as a diagnostic, not as the
+        # reproducibility result.
+        results["reproducibility_inserted_sets"] = reproducibility(runs_df, signals_df)
+
+        # The real figure: what each run FOUND, read from the run artefacts.
+        found = load_all_found_sets()
+        print(f"[eval] found-set artefacts: {summarise_found_sets(found)}")
+        if found:
+            results["reproducibility"] = reproducibility_from_found_sets(found)
+        else:
+            results["reproducibility"] = {
+                "metric": "reproducibility_from_found_sets",
+                "status": "no_artefacts",
+                "note": (
+                    "No run artefacts reachable. Point EVAL_MASF_AUDIT_DIR at "
+                    "data/raw/runs and EVAL_HERMES_RUNS_DIR at the hermes state "
+                    "volume's state/runs. Without them reproducibility cannot be "
+                    "measured, because the database records insertions rather "
+                    "than findings."
+                ),
+            }
     if args.command in ("all", "cls"):
         results["classification_quality"] = classification_quality(
             signals_df, settings.gold_set_path

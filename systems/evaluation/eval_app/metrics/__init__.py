@@ -3,11 +3,12 @@
 from .classification_quality import classification_quality
 from .inter_system_agreement import inter_system_agreement
 from .token_efficiency import token_efficiency
-from .reproducibility import reproducibility
+from .reproducibility import reproducibility, reproducibility_from_found_sets
 
 __all__ = [
     "classification_quality",
     "inter_system_agreement",
     "token_efficiency",
     "reproducibility",
+    "reproducibility_from_found_sets",
 ]

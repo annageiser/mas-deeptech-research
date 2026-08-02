@@ -122,13 +122,28 @@ def _render_markdown(results: dict[str, Any], stamp: str) -> str:
 
     # ---- Reproducibility ----
     rp = results.get("reproducibility") or {}
-    lines.append("## Reproducibility (re-run Jaccard on fixed actor cohort)")
+    lines.append("## Reproducibility (re-run Jaccard over each run's FOUND set)")
     lines.append("")
-    per_rp = rp.get("per_system", {})
-    n_total = sum(p.get("n_comparisons", 0) for p in per_rp.values())
-    if n_total == 0:
-        lines.append("**No re-run pairs yet** (need ≥ 2 successful runs on the same actor cohort with the same config). ")
-        lines.append("Expected to populate once the daily cron has been running for at least a week.")
+    if rp.get("status") == "no_artefacts":
+        lines.append("**Run artefacts not reachable.** " + str(rp.get("note", "")))
+        lines.append("")
+        lines.append(
+            "This metric deliberately does NOT use `public.signals`. Signals attach to "
+            "the run that first inserted them, and the unique key means a re-run that "
+            "rediscovers the same URL inserts nothing — so consecutive runs' inserted "
+            "sets are near-disjoint by construction and any Jaccard computed over them "
+            "is an artefact of the deduplicating store rather than a property of the "
+            "system."
+        )
+        per_rp = {}
+        n_total = 0
+    else:
+        per_rp = rp.get("per_system", {})
+        n_total = sum(p.get("n_comparisons", 0) for p in per_rp.values())
+    if rp.get("status") == "no_artefacts":
+        pass
+    elif n_total == 0:
+        lines.append("**No re-run pairs yet** (need ≥ 2 runs of the same system that each found something, over an overlapping actor cohort).")
     else:
         lines.append("| System | # comparisons | Jaccard mean | min | max |")
         lines.append("|---|---:|---:|---:|---:|")
@@ -142,6 +157,16 @@ def _render_markdown(results: dict[str, Any], stamp: str) -> str:
             )
         lines.append("")
         lines.append("Interpretation: a re-run Jaccard < 1.0 reflects (a) model non-determinism at temperature > 0 and (b) underlying source-list freshness (Google News / Bing News rotate hourly). The metric calibrates the credibility-mechanism story — even a system fed exclusively costly signals doesn't reproduce 100% because the *world* isn't reproducible.")
+        lines.append("")
+        lines.append(
+            "Basis: " + str(rp.get("basis", "")) + ". Computed from the run artefacts "
+            "(System A's audit folders, System B's per-actor agent output), NOT from "
+            "`public.signals`. Signals attach to the run that first inserted them, so a "
+            "re-run that rediscovers the same URL contributes no rows and a Jaccard "
+            "computed over inserted sets measures the deduplicating store rather than "
+            "the system. That figure is retained in results.json under "
+            "`reproducibility_inserted_sets` as a diagnostic only."
+        )
     lines.append("")
 
     # ---- Settings ----

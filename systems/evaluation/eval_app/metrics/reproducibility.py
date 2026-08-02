@@ -124,3 +124,87 @@ def _empty() -> dict[str, Any]:
         },
         "per_comparison": [],
     }
+
+
+# ---------------------------------------------------------------------------
+# v0.5.6 — reproducibility over FOUND sets rather than inserted sets.
+#
+# `reproducibility()` above compares the signals attached to each run_id in
+# public.signals. Signals attach to the run that FIRST inserted them, and the
+# unique key means a re-run that rediscovers the same URL inserts nothing, so
+# its run_id carries no rows. Consecutive runs' inserted sets are therefore
+# near-disjoint BY CONSTRUCTION and the resulting Jaccard is an artefact of the
+# deduplicating store, not a property of the system.
+#
+# Measured on production: System A's two most recent runs both attached zero
+# signals, which is why the metric reported zero comparisons for it, and System
+# B's 0.155 is depressed by the same mechanism.
+#
+# This version reads what each run actually FOUND from the run artefacts (see
+# eval_app/found_sets.py) and compares consecutive runs of the same system,
+# restricted to the actors BOTH runs attempted so cohort differences cannot
+# masquerade as non-determinism.
+# ---------------------------------------------------------------------------
+
+def reproducibility_from_found_sets(runs, *, max_pairs_per_system: int = 12) -> dict:
+    """Per-system re-run Jaccard over found sets.
+
+    `runs` is an iterable of eval_app.found_sets.RunFoundSet.
+    """
+    by_system: dict[str, list] = {}
+    for r in runs:
+        by_system.setdefault(r.system, []).append(r)
+
+    per_comparison: list[dict] = []
+    per_system: dict[str, dict] = {}
+
+    for system, group in by_system.items():
+        # Oldest to newest; runs without a parseable timestamp sort last.
+        group = sorted(group, key=lambda r: (r.started_at is None, r.started_at or 0))
+        # Only runs that found something can evidence reproducibility. A pair of
+        # empty runs is trivially "identical" and would inflate the mean.
+        usable = [r for r in group if r.pairs]
+        jaccards: list[float] = []
+
+        for a, b in list(zip(usable, usable[1:]))[-max_pairs_per_system:]:
+            shared_actors = a.actors & b.actors
+            if not shared_actors:
+                continue
+            pa = {p for p in a.pairs if p[0] in shared_actors}
+            pb = {p for p in b.pairs if p[0] in shared_actors}
+            union = pa | pb
+            if not union:
+                continue
+            jacc = len(pa & pb) / len(union)
+            jaccards.append(jacc)
+            per_comparison.append({
+                "system": system,
+                "run_a": a.run_key,
+                "run_b": b.run_key,
+                "n_shared_actors": len(shared_actors),
+                "n_a": len(pa),
+                "n_b": len(pb),
+                "n_intersection": len(pa & pb),
+                "n_union": len(union),
+                "jaccard": round(jacc, 4),
+            })
+
+        per_system[system] = {
+            "n_comparisons": len(jaccards),
+            "jaccard_mean": round(sum(jaccards) / len(jaccards), 4) if jaccards else None,
+            "jaccard_min": round(min(jaccards), 4) if jaccards else None,
+            "jaccard_max": round(max(jaccards), 4) if jaccards else None,
+            "n_runs_seen": len(group),
+            "n_runs_with_findings": len(usable),
+        }
+
+    return {
+        "metric": "reproducibility_from_found_sets",
+        "basis": (
+            "consecutive runs of the same system, compared on the (actor, "
+            "source_url) pairs each run FOUND, restricted to actors both runs "
+            "attempted"
+        ),
+        "per_system": per_system,
+        "per_comparison": per_comparison,
+    }

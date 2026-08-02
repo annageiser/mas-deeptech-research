@@ -126,12 +126,21 @@ def load_masfactory_found_sets(audit_dir: str | Path) -> list[RunFoundSet]:
                 pairs.add((slug, url))
                 actors.add(slug)
 
-        # The attempted cohort, not just actors that yielded something. Runs
-        # are only comparable over a cohort they both attempted.
+        # The cohort this run actually PROCESSED, which is the set the Loop
+        # received documents for. NOT actor_pool: that is the full roster
+        # regardless of --limit-actors, so a one-actor smoke run would look
+        # like a forty-actor run that found almost nothing and would drag the
+        # reproducibility figure down against every neighbour. Falls back to
+        # the pool for older audit folders that predate documents_by_actor.
         attempted = {
-            a.get("slug") for a in (attrs.get("actor_pool") or [])
-            if isinstance(a, dict) and a.get("slug")
+            g.get("actor_slug") for g in (attrs.get("documents_by_actor") or [])
+            if isinstance(g, dict) and g.get("actor_slug")
         }
+        if not attempted:
+            attempted = {
+                a.get("slug") for a in (attrs.get("actor_pool") or [])
+                if isinstance(a, dict) and a.get("slug")
+            }
         out.append(RunFoundSet(
             system="masfactory",
             run_key=folder.name,

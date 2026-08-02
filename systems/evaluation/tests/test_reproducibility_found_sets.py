@@ -160,7 +160,7 @@ def test_masfactory_loader_reads_the_found_set(tmp_path):
     r = runs[0]
     assert r.system == "masfactory" and r.run_id == "abc-123"
     assert r.pairs == {("a1", "https://x.test/one"), ("a2", "https://y.test/two")}
-    assert r.actors == {"a1", "a2", "a3"}, "cohort is what was attempted, not what yielded"
+    assert r.actors == {"a1", "a2", "a3"}, "falls back to actor_pool when documents_by_actor is absent"
     assert r.started_at is not None and r.started_at.day == 15
 
 
@@ -246,3 +246,22 @@ def test_hermes_loader_folds_the_fallback_retry_into_one_actor(tmp_path):
 
 def test_hermes_loader_degrades_when_the_parser_is_absent(tmp_path):
     assert load_hermes_found_sets(tmp_path, persister_path=tmp_path / "nope.py") == []
+
+
+def test_cohort_is_what_was_processed_not_the_full_roster(tmp_path):
+    """actor_pool is the full 40-actor roster regardless of --limit-actors, so
+    a one-actor smoke run would otherwise look like a forty-actor run that
+    found nothing and would drag every neighbouring comparison down."""
+    d = tmp_path / "2026-08-02T02-11-15+0200"
+    d.mkdir()
+    (d / "final_attributes.json").write_text(json.dumps({
+        "run_id": "smoke",
+        "limit_actors": 1,
+        "actor_pool": [{"slug": f"a{i}"} for i in range(40)],
+        "documents_by_actor": [{"actor_slug": "a7", "documents": []}],
+        "all_surviving_signals": [{"actor_slug": "a7", "source_url": "https://x/1"}],
+    }), encoding="utf-8")
+
+    r = load_masfactory_found_sets(tmp_path)[0]
+
+    assert r.actors == {"a7"}, "a --limit-actors run must not claim the whole roster"

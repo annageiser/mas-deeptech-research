@@ -49,7 +49,15 @@ where = ["."]
 include = ["masfactory_system*"]
 
 [tool.setuptools.package-data]
-masfactory_system = ["classification/*.yaml", "persistence/*.sql"]
+# `persistence/*.sql` does NOT match the migrations subdirectory -- an
+# unanchored glob is per-directory. Both are listed explicitly so the
+# hand-run migrations ship with the package and stay reachable from an
+# installed environment (CI installs the wheel, not the checkout).
+masfactory_system = [
+    "classification/*.yaml",
+    "persistence/*.sql",
+    "persistence/migrations/*.sql",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

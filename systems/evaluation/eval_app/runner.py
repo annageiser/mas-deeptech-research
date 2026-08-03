@@ -79,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command in ("all", "isa"):
         results["inter_system_agreement"] = inter_system_agreement(signals_df)
     if args.command in ("all", "tok"):
-        results["token_efficiency"] = token_efficiency(signals_df, tokens_df)
+        results["token_efficiency"] = token_efficiency(signals_df, tokens_df, runs_df)
     if args.command in ("all", "rep"):
         # The database-derived figure. Retained for continuity, but it compares
         # what each run INSERTED, and the unique key means a re-run that

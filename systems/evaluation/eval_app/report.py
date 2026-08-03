@@ -65,6 +65,14 @@ def _render_markdown(results: dict[str, Any], stamp: str) -> str:
     te = results.get("token_efficiency") or {}
     lines.append("## Token efficiency (signals persisted per 1 000 LLM tokens)")
     lines.append("")
+    _te = results.get("token_efficiency") or {}
+    if _te.get("warnings"):
+        lines.append("> **Diese Zahl ist nicht belastbar.**")
+        lines.append(">")
+        for w in _te["warnings"]:
+            lines.append(f"> - {w}")
+        lines.append("")
+    lines.append("")
     per = te.get("per_system", {})
     lines.append("| System | Signals | Input tokens | Output tokens | Total | **Signals / 1k tokens** |")
     lines.append("|---|---:|---:|---:|---:|---:|")

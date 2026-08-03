@@ -1,10 +1,10 @@
 {
-  "computed_at": "2026-08-02T11:49:46.828437+00:00",
+  "computed_at": "2026-08-03T03:41:52.328539+00:00",
   "settings": {
     "window_days": 90,
     "gold_set_path": "data/gold/labels.yaml",
     "n_signals": 3361,
-    "n_runs": 260,
+    "n_runs": 261,
     "n_token_rows": 123
   },
   "inter_system_agreement": {
@@ -341,7 +341,10 @@
         "input_tokens": 40992360,
         "output_tokens": 23582578,
         "total_tokens": 64574938,
-        "signals_per_1k_tokens": 0.0156
+        "signals_per_1k_tokens": 0.0156,
+        "n_runs": 98,
+        "n_runs_with_token_data": 97,
+        "token_data_coverage": 0.9898
       },
       "hermes": {
         "label": "System B \u00b7 Hermes",
@@ -349,11 +352,20 @@
         "input_tokens": 14995592,
         "output_tokens": 1899209,
         "total_tokens": 16894801,
-        "signals_per_1k_tokens": 0.1382
+        "signals_per_1k_tokens": 0.1382,
+        "n_runs": 89,
+        "n_runs_with_token_data": 23,
+        "token_data_coverage": 0.2584
       }
     },
     "delta_signals_per_1k_tokens": -0.1226,
-    "ratio_a_over_b": 0.113
+    "ratio_a_over_b": 0.113,
+    "comparable": false,
+    "warnings": [
+      "System B has token data for only 26% of its successful runs, while its signal count is complete. Its efficiency is overstated by roughly 3.9x.",
+      "Coverage differs between the systems (99% vs 26%). A ratio across unequal denominators measures the bookkeeping, not the systems.",
+      "Only System A writes public.token_usage. System B's usage lives in the Hermes CLI's own state.db `sessions` table and is not copied into Supabase; see docs/ergebnisse-zusammenfassung.md section 3.1 for the recovery query and the corrected figure."
+    ]
   },
   "reproducibility_inserted_sets": {
     "metric": "reproducibility",

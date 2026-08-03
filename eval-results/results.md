@@ -1,4 +1,4 @@
-# Evaluation results — 2026-08-02T11-50-27 UTC
+# Evaluation results — 2026-08-03T03-42-35 UTC
 
 Computed by `python -m eval_app.runner all` from the live Supabase. Settings + window are recorded in `results.json` for full reproducibility.
 
@@ -14,6 +14,13 @@ Interpretation: a Jaccard of 1.0 means perfect overlap; 0.0 means disjoint signa
 The thesis reports this as the answer to 'how much do the two architectures find the same things on the same task?'
 
 ## Token efficiency (signals persisted per 1 000 LLM tokens)
+
+> **Diese Zahl ist nicht belastbar.**
+>
+> - System B has token data for only 26% of its successful runs, while its signal count is complete. Its efficiency is overstated by roughly 3.9x.
+> - Coverage differs between the systems (99% vs 26%). A ratio across unequal denominators measures the bookkeeping, not the systems.
+> - Only System A writes public.token_usage. System B's usage lives in the Hermes CLI's own state.db `sessions` table and is not copied into Supabase; see docs/ergebnisse-zusammenfassung.md section 3.1 for the recovery query and the corrected figure.
+
 
 | System | Signals | Input tokens | Output tokens | Total | **Signals / 1k tokens** |
 |---|---:|---:|---:|---:|---:|
@@ -48,7 +55,7 @@ Basis: consecutive runs of the same system, compared on the (actor, source_url) 
   "window_days": 90,
   "gold_set_path": "data/gold/labels.yaml",
   "n_signals": 3361,
-  "n_runs": 260,
+  "n_runs": 261,
   "n_token_rows": 123
 }
 ```

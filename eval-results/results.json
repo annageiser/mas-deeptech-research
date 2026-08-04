@@ -1,9 +1,9 @@
 {
-  "computed_at": "2026-08-04T07:12:06.054330+00:00",
+  "computed_at": "2026-08-04T07:20:29.938735+00:00",
   "settings": {
     "window_days": 90,
     "gold_set_path": "/data/gold/labels.yaml",
-    "n_signals": 3597,
+    "n_signals": 3604,
     "n_runs": 264,
     "n_token_rows": 125
   },
@@ -15,8 +15,8 @@
       "only_a": 0,
       "only_b": 1
     },
-    "jaccard_macro": 0.0463,
-    "jaccard_weighted": 0.0415,
+    "jaccard_macro": 0.0469,
+    "jaccard_weighted": 0.042,
     "per_actor": [
       {
         "actor_slug": "basel-precision-instruments",
@@ -41,6 +41,14 @@
         "n_intersection": 4,
         "n_union": 32,
         "jaccard": 0.125
+      },
+      {
+        "actor_slug": "femtoprint",
+        "n_a": 12,
+        "n_b": 25,
+        "n_intersection": 3,
+        "n_union": 34,
+        "jaccard": 0.0882
       },
       {
         "actor_slug": "quantumbasel",
@@ -73,14 +81,6 @@
         "n_intersection": 2,
         "n_union": 29,
         "jaccard": 0.069
-      },
-      {
-        "actor_slug": "femtoprint",
-        "n_a": 12,
-        "n_b": 20,
-        "n_intersection": 2,
-        "n_union": 30,
-        "jaccard": 0.0667
       },
       {
         "actor_slug": "zurich-instruments",
@@ -348,18 +348,18 @@
       },
       "hermes": {
         "label": "System B \u00b7 Hermes",
-        "n_signals": 2552,
+        "n_signals": 2559,
         "input_tokens": 14995592,
         "output_tokens": 1899209,
         "total_tokens": 16894801,
-        "signals_per_1k_tokens": 0.1511,
+        "signals_per_1k_tokens": 0.1515,
         "n_runs": 90,
         "n_runs_with_token_data": 23,
         "token_data_coverage": 0.2556
       }
     },
-    "delta_signals_per_1k_tokens": -0.1356,
-    "ratio_a_over_b": 0.103,
+    "delta_signals_per_1k_tokens": -0.136,
+    "ratio_a_over_b": 0.102,
     "comparable": false,
     "warnings": [
       "System B has token data for only 26% of its successful runs, while its signal count is complete. Its efficiency is overstated by roughly 3.9x.",
@@ -430,7 +430,7 @@
       },
       "hermes": {
         "n_comparisons": 12,
-        "jaccard_mean": 0.1156,
+        "jaccard_mean": 0.1159,
         "jaccard_min": 0.0,
         "jaccard_max": 0.5,
         "n_runs_seen": 43,
@@ -697,10 +697,10 @@
         "run_b": "20260804T050008Z",
         "n_shared_actors": 40,
         "n_a": 98,
-        "n_b": 110,
-        "n_intersection": 15,
-        "n_union": 193,
-        "jaccard": 0.0777
+        "n_b": 116,
+        "n_intersection": 16,
+        "n_union": 198,
+        "jaccard": 0.0808
       }
     ]
   },

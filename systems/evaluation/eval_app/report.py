@@ -130,6 +130,35 @@ def _render_markdown(results: dict[str, Any], stamp: str) -> str:
 
     # ---- Reproducibility ----
     rp = results.get("reproducibility") or {}
+    # ---- Classification quality PER SYSTEM ----
+    # The aggregate above answers "how well is the corpus classified".
+    # The A-vs-B comparison is the point of the thesis, so it gets its own table.
+    _cq = results.get("classification_quality") or {}
+    _ps = _cq.get("per_system") or {}
+    if _ps:
+        lines.append("### Per system (the A-vs-B comparison)")
+        lines.append("")
+        lines.append("| Axis | System | n | accuracy | macro F1 | Cohen kappa |")
+        lines.append("|---|---|---:|---:|---:|---:|")
+        for axis, axis_label in (("signal_type", "Signal type (4-way)"),
+                                 ("dimension", "Dimension (19-way)")):
+            for sysname, sys_label in (("masfactory", "A / MASFactory"),
+                                       ("hermes", "B / Hermes")):
+                b = (_ps.get(sysname) or {}).get(axis) or {}
+                if not b.get("available"):
+                    continue
+                lines.append(
+                    f"| {axis_label} | {sys_label} | {b.get('n', 0)} | "
+                    f"{b.get('accuracy', '—')} | {b.get('f1_macro', '—')} | "
+                    f"{b.get('cohen_kappa', '—')} |"
+                )
+        lines.append("")
+        lines.append(
+            "Cohen kappa reads as: below 0.20 slight, 0.21-0.40 fair, 0.41-0.60 "
+            "moderate, 0.61-0.80 substantial agreement with the human coder."
+        )
+        lines.append("")
+
     lines.append("## Reproducibility (re-run Jaccard over each run's FOUND set)")
     lines.append("")
     if rp.get("status") == "no_artefacts":

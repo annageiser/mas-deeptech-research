@@ -264,3 +264,47 @@ def test_round_trip_export_then_import(tmp_path, fake_corpus):
     assert s.n_labelled == len(rows) and not s.errors
     gold_ids = {e["signal_id"] for e in yaml.safe_load(out.read_text())}
     assert gold_ids == {r["signal_id"] for r in rows}
+
+
+# ---------- spreadsheet encodings ----------
+
+@pytest.mark.parametrize("enc", ["utf-8", "utf-8-sig", "mac_roman", "cp1252"])
+def test_import_survives_the_encodings_excel_actually_writes(tmp_path, enc):
+    """Excel on macOS writes Mac Roman, Excel on Windows cp1252. A coder who
+    has just filled fifty rows must not be met with a UnicodeDecodeError.
+
+    The real gold sheet came back as Mac Roman with typographic quotes in the
+    notes column, which crashed the original utf-8-sig-only reader.
+    """
+    note = "leadership_expertise verlangt ‘named senior hires’ — Grenzfall"
+    header = ",".join(sh.CONTEXT_COLUMNS + sh.GOLD_COLUMNS)
+    line = ",".join([
+        "s1", "Aktor", "private_company", "T", "S", "Q", "https://x/1", "website", "",
+        "true", "legitimacy", "funding_event", "true", f'"{note}"',
+    ])
+    p = tmp_path / "filled.csv"
+    p.write_bytes((header + "\n" + line + "\n").encode(enc))
+
+    out = tmp_path / "labels.yaml"
+    summary = sh.import_sheet(p, out_path=out, schema_path=str(SCHEMA))
+
+    assert summary.n_labelled == 1, f"{enc} sheet must import"
+    assert not summary.errors
+    entry = yaml.safe_load(out.read_text(encoding="utf-8"))[0]
+    assert entry["gold_dimension"] == "funding_event"
+    assert "named senior hires" in entry["notes"], "the note must survive re-encoding"
+
+
+def test_read_sheet_text_reports_the_encoding_it_used(tmp_path):
+    p = tmp_path / "x.csv"
+    p.write_bytes("a,b\n1,‘q’\n".encode("mac_roman"))
+    text, enc = sh.read_sheet_text(p)
+    assert enc == "mac_roman"
+    assert "‘q’" in text
+
+
+def test_utf8_is_preferred_when_the_file_is_valid_utf8(tmp_path):
+    p = tmp_path / "x.csv"
+    p.write_bytes("a,b\n1,äöü\n".encode("utf-8"))
+    _, enc = sh.read_sheet_text(p)
+    assert enc in ("utf-8", "utf-8-sig"), "must not misread valid UTF-8 as legacy"

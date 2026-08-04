@@ -35,6 +35,8 @@ USAGE
 from __future__ import annotations
 
 import csv
+import io
+import logging
 import os
 import random
 from dataclasses import dataclass, field
@@ -47,6 +49,9 @@ import yaml
 
 from .. import data_access as da
 from .exporter import _DEFAULT_SEED, _TARGET_TOTAL, _resolve_schema_path, _stratified_pick
+
+
+log = logging.getLogger(__name__)
 
 
 # Columns the coder reads. No system, no machine label -- see the module
@@ -250,6 +255,26 @@ def _write_instructions(sheet_path: Path, schema_path: Optional[str]) -> None:
 
 # ---------------------------------------------------------------- import ----
 
+# Excel on macOS still writes CSV as Mac Roman, and Excel on Windows as
+# cp1252. Neither is UTF-8, and a coder who has just spent two hours filling
+# fifty rows should not be met with a UnicodeDecodeError. Try the encodings a
+# spreadsheet actually produces, in order of likelihood, and report which one
+# was used so a mojibake surprise is traceable rather than silent.
+SHEET_ENCODINGS = ("utf-8-sig", "utf-8", "mac_roman", "cp1252", "latin-1")
+
+
+def read_sheet_text(path: str | Path) -> tuple[str, str]:
+    """Return (text, encoding_used). Raises UnicodeDecodeError only if all fail."""
+    raw = Path(path).read_bytes()
+    last: Exception | None = None
+    for enc in SHEET_ENCODINGS:
+        try:
+            return raw.decode(enc), enc
+        except UnicodeDecodeError as exc:
+            last = exc
+    raise last  # type: ignore[misc]
+
+
 def _parse_bool(raw: str, *, field_name: str, row_no: int, errors: list[str]) -> Optional[bool]:
     v = (raw or "").strip().lower()
     if not v:
@@ -277,7 +302,14 @@ def import_sheet(
     n_rows = 0
     n_blank = 0
 
-    with Path(csv_path).open("r", encoding="utf-8-sig", newline="") as fh:
+    text, encoding_used = read_sheet_text(csv_path)
+    if encoding_used not in ("utf-8-sig", "utf-8"):
+        log.warning(
+            "%s is %s, not UTF-8 (a spreadsheet export). Decoded with %s; "
+            "check any special characters in the notes column.",
+            csv_path, encoding_used, encoding_used,
+        )
+    with io.StringIO(text, newline="") as fh:
         for row_no, row in enumerate(csv.DictReader(fh), start=2):
             n_rows += 1
             sid = (row.get("signal_id") or "").strip()

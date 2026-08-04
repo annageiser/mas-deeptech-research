@@ -1,11 +1,11 @@
 {
-  "computed_at": "2026-08-03T03:41:52.328539+00:00",
+  "computed_at": "2026-08-04T07:12:06.054330+00:00",
   "settings": {
     "window_days": 90,
-    "gold_set_path": "data/gold/labels.yaml",
-    "n_signals": 3361,
-    "n_runs": 261,
-    "n_token_rows": 123
+    "gold_set_path": "/data/gold/labels.yaml",
+    "n_signals": 3597,
+    "n_runs": 264,
+    "n_token_rows": 125
   },
   "inter_system_agreement": {
     "metric": "inter_system_agreement",
@@ -15,16 +15,16 @@
       "only_a": 0,
       "only_b": 1
     },
-    "jaccard_macro": 0.0434,
-    "jaccard_weighted": 0.0386,
+    "jaccard_macro": 0.0463,
+    "jaccard_weighted": 0.0415,
     "per_actor": [
       {
         "actor_slug": "basel-precision-instruments",
         "n_a": 6,
-        "n_b": 16,
+        "n_b": 17,
         "n_intersection": 5,
-        "n_union": 17,
-        "jaccard": 0.2941
+        "n_union": 18,
+        "jaccard": 0.2778
       },
       {
         "actor_slug": "switzerland-innovation-parks",
@@ -35,55 +35,47 @@
         "jaccard": 0.1739
       },
       {
-        "actor_slug": "zhaw",
-        "n_a": 13,
-        "n_b": 24,
+        "actor_slug": "terra-quantum",
+        "n_a": 9,
+        "n_b": 27,
+        "n_intersection": 4,
+        "n_union": 32,
+        "jaccard": 0.125
+      },
+      {
+        "actor_slug": "quantumbasel",
+        "n_a": 12,
+        "n_b": 27,
         "n_intersection": 3,
-        "n_union": 34,
-        "jaccard": 0.0882
+        "n_union": 36,
+        "jaccard": 0.0833
       },
       {
         "actor_slug": "swiss-quantum-initiative",
-        "n_a": 9,
-        "n_b": 54,
+        "n_a": 11,
+        "n_b": 56,
         "n_intersection": 5,
-        "n_union": 58,
-        "jaccard": 0.0862
+        "n_union": 62,
+        "jaccard": 0.0806
+      },
+      {
+        "actor_slug": "zhaw",
+        "n_a": 13,
+        "n_b": 28,
+        "n_intersection": 3,
+        "n_union": 38,
+        "jaccard": 0.0789
       },
       {
         "actor_slug": "geneva-quantum-centre",
         "n_a": 6,
-        "n_b": 22,
+        "n_b": 25,
         "n_intersection": 2,
-        "n_union": 26,
-        "jaccard": 0.0769
+        "n_union": 29,
+        "jaccard": 0.069
       },
       {
-        "actor_slug": "zurich-instruments",
-        "n_a": 7,
-        "n_b": 22,
-        "n_intersection": 2,
-        "n_union": 27,
-        "jaccard": 0.0741
-      },
-      {
-        "actor_slug": "empa",
-        "n_a": 4,
-        "n_b": 41,
-        "n_intersection": 3,
-        "n_union": 42,
-        "jaccard": 0.0714
-      },
-      {
-        "actor_slug": "gesda",
-        "n_a": 6,
-        "n_b": 54,
-        "n_intersection": 4,
-        "n_union": 56,
-        "jaccard": 0.0714
-      },
-      {
-        "actor_slug": "csem",
+        "actor_slug": "femtoprint",
         "n_a": 12,
         "n_b": 20,
         "n_intersection": 2,
@@ -91,12 +83,44 @@
         "jaccard": 0.0667
       },
       {
-        "actor_slug": "open-quantum-institute-cern",
-        "n_a": 6,
-        "n_b": 29,
+        "actor_slug": "zurich-instruments",
+        "n_a": 8,
+        "n_b": 24,
         "n_intersection": 2,
-        "n_union": 33,
-        "jaccard": 0.0606
+        "n_union": 30,
+        "jaccard": 0.0667
+      },
+      {
+        "actor_slug": "qnami",
+        "n_a": 7,
+        "n_b": 26,
+        "n_intersection": 2,
+        "n_union": 31,
+        "jaccard": 0.0645
+      },
+      {
+        "actor_slug": "empa",
+        "n_a": 4,
+        "n_b": 47,
+        "n_intersection": 3,
+        "n_union": 48,
+        "jaccard": 0.0625
+      },
+      {
+        "actor_slug": "gesda",
+        "n_a": 6,
+        "n_b": 63,
+        "n_intersection": 4,
+        "n_union": 65,
+        "jaccard": 0.0615
+      },
+      {
+        "actor_slug": "csem",
+        "n_a": 13,
+        "n_b": 23,
+        "n_intersection": 2,
+        "n_union": 34,
+        "jaccard": 0.0588
       },
       {
         "actor_slug": "metas",
@@ -115,68 +139,52 @@
         "jaccard": 0.05
       },
       {
-        "actor_slug": "qzabre",
-        "n_a": 8,
-        "n_b": 14,
-        "n_intersection": 1,
-        "n_union": 21,
+        "actor_slug": "open-quantum-institute-cern",
+        "n_a": 6,
+        "n_b": 38,
+        "n_intersection": 2,
+        "n_union": 42,
         "jaccard": 0.0476
       },
       {
         "actor_slug": "nccr-spin",
         "n_a": 6,
-        "n_b": 66,
+        "n_b": 67,
         "n_intersection": 3,
-        "n_union": 69,
-        "jaccard": 0.0435
+        "n_union": 70,
+        "jaccard": 0.0429
       },
       {
-        "actor_slug": "terra-quantum",
-        "n_a": 7,
+        "actor_slug": "qzabre",
+        "n_a": 8,
         "n_b": 20,
-        "n_intersection": 1,
-        "n_union": 26,
-        "jaccard": 0.0385
-      },
-      {
-        "actor_slug": "qnami",
-        "n_a": 6,
-        "n_b": 22,
         "n_intersection": 1,
         "n_union": 27,
         "jaccard": 0.037
       },
       {
-        "actor_slug": "verve-ventures",
-        "n_a": 3,
-        "n_b": 26,
-        "n_intersection": 1,
-        "n_union": 28,
-        "jaccard": 0.0357
-      },
-      {
         "actor_slug": "ionq",
-        "n_a": 17,
+        "n_a": 19,
         "n_b": 42,
         "n_intersection": 2,
-        "n_union": 57,
-        "jaccard": 0.0351
+        "n_union": 59,
+        "jaccard": 0.0339
       },
       {
-        "actor_slug": "femtoprint",
-        "n_a": 10,
-        "n_b": 20,
+        "actor_slug": "verve-ventures",
+        "n_a": 3,
+        "n_b": 30,
         "n_intersection": 1,
-        "n_union": 29,
-        "jaccard": 0.0345
+        "n_union": 32,
+        "jaccard": 0.0312
       },
       {
-        "actor_slug": "id-quantique",
-        "n_a": 14,
-        "n_b": 20,
-        "n_intersection": 1,
-        "n_union": 33,
-        "jaccard": 0.0303
+        "actor_slug": "psi",
+        "n_a": 9,
+        "n_b": 61,
+        "n_intersection": 2,
+        "n_union": 68,
+        "jaccard": 0.0294
       },
       {
         "actor_slug": "miraex",
@@ -187,68 +195,68 @@
         "jaccard": 0.0286
       },
       {
-        "actor_slug": "quantumbasel",
-        "n_a": 10,
-        "n_b": 27,
+        "actor_slug": "id-quantique",
+        "n_a": 14,
+        "n_b": 23,
         "n_intersection": 1,
         "n_union": 36,
         "jaccard": 0.0278
       },
       {
-        "actor_slug": "ibm-research-zurich",
-        "n_a": 4,
-        "n_b": 36,
-        "n_intersection": 1,
-        "n_union": 39,
-        "jaccard": 0.0256
-      },
-      {
         "actor_slug": "swissphotonics",
-        "n_a": 7,
+        "n_a": 8,
         "n_b": 33,
         "n_intersection": 1,
-        "n_union": 39,
-        "jaccard": 0.0256
+        "n_union": 40,
+        "jaccard": 0.025
       },
       {
-        "actor_slug": "usi",
-        "n_a": 8,
-        "n_b": 32,
+        "actor_slug": "ibm-research-zurich",
+        "n_a": 6,
+        "n_b": 38,
         "n_intersection": 1,
-        "n_union": 39,
-        "jaccard": 0.0256
+        "n_union": 43,
+        "jaccard": 0.0233
       },
       {
         "actor_slug": "eth-psi-quantum-computing-hub",
         "n_a": 2,
-        "n_b": 43,
+        "n_b": 46,
         "n_intersection": 1,
-        "n_union": 44,
-        "jaccard": 0.0227
+        "n_union": 47,
+        "jaccard": 0.0213
       },
       {
-        "actor_slug": "cern-quantum-technology-initiative",
-        "n_a": 12,
-        "n_b": 45,
+        "actor_slug": "usi",
+        "n_a": 8,
+        "n_b": 40,
         "n_intersection": 1,
-        "n_union": 56,
-        "jaccard": 0.0179
+        "n_union": 47,
+        "jaccard": 0.0213
       },
       {
         "actor_slug": "swiss-nanoscience-institute",
         "n_a": 4,
-        "n_b": 54,
+        "n_b": 57,
         "n_intersection": 1,
-        "n_union": 57,
-        "jaccard": 0.0175
+        "n_union": 60,
+        "jaccard": 0.0167
+      },
+      {
+        "actor_slug": "cern-quantum-technology-initiative",
+        "n_a": 13,
+        "n_b": 49,
+        "n_intersection": 1,
+        "n_union": 61,
+        "jaccard": 0.0164
       },
       {
         "actor_slug": "epfl-qse",
         "n_a": 2,
-        "n_b": 62,
+        "n_b": 63,
         "n_intersection": 1,
-        "n_union": 63,
-        "jaccard": 0.0159
+        "n_union": 64,
+        "jaccard": 0.0156
       },
       {
         "actor_slug": "basel-quantum-center",
@@ -261,9 +269,9 @@
       {
         "actor_slug": "cscs",
         "n_a": 3,
-        "n_b": 31,
+        "n_b": 33,
         "n_intersection": 0,
-        "n_union": 34,
+        "n_union": 36,
         "jaccard": 0.0
       },
       {
@@ -285,17 +293,17 @@
       {
         "actor_slug": "hslu",
         "n_a": 6,
-        "n_b": 17,
+        "n_b": 25,
         "n_intersection": 0,
-        "n_union": 23,
+        "n_union": 31,
         "jaccard": 0.0
       },
       {
         "actor_slug": "huber-suhner",
         "n_a": 7,
-        "n_b": 8,
+        "n_b": 12,
         "n_intersection": 0,
-        "n_union": 15,
+        "n_union": 19,
         "jaccard": 0.0
       },
       {
@@ -307,27 +315,19 @@
         "jaccard": 0.0
       },
       {
-        "actor_slug": "psi",
-        "n_a": 7,
-        "n_b": 57,
-        "n_intersection": 0,
-        "n_union": 64,
-        "jaccard": 0.0
-      },
-      {
         "actor_slug": "qai-ventures",
         "n_a": 3,
-        "n_b": 25,
+        "n_b": 26,
         "n_intersection": 0,
-        "n_union": 28,
+        "n_union": 29,
         "jaccard": 0.0
       },
       {
         "actor_slug": "swissnex",
         "n_a": 3,
-        "n_b": 19,
+        "n_b": 20,
         "n_intersection": 0,
-        "n_union": 22,
+        "n_union": 23,
         "jaccard": 0.0
       }
     ]
@@ -337,29 +337,29 @@
     "per_system": {
       "masfactory": {
         "label": "System A \u00b7 MASFactory",
-        "n_signals": 1008,
-        "input_tokens": 40992360,
-        "output_tokens": 23582578,
-        "total_tokens": 64574938,
-        "signals_per_1k_tokens": 0.0156,
-        "n_runs": 98,
-        "n_runs_with_token_data": 97,
-        "token_data_coverage": 0.9898
+        "n_signals": 1027,
+        "input_tokens": 42168691,
+        "output_tokens": 24125299,
+        "total_tokens": 66293990,
+        "signals_per_1k_tokens": 0.0155,
+        "n_runs": 100,
+        "n_runs_with_token_data": 99,
+        "token_data_coverage": 0.99
       },
       "hermes": {
         "label": "System B \u00b7 Hermes",
-        "n_signals": 2335,
+        "n_signals": 2552,
         "input_tokens": 14995592,
         "output_tokens": 1899209,
         "total_tokens": 16894801,
-        "signals_per_1k_tokens": 0.1382,
-        "n_runs": 89,
+        "signals_per_1k_tokens": 0.1511,
+        "n_runs": 90,
         "n_runs_with_token_data": 23,
-        "token_data_coverage": 0.2584
+        "token_data_coverage": 0.2556
       }
     },
-    "delta_signals_per_1k_tokens": -0.1226,
-    "ratio_a_over_b": 0.113,
+    "delta_signals_per_1k_tokens": -0.1356,
+    "ratio_a_over_b": 0.103,
     "comparable": false,
     "warnings": [
       "System B has token data for only 26% of its successful runs, while its signal count is complete. Its efficiency is overstated by roughly 3.9x.",
@@ -371,27 +371,28 @@
     "metric": "reproducibility",
     "per_system": {
       "masfactory": {
-        "n_comparisons": 0,
-        "jaccard_mean": null,
-        "jaccard_min": null
+        "n_comparisons": 1,
+        "jaccard_mean": 0.0,
+        "jaccard_min": 0.0,
+        "jaccard_max": 0.0
       },
       "hermes": {
         "n_comparisons": 2,
-        "jaccard_mean": 0.155,
-        "jaccard_min": 0.0101,
+        "jaccard_mean": 0.1957,
+        "jaccard_min": 0.0914,
         "jaccard_max": 0.3
       }
     },
     "per_comparison": [
       {
         "system": "hermes",
-        "run_a": "a505d49e-1cf2-46c0-a5db-f5e71868665e",
-        "run_b": "bb3ff72b-5523-4808-947e-51ec1016be44",
-        "n_signals_a": 98,
-        "n_signals_b": 2,
-        "n_intersection": 1,
-        "n_union": 99,
-        "jaccard": 0.0101
+        "run_a": "47b89ca5-887e-4fe7-a4c5-14b2d41147c6",
+        "run_b": "a505d49e-1cf2-46c0-a5db-f5e71868665e",
+        "n_signals_a": 93,
+        "n_signals_b": 98,
+        "n_intersection": 16,
+        "n_union": 175,
+        "jaccard": 0.0914
       },
       {
         "system": "hermes",
@@ -402,6 +403,16 @@
         "n_intersection": 3,
         "n_union": 10,
         "jaccard": 0.3
+      },
+      {
+        "system": "masfactory",
+        "run_a": "52de3d05-cd27-4442-947b-0f6518f30112",
+        "run_b": "ae510962-c421-4d34-9f64-4310a8c5cce0",
+        "n_signals_a": 2,
+        "n_signals_b": 17,
+        "n_intersection": 0,
+        "n_union": 19,
+        "jaccard": 0.0
       }
     ]
   },
@@ -411,44 +422,22 @@
     "per_system": {
       "masfactory": {
         "n_comparisons": 12,
-        "jaccard_mean": 0.4996,
+        "jaccard_mean": 0.4939,
         "jaccard_min": 0.2268,
         "jaccard_max": 0.6182,
-        "n_runs_seen": 84,
-        "n_runs_with_findings": 74
+        "n_runs_seen": 86,
+        "n_runs_with_findings": 76
       },
       "hermes": {
         "n_comparisons": 12,
-        "jaccard_mean": 0.12,
+        "jaccard_mean": 0.1156,
         "jaccard_min": 0.0,
         "jaccard_max": 0.5,
-        "n_runs_seen": 44,
+        "n_runs_seen": 43,
         "n_runs_with_findings": 35
       }
     },
     "per_comparison": [
-      {
-        "system": "masfactory",
-        "run_a": "2026-07-22T04-00-19+0200",
-        "run_b": "2026-07-23T04-00-17+0200",
-        "n_shared_actors": 37,
-        "n_a": 40,
-        "n_b": 46,
-        "n_intersection": 30,
-        "n_union": 56,
-        "jaccard": 0.5357
-      },
-      {
-        "system": "masfactory",
-        "run_a": "2026-07-23T04-00-17+0200",
-        "run_b": "2026-07-24T04-00-17+0200",
-        "n_shared_actors": 36,
-        "n_a": 43,
-        "n_b": 32,
-        "n_intersection": 27,
-        "n_union": 48,
-        "jaccard": 0.5625
-      },
       {
         "system": "masfactory",
         "run_a": "2026-07-24T04-00-17+0200",
@@ -560,26 +549,26 @@
         "jaccard": 0.5
       },
       {
-        "system": "hermes",
-        "run_a": "20260725T050007Z",
-        "run_b": "20260726T050009Z",
-        "n_shared_actors": 40,
-        "n_a": 48,
-        "n_b": 50,
-        "n_intersection": 9,
-        "n_union": 89,
-        "jaccard": 0.1011
+        "system": "masfactory",
+        "run_a": "2026-08-02T04-00-11+0200",
+        "run_b": "2026-08-03T04-00-21+0200",
+        "n_shared_actors": 37,
+        "n_a": 41,
+        "n_b": 55,
+        "n_intersection": 29,
+        "n_union": 67,
+        "jaccard": 0.4328
       },
       {
-        "system": "hermes",
-        "run_a": "20260726T050009Z",
-        "run_b": "20260727T050010Z",
-        "n_shared_actors": 40,
-        "n_a": 50,
-        "n_b": 53,
-        "n_intersection": 13,
-        "n_union": 90,
-        "jaccard": 0.1444
+        "system": "masfactory",
+        "run_a": "2026-08-03T04-00-21+0200",
+        "run_b": "2026-08-04T04-00-23+0200",
+        "n_shared_actors": 29,
+        "n_a": 52,
+        "n_b": 47,
+        "n_intersection": 37,
+        "n_union": 62,
+        "jaccard": 0.5968
       },
       {
         "system": "hermes",
@@ -690,13 +679,109 @@
         "n_intersection": 1,
         "n_union": 20,
         "jaccard": 0.05
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260802T050008Z",
+        "run_b": "20260803T050007Z",
+        "n_shared_actors": 40,
+        "n_a": 104,
+        "n_b": 98,
+        "n_intersection": 21,
+        "n_union": 181,
+        "jaccard": 0.116
+      },
+      {
+        "system": "hermes",
+        "run_a": "20260803T050007Z",
+        "run_b": "20260804T050008Z",
+        "n_shared_actors": 40,
+        "n_a": 98,
+        "n_b": 110,
+        "n_intersection": 15,
+        "n_union": 193,
+        "jaccard": 0.0777
       }
     ]
   },
   "classification_quality": {
     "metric": "classification_quality",
-    "status": "no_gold_set",
-    "gold_path": "data/gold/labels.yaml",
-    "note": "No gold set present at the configured path. Create data/gold/labels.yaml from data/gold/labels.yaml.example, label \u2265 50 signals across the 4 actor categories \u00d7 4 signal types (\u2265 3 per cell where possible), and re-run."
+    "status": "ok",
+    "gold_path": "/data/gold/labels.yaml",
+    "n_gold": 50,
+    "n_matched": 50,
+    "per_system": {
+      "masfactory": {
+        "n": 25,
+        "signal_type": {
+          "n": 20,
+          "available": true,
+          "accuracy": 0.75,
+          "precision_macro": 0.7292,
+          "recall_macro": 0.7292,
+          "f1_macro": 0.7232,
+          "cohen_kappa": 0.6516
+        },
+        "dimension": {
+          "n": 20,
+          "available": true,
+          "accuracy": 0.6,
+          "precision_macro": 0.5,
+          "recall_macro": 0.5385,
+          "f1_macro": 0.5,
+          "cohen_kappa": 0.5568
+        }
+      },
+      "hermes": {
+        "n": 25,
+        "signal_type": {
+          "n": 19,
+          "available": true,
+          "accuracy": 0.3684,
+          "precision_macro": 0.35,
+          "recall_macro": 0.4531,
+          "f1_macro": 0.2738,
+          "cohen_kappa": 0.1429
+        },
+        "dimension": {
+          "n": 19,
+          "available": true,
+          "accuracy": 0.1053,
+          "precision_macro": 0.0606,
+          "recall_macro": 0.0455,
+          "f1_macro": 0.0485,
+          "cohen_kappa": 0.085
+        }
+      }
+    },
+    "ecosystem_overall": {
+      "signal_type": {
+        "n": 39,
+        "available": true,
+        "accuracy": 0.5641,
+        "precision_macro": 0.5163,
+        "recall_macro": 0.6414,
+        "f1_macro": 0.5314,
+        "cohen_kappa": 0.3833
+      },
+      "dimension": {
+        "n": 39,
+        "available": true,
+        "accuracy": 0.359,
+        "precision_macro": 0.2284,
+        "recall_macro": 0.1875,
+        "f1_macro": 0.1965,
+        "cohen_kappa": 0.3262
+      },
+      "keep_decision": {
+        "n": 50,
+        "available": true,
+        "accuracy": 0.8,
+        "precision_macro": 0.7376,
+        "recall_macro": 0.5781,
+        "f1_macro": 0.5847,
+        "cohen_kappa": 0.2114
+      }
+    }
   }
 }

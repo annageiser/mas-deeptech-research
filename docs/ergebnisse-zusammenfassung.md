@@ -1,6 +1,6 @@
 # Faktenübersicht für die Ergebniskapitel
 
-Stand 2026-08-03. Alle Zahlen sind aus der Live-Datenbank und den Laufprotokollen
+Stand 2026-08-04, Gold-Set eingerechnet. Alle Zahlen sind aus der Live-Datenbank und den Laufprotokollen
 gerechnet, nicht geschätzt. Jede Zahl hat unten eine Quellenangabe, damit du sie
 im Zweifel nachrechnen kannst.
 
@@ -12,13 +12,13 @@ Das hier ist **Material, kein Text.** Die Formulierungen musst du selbst schreib
 
 | | Wert |
 |---|---|
-| Signale gesamt (90 Tage) | 3361 |
+| Signale gesamt (90 Tage) | 3597 |
 | davon System A (masfactory) | 1008 |
 | davon System B (hermes) | 2335 |
 | davon manuell kuratiert | 16 |
-| Läufe gesamt | 261 |
+| Läufe gesamt | 264 |
 | Akteure | 40 |
-| Erhebungszeitraum | 2026-05-04 bis 2026-08-02 |
+| Erhebungszeitraum | 2026-05-06 bis 2026-08-04 |
 
 **Wichtig für die Interpretation:** Die Monate Mai und Juni enthalten
 Duplikate. Bis zur Korrektur v0.4.36 hat System A denselben Fund jede Nacht neu
@@ -81,8 +81,49 @@ falsch, siehe Abschnitt 3.1. Nimm die 1.42.
 
 ### 2.4 Klassifikationsqualität
 
-**Offen — wartet auf dein Gold-Set.** Sobald `data/gold/labels.yaml` existiert,
-liefert die Auswertung Precision, Recall, F1 und Cohens Kappa je System.
+Gold-Set vom 2026-08-04: **50 Zeilen**, von dir kodiert, blind, ausbalanciert
+25 System A / 25 System B. Davon 39 als behaltenswert eingestuft, 11 abgelehnt.
+
+**Präzision** (Anteil der Signale, die laut Gold-Set im Korpus sein sollten):
+
+| System | n | behaltenswert | Präzision |
+|---|---|---|---|
+| System A | 25 | 20 | **0.800** |
+| System B | 25 | 19 | **0.760** |
+| gesamt | 50 | 39 | 0.780 |
+
+**Akteurszuordnung korrekt:** System A 0.960, System B 0.880.
+
+**Klassifikation gegen deine Labels:**
+
+| Achse | System | n | accuracy | macro F1 | Cohen κ |
+|---|---|---|---|---|---|
+| Signaltyp (4 Klassen) | A | 20 | **0.750** | 0.723 | **0.652** |
+| Signaltyp (4 Klassen) | B | 19 | **0.368** | 0.274 | **0.143** |
+| Dimension (19 Klassen) | A | 20 | **0.600** | 0.500 | **0.557** |
+| Dimension (19 Klassen) | B | 19 | **0.105** | 0.049 | **0.085** |
+
+Cohens κ liest sich so: unter 0.20 geringe, 0.21–0.40 schwache, 0.41–0.60
+moderate, 0.61–0.80 erhebliche Übereinstimmung mit der menschlichen Kodiererin.
+
+**System A erreicht erhebliche Übereinstimmung, System B praktisch keine.**
+
+**Zwingender Vorbehalt zur Interpretation:** Alle 50 Gold-Zeilen stammen von
+**vor** dem 2026-08-02 (Mai 7, Juni 19, Juli 24 Zeilen). Sie messen System B
+also in der Konfiguration, in der es Kategorien ausserhalb des Schemas
+erfunden hat (88,5 % ausserhalb der Taxonomie, siehe 4.1). Der Wert κ = 0.085
+auf der Dimensionsachse ist genau dieser Defekt, in Zahlen.
+
+Was das Gold-Set **nicht** sagen kann: wie gut System B nach der Korrektur
+klassifiziert. Dafür bräuchte es ein zweites Gold-Set aus Daten nach dem
+2026-08-02. Formuliere den Befund also als *„System B in der Konfiguration bis
+zum 2. August"*, nicht als Eigenschaft der Architektur.
+
+Was der Befund dagegen sehr wohl stützt: dass die Prompt-Spezifikation die
+Klassifikationstreue bestimmt hat. Präzision (0.76 gegen 0.80) und
+Akteurszuordnung (0.88 gegen 0.96) liegen nah beieinander — System B findet
+also durchaus richtige Dinge über die richtigen Akteure. Es *benennt* sie nur
+falsch, und das lag an der Anweisung.
 
 ---
 
@@ -141,7 +182,7 @@ zwischen ihnen verschoben.
 
 ## 4. Limitationen
 
-Fünf Punkte, alle belegt. Das ist Material für das Kapitel „Grenzen der Arbeit".
+Acht Punkte, alle belegt. Das ist Material für das Kapitel „Grenzen der Arbeit".
 
 ### 4.1 System B klassifizierte ausserhalb des Schemas
 
@@ -207,7 +248,50 @@ System A misst sein Budget in „Dokumenten pro Quelle", System B in
 umrechnen. Man kann die Budgets also nicht gleichsetzen, sondern nur beide offen
 angeben und die Unvergleichbarkeit als Einschränkung benennen.
 
-### 4.5 Kein Integrationstest gegen die echten Dienste
+### 4.5 Few-Shot-Beispiele landen als Funde im Korpus
+
+**73 Signale** gehen auf die vier Lehrbeispiele in `SKILL.md` zurück, 72 davon
+von System B. Der Agent nimmt sein Beispiel und setzt den gerade bearbeiteten
+Akteur ein: „IDQ among those receiving EU funding for OPENQKD" erscheint
+zugeordnet an swissnex, metas, psi, empa, nccr-spin und weitere. Neun Zeilen
+tragen eine URL, die ein literales `/.../` enthält — die abgekürzte
+Beispiel-URL aus dem Prompt, die es als Link nicht geben kann.
+
+PSI hat keine OPENQKD-Förderung erhalten; das war ID Quantique. Das sind also
+falsche Zuordnungen mit erfundener Herkunft, entstanden aus der Prompt-Gestaltung.
+Anteil: 73 von 2335 Signalen bei System B, gut 3 Prozent.
+
+### 4.6 Genau ein Fabrikationsfall im Korpus
+
+Ein Signal (`1134a67e`, „QuantumBasel Announces New Quantum Computing Center …
+in collaboration with a major tech company") ist frei erfunden. Geprüft: die
+URL liefert 404, der Pfad `/news` existiert auf der Website nicht, „TechCorp"
+kommt dort nirgends vor, und es gibt keine entsprechende Meldung. Echte Partner
+von QuantumBasel sind Pfizer, Syngenta und D-Wave.
+
+**Das ist der einzige Fall im gesamten Korpus** — 1 von 3597. Diese Zahl ist
+ein Ergebnis zugunsten beider Systeme: Halluzinierte Ereignisse sind die
+Ausnahme, die Fehler liegen bei Relevanz und Zuordnung.
+
+Verwandt, aber kein Erfinden: Evidenztexte, die auf „…" enden, also
+abgeschnittene Linktitel statt echter Zitate. System B 136 (5,8 %), System A 88
+(8,6 %). Hier liegt System A schlechter.
+
+### 4.7 Ereignis-Dubletten sind strukturell nicht erkennbar
+
+Der Duplikat-Schlüssel ist `actor_slug | source_url | title`. Berichten drei
+Medien über dasselbe Ereignis, entstehen drei verschiedene Schlüssel und damit
+drei Zeilen. Beispiel aus dem Gold-Set: Der zweite Quantum-Voucher-Call der SQI
+(26.05.2026) steht dreimal im Korpus — über `quantum.scnat.ch`,
+`swissphotonics.net` und `mem-innovation.ch`, mit den Daten 26., 27. und 29. Mai.
+
+Deine eigene Drop Rule 6 verlangt, solche Fälle zu erkennen („ARE duplicates
+even if the source_url differs"), aber die Regel greift nur innerhalb eines
+Batches, nicht über Läufe hinweg. Die semantische Dedup-Schicht war dafür
+gedacht, hat in 52 Läufen aber nie ausgelöst (Schwelle 0.92). Das bläht
+Mengenvergleiche auf, besonders bei Akteuren mit viel Medienecho.
+
+### 4.8 Kein Integrationstest gegen die echten Dienste
 
 Alle Testläufe arbeiten mit Attrappen. Datenbank, Sprachmodell und Suchmaschine
 werden von keinem automatischen Test angesprochen. Genau deshalb sind die Fehler
@@ -240,7 +324,14 @@ Wenn du eine übergreifende Aussage brauchst, ist es diese:
 > stille Art wie die untersuchten Systeme. Eine Abfrage, die ein Drittel der
 > Daten zurückgibt, ohne es zu sagen. Eine Kennzahl, die etwas anderes misst als
 > ihr Name behauptet. Eine Architekturumstellung, die eine Messgrösse abschaltet.
-> Keiner dieser Fehler hat je eine Fehlermeldung erzeugt.
+> Ein Few-Shot-Beispiel, das als Fund im Korpus landet. Keiner dieser Fehler hat
+> je eine Fehlermeldung erzeugt.
+
+Und der Gegenbefund, der die Arbeit trägt: Wo das Instrument stimmt, sind die
+Unterschiede zwischen den Architekturen gross, konsistent und in beide
+Richtungen. System B findet breiter (3,2-fach mehr eigenständige Seiten), System
+A reproduziert sich verlässlicher (0.500 gegen 0.120) und klassifiziert
+erheblich genauer (κ 0.652 gegen 0.143). Keines der beiden ist „besser".
 
 Das ist ein eigenständiger Beitrag und kein Eingeständnis. Wer eine Vergleichs-
 studie über nicht-kommensurable Systeme baut, muss zuerst zeigen, dass das
@@ -267,6 +358,7 @@ Belege im Repository:
 | Aussage | Quelle |
 |---|---|
 | Alle Kennzahlen | `eval-results/results.md`, `eval-results/results.json` |
+| Gold-Set (50 Zeilen, von dir kodiert) | `gold/gold-sheet.csv`, importiert nach `systems/evaluation/data/gold/labels.yaml` |
 | Prüfprotokoll und Befunde | `docs/architecture-analysis.md`, Abschnitte 9 und 10 |
 | Warum Reproduzierbarkeit neu gerechnet wird | `systems/evaluation/eval_app/found_sets.py`, Kopfkommentar |
 | Taxonomie-Korrektur | Commit `3025c2b` |

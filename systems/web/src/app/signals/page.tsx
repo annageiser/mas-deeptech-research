@@ -133,7 +133,7 @@ function SignalsInner() {
           <table>
             <thead>
               <tr>
-                <th>When</th><th>Actor</th><th>Signal type</th><th>Sub-dimension</th><th>Cost</th><th>Sent.</th><th>Headline</th><th className="num">Conf.</th><th></th><th></th>
+                <th>When</th><th>Actor</th><th>Signal type</th><th>Sub-dimension</th><th>Cost</th><th>Sent.</th><th>Headline</th><th className="num">Conf.</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -161,7 +161,6 @@ function SignalsInner() {
                   <td className="small">{s.title || s.summary?.slice(0, 80)}</td>
                   <td className="num">{Number(s.confidence).toFixed(2)}</td>
                   <td><a href={s.source_url} target="_blank" rel="noreferrer" className="small">↗</a></td>
-                  <td><FlagButton signalId={s.id} /></td>
                 </tr>
               ))}
             </tbody>
@@ -203,135 +202,6 @@ function SentimentBadge({ label, score }: { label: string | null; score: number 
       }}
     >
       {style.symbol}
-    </span>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// FlagButton — quick wrong-signal-report UI. Hits POST /api/signal-flags
-// (Workflow B from docs/wrong-signals-strategy.md). Six reason buckets;
-// once flagged, the row's button locks to a "Flagged" pill.
-// ---------------------------------------------------------------------------
-
-const FLAG_REASONS: { key: string; label: string; positive?: boolean }[] = [
-  // v0.4.2: positive label — Anna marks a signal as a gold example
-  { key: "correct_example", label: "Mark as correct example (teach the system)", positive: true },
-  // ---- separator ----
-  { key: "wrong_actor",     label: "Wrong actor" },
-  { key: "off_topic",       label: "Not about quantum" },
-  { key: "wrong_dimension", label: "Wrong dimension" },
-  { key: "low_quality",     label: "Boilerplate / no substance" },
-  { key: "duplicate",       label: "Duplicate of another signal" },
-  { key: "other",           label: "Other" },
-];
-
-function FlagButton({ signalId }: { signalId: string }) {
-  const [open, setOpen] = useState(false);
-  const [submitted, setSubmitted] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-
-  async function flag(reason: string) {
-    setPending(true);
-    try {
-      const resp = await fetch("/api/signal-flags", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signal_id: signalId, reason }),
-      });
-      if (resp.ok) {
-        setSubmitted(reason);
-      }
-    } catch {
-      // soft-fail: button stays clickable
-    } finally {
-      setPending(false);
-      setOpen(false);
-    }
-  }
-
-  if (submitted) {
-    return (
-      <span
-        className="small"
-        style={{
-          display: "inline-block",
-          padding: "0.05rem 0.4rem",
-          borderRadius: 3,
-          background: "var(--badge-low-bg)",
-          color: "var(--badge-low-fg)",
-          fontSize: "0.7rem",
-        }}
-        title={`Flagged: ${submitted}`}
-      >
-        Flagged
-      </span>
-    );
-  }
-
-  return (
-    <span style={{ position: "relative" }}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        disabled={pending}
-        title="Report this signal as wrong"
-        style={{
-          background: "transparent",
-          border: "1px solid var(--border)",
-          borderRadius: 3,
-          padding: "0.05rem 0.35rem",
-          fontSize: "0.7rem",
-          color: "var(--text-muted)",
-          cursor: "pointer",
-        }}
-      >
-        Flag
-      </button>
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            right: 0,
-            top: "100%",
-            marginTop: 4,
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            boxShadow: "var(--shadow-lg)",
-            padding: "0.4rem 0.5rem",
-            zIndex: 20,
-            minWidth: 200,
-          }}
-        >
-          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: 4 }}>
-            Why is it wrong?
-          </div>
-          {FLAG_REASONS.map((r) => (
-            <button
-              key={r.key}
-              type="button"
-              onClick={() => flag(r.key)}
-              disabled={pending}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                background: "transparent",
-                border: "none",
-                padding: "0.3rem 0.4rem",
-                borderRadius: 4,
-                fontSize: "0.8rem",
-                color: "var(--text)",
-                cursor: pending ? "default" : "pointer",
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--surface-2)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
-      )}
     </span>
   );
 }

@@ -495,48 +495,6 @@ def get_reports(kind: Optional[str] = None, period: Optional[str] = None, file: 
 # wrong-signal rate is a thesis-citable quality metric (Chapter 3.5).
 # ---------------------------------------------------------------------------
 
-FlagReason = Literal[
-    "wrong_actor",       # the actor_slug attribution is incorrect
-    "off_topic",         # signal not actually about quantum
-    "wrong_dimension",   # dimension/signal_type mis-classified
-    "low_quality",       # generic / boilerplate, no substance
-    "duplicate",         # same event already in the corpus
-    "other",
-]
-
-
-class FlagPayload(BaseModel):
-    signal_id: str = Field(min_length=8, description="UUID of the signal being flagged.")
-    reason: FlagReason
-    note: Optional[str] = Field(default=None, max_length=2000)
-
-
-@app.post("/api/signal-flags")
-def post_signal_flag(payload: FlagPayload) -> dict:
-    """Record a wrong-signal flag. Idempotent on (signal_id, reason)."""
-    try:
-        client = da.client()
-    except Exception:
-        raise HTTPException(status_code=503, detail="Supabase unavailable")
-
-    # Confirm the signal exists — return 404 instead of silently creating
-    # an orphan flag (which the FK cascade would later reject anyway).
-    sig = client.table("signals").select("id").eq("id", payload.signal_id).limit(1).execute()
-    if not sig.data:
-        raise HTTPException(status_code=404, detail="signal_id not found")
-
-    row = {
-        "signal_id": payload.signal_id,
-        "reason": payload.reason,
-        "note": payload.note,
-    }
-    try:
-        resp = client.table("signal_flags").insert(row).execute()
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"flag insert failed: {exc}")
-    return {"flag": (resp.data or [{}])[0], "ok": True}
-
-
 @app.get("/api/signal-flags")
 def get_signal_flags(
     signal_id: Optional[str] = None,
@@ -641,22 +599,6 @@ def get_manual_signal_route(signal_id: str) -> dict:
     return {"manual_signal": row}
 
 
-@app.post("/api/manual-signals")
-def create_manual_signal_route(payload: T.ManualSignalIn) -> dict:
-    return {"manual_signal": T.create_manual_signal(payload), "ok": True}
-
-
-@app.patch("/api/manual-signals/{signal_id}")
-def patch_manual_signal_route(signal_id: str, payload: T.ManualSignalPatch) -> dict:
-    return {"manual_signal": T.patch_manual_signal(signal_id, payload), "ok": True}
-
-
-@app.delete("/api/manual-signals/{signal_id}")
-def delete_manual_signal_route(signal_id: str) -> dict:
-    T.delete_manual_signal(signal_id)
-    return {"ok": True}
-
-
 @app.get("/api/sources")
 def list_sources_route(
     enabled: Optional[bool] = None,
@@ -672,19 +614,4 @@ def get_source_route(source_id: str) -> dict:
         raise HTTPException(status_code=404, detail="signal_source not found")
     return {"source": row}
 
-
-@app.post("/api/sources")
-def create_source_route(payload: T.SignalSourceIn) -> dict:
-    return {"source": T.create_source(payload), "ok": True}
-
-
-@app.patch("/api/sources/{source_id}")
-def patch_source_route(source_id: str, payload: T.SignalSourcePatch) -> dict:
-    return {"source": T.patch_source(source_id, payload), "ok": True}
-
-
-@app.delete("/api/sources/{source_id}")
-def delete_source_route(source_id: str) -> dict:
-    T.delete_source(source_id)
-    return {"ok": True}
 

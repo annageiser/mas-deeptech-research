@@ -1,0 +1,10 @@
+requirement,system_a,system_b,source
+Retrieval role,met,met,§3.3 · both systems' collectors
+Classification role,met,partial,§3.3; §4.1 (B invents labels)
+Reasoning across actors / over time,not met,not met,§4.1.1 concedes third MRQ op unmet
+Verification role (Critic),met,not met,§4.2 — A's Critic node has no B counterpart
+Explicit collaboration graph,met,not met,§3.3 — B is one AIAgent loop
+Persistent memory / shared context across runs,not met,met,"§4.2 — A stateless, B holds Hermes memory"
+Reusable skills,partial,met,"§3.3 — A has fixed nodes, B has SKILL.md files"
+Structured knowledge graph (actor - signal - category),not met,not met,§4.2 — largest gap; neither system builds it
+Traceability of every classified item to its role,met,partial,§3.3 · A per-node audit; B loop is opaque

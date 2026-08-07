@@ -1,0 +1,9 @@
+date,system,short_label,description
+2026-06-10,B,§4.1 out-of-schema classification begins,Hermes CLI cutover; skill file's 'free-text sub-category' framing invites B to invent labels — 88.5% of B's July rows outside the 19-key taxonomy.
+2026-07-01,A,§4.3 System A running under half config,"Four code paths disagree on defaults; server picked the lowest. arXiv=5/10, subpages=3/5; no retry → 0 arXiv signals from A the whole month."
+2026-07-01,AB,§4.4 no equal-budget comparison possible,"Structural: A processes 40 actors × 5 collectors per night, B one AIAgent loop. No shared budget knob exists, so A vs B cost figures are not directly comparable."
+2026-07-01,AB,§4.7 event duplicates not detectable,"Deduplication is on (actor, url, hash, system); the same real-world event announced through two channels enters twice under different URLs. Structural."
+2026-07-08,B,§4.5 few-shot examples land as findings,Hermes' skill file includes labelled example rows; the CLI treats them as validated retrieval targets and writes them to signals with the example's URL.
+2026-07-14,B,§4.6 single fabrication case,One July row for a fictitious partnership; source URL 200s but page content does not support the claim. Investigated and left in the corpus with the flag set.
+2026-07-29,B,§4.2 abort rate on B exceeds 50%,"20-iteration cap per actor; when hit, the run is truncated without persisting. Recorded rates 50 / 67 / 72 / 55 / 57 % across the last five nights — unresolved."
+2026-08-02,AB,§4.8 no integration test against real services,"Confirmed after audit: tests mock arXiv/News/Bing/EPO; no CI job exercises the live endpoints, so schema drift or rate-limit changes go undetected until a scrape fails."

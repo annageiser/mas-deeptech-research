@@ -1,0 +1,4 @@
+stage,system_a_signals_per_1k_tokens,system_b_signals_per_1k_tokens,ratio_b_over_a
+raw,0.009986,0.014154,1.4175
+retention_weighted,0.007988,0.010757,1.3466
+correctness_weighted,0.004793,0.001130,0.2357
